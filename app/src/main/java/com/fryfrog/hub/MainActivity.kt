@@ -72,7 +72,6 @@ class MainActivity : ComponentActivity() {
 private fun MainContent(navController: androidx.navigation.NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val isFullScreen = currentRoute?.startsWith("video_detail") == true
 
     Scaffold(
         bottomBar = {
@@ -95,9 +94,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.then(
-                if (isFullScreen) Modifier else Modifier.padding(paddingValues)
-            )
+            modifier = Modifier.padding(paddingValues)
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
