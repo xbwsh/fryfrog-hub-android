@@ -12,8 +12,11 @@ class PrefsManager(context: Context) {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
+        private const val KEY_PLAYER_TYPE = "player_type"
 
         private const val DEFAULT_SERVER_URL = "http://192.168.31.127:20058"
+        const val PLAYER_EXOPLAYER = "exoplayer"
+        const val PLAYER_MPV = "mpv"
     }
 
     var serverUrl: String
@@ -27,6 +30,10 @@ class PrefsManager(context: Context) {
     var isLoggedIn: Boolean
         get() = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
+
+    var playerType: String
+        get() = prefs.getString(KEY_PLAYER_TYPE, PLAYER_EXOPLAYER) ?: PLAYER_EXOPLAYER
+        set(value) = prefs.edit().putString(KEY_PLAYER_TYPE, value).apply()
 
     fun saveLogin(serverUrl: String, token: String) {
         this.serverUrl = serverUrl

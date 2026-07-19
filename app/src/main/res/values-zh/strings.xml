@@ -41,6 +41,8 @@
     <!-- Player -->
     <string name="pause">暂停</string>
     <string name="player_error">播放错误</string>
+    <string name="player_exoplayer">ExoPlayer</string>
+    <string name="player_mpv">MPV</string>
 
     <!-- Media Info -->
     <string name="media_info">媒体信息</string>
