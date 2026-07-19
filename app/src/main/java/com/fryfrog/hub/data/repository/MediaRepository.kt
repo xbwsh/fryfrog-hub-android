@@ -96,6 +96,7 @@ class MediaRepository {
         return try {
             Result.success(call())
         } catch (e: Exception) {
+            android.util.Log.e("MediaRepository", "API call failed", e)
             Result.failure(e)
         }
     }

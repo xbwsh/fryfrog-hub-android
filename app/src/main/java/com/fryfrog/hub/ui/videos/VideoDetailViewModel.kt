@@ -36,8 +36,14 @@ class VideoDetailViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
+            android.util.Log.d("VideoDetailVM", "Loading series ID: $seriesId")
+
             val seriesResult = repository.getVideoSeriesDetail(seriesId)
             val actorsResult = repository.getVideoActors(seriesId)
+
+            android.util.Log.d("VideoDetailVM", "Series result: ${seriesResult.isSuccess}, Actors result: ${actorsResult.isSuccess}")
+            seriesResult.exceptionOrNull()?.let { android.util.Log.e("VideoDetailVM", "Series error", it) }
+            actorsResult.exceptionOrNull()?.let { android.util.Log.e("VideoDetailVM", "Actors error", it) }
 
             _uiState.value = VideoDetailUiState(
                 isLoading = false,
