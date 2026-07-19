@@ -119,14 +119,19 @@ private fun HomeContent(
                 SectionHeader(title = stringResource(R.string.section_continue_watching))
             }
             item {
-                val featured = uiState.videoSeries.first()
-                WideMediaCard(
-                    title = featured.title,
-                    subtitle = featured.overview?.take(80),
-                    coverUrl = featured.fanartUrl ?: featured.coverUrl,
-                    onClick = { onVideoClick(featured.id) },
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.videoSeries) { series ->
+                        WideMediaCard(
+                            title = series.title,
+                            subtitle = series.overview?.take(50),
+                            coverUrl = series.fanartUrl ?: series.coverUrl,
+                            onClick = { onVideoClick(series.id) }
+                        )
+                    }
+                }
             }
         }
 
