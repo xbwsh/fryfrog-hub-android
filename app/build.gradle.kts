@@ -84,9 +84,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.5.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.5.0")
 
-    // MPV Player (libmpv)
-    implementation("dev.jdtech.mpv:libmpv:0.4.1")
-
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
