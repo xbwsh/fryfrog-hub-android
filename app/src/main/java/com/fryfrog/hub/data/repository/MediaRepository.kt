@@ -9,7 +9,7 @@ class MediaRepository {
 
     // Video
     suspend fun getVideoSeries(): Result<List<SeriesDTO>> = safeApiCall {
-        api.getVideoSeries().data ?: emptyList()
+        api.getVideoSeries().data?.content ?: emptyList()
     }
 
     suspend fun getVideoFavorites(): Result<List<SeriesDTO>> = safeApiCall {
@@ -18,7 +18,7 @@ class MediaRepository {
 
     // Music
     suspend fun getMusicByAlbum(): Result<List<AlbumGroup>> = safeApiCall {
-        api.getMusicByAlbum().data ?: emptyList()
+        api.getMusicByAlbum().data?.content ?: emptyList()
     }
 
     suspend fun getRecentlyAddedMusic(): Result<List<MusicTrack>> = safeApiCall {
@@ -31,7 +31,7 @@ class MediaRepository {
 
     // Comic
     suspend fun getComicSeries(): Result<List<ComicSeries>> = safeApiCall {
-        api.getComicSeries().data ?: emptyList()
+        api.getComicSeries().data?.content ?: emptyList()
     }
 
     suspend fun getComicFavorites(): Result<List<ComicDTO>> = safeApiCall {
@@ -40,7 +40,7 @@ class MediaRepository {
 
     // Ebook
     suspend fun getEbookSeries(): Result<List<EbookSeries>> = safeApiCall {
-        api.getEbookSeries().data ?: emptyList()
+        api.getEbookSeries().data?.content ?: emptyList()
     }
 
     suspend fun getRecentlyAddedEbooks(): Result<List<EbookDTO>> = safeApiCall {

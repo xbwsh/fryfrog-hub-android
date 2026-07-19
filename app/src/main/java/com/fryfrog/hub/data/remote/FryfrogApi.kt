@@ -7,7 +7,7 @@ interface FryfrogApi {
 
     // ========== Video ==========
     @GET("/api/v1/video/series")
-    suspend fun getVideoSeries(): ApiResponse<List<SeriesDTO>>
+    suspend fun getVideoSeries(): ApiResponse<PageResponse<SeriesDTO>>
 
     @GET("/api/v1/video/series/{id}")
     suspend fun getVideoSeriesDetail(@Path("id") id: Long): ApiResponse<SeriesDTO>
@@ -23,10 +23,10 @@ interface FryfrogApi {
 
     // ========== Music ==========
     @GET("/api/v1/music")
-    suspend fun getMusicByAlbum(): ApiResponse<List<AlbumGroup>>
+    suspend fun getMusicByAlbum(): ApiResponse<PageResponse<AlbumGroup>>
 
     @GET("/api/v1/music/list")
-    suspend fun getMusicList(): ApiResponse<List<MusicTrack>>
+    suspend fun getMusicList(): ApiResponse<PageResponse<MusicTrack>>
 
     @GET("/api/v1/music/{id}")
     suspend fun getMusicDetail(@Path("id") id: Long): ApiResponse<MusicTrack>
@@ -51,7 +51,7 @@ interface FryfrogApi {
 
     // ========== Comic ==========
     @GET("/api/v1/comic/series")
-    suspend fun getComicSeries(): ApiResponse<List<ComicSeries>>
+    suspend fun getComicSeries(): ApiResponse<PageResponse<ComicSeries>>
 
     @GET("/api/v1/comic/{id}")
     suspend fun getComicDetail(@Path("id") id: Long): ApiResponse<ComicDTO>
@@ -64,7 +64,7 @@ interface FryfrogApi {
 
     // ========== Ebook ==========
     @GET("/api/v1/ebook/series")
-    suspend fun getEbookSeries(): ApiResponse<List<EbookSeries>>
+    suspend fun getEbookSeries(): ApiResponse<PageResponse<EbookSeries>>
 
     @GET("/api/v1/ebook/{id}")
     suspend fun getEbookDetail(@Path("id") id: Long): ApiResponse<EbookDTO>
