@@ -15,6 +15,9 @@ interface FryfrogApi {
     @GET("/api/v1/video/{id}")
     suspend fun getVideoDetail(@Path("id") id: Long): ApiResponse<VideoDTO>
 
+    @GET("/api/v1/video/{id}/actors")
+    suspend fun getVideoActors(@Path("id") id: Long): ApiResponse<List<VideoActor>>
+
     @GET("/api/v1/video/{id}/cover")
     suspend fun getVideoCover(@Path("id") id: Long): ApiResponse<String>
 

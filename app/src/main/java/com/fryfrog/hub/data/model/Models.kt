@@ -54,11 +54,34 @@ data class VideoDTO(
     val overview: String?,
     val rating: Double?,
     val year: Int?,
-    val duration: Long?,
+    val durationMinutes: Int?,
     val watched: Boolean?,
     val progress: Double?,
-    val posterUrl: String?,
-    val fanartUrl: String?
+    val coverUrl: String?,
+    val fanartUrl: String?,
+    val originalTitle: String?,
+    val director: String?,
+    val actors: String?,
+    val genre: String?,
+    val fileName: String?,
+    val fileSize: Long?,
+    val videoCodec: String?,
+    val audioCodec: String?,
+    val resolution: String?,
+    val frameRate: Double?,
+    val format: String?,
+    val favorite: Boolean?,
+    val tmdbId: Long?,
+    val mediaType: String?,
+    val isAdult: Boolean?,
+    val streamUrl: String?
+)
+
+data class VideoActor(
+    val id: Long,
+    val name: String,
+    val character: String?,
+    val imageUrl: String?
 )
 
 // Music

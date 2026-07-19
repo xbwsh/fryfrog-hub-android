@@ -12,10 +12,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.ui.components.PlaceholderScreen
 import com.fryfrog.hub.ui.home.HomeScreen
@@ -23,6 +26,8 @@ import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
+import com.fryfrog.hub.ui.videos.VideoDetailScreen
+import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.ui.videos.VideosScreen
 import com.fryfrog.hub.util.PrefsManager
 
@@ -70,18 +75,20 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
 
     Scaffold(
         bottomBar = {
-            FryfrogBottomBar(
-                currentRoute = currentRoute,
-                onNavigate = { route ->
-                    navController.navigate(route) {
-                        popUpTo(Screen.Home.route) {
-                            saveState = true
+            if (currentRoute in bottomNavRoutes) {
+                FryfrogBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Screen.Home.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
+                )
+            }
         }
     ) { paddingValues ->
         NavHost(
@@ -92,7 +99,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
             composable(Screen.Home.route) {
                 HomeScreen(
                     onVideoClick = { videoId ->
-                        // TODO: Navigate to video detail
+                        navController.navigate("video_detail/$videoId")
                     },
                     onMusicClick = { musicId ->
                         // TODO: Navigate to music player
@@ -109,7 +116,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
             composable(Screen.Videos.route) {
                 VideosScreen(
                     onVideoClick = { videoId ->
-                        // TODO: Navigate to video detail
+                        navController.navigate("video_detail/$videoId")
                     }
                 )
             }
@@ -125,6 +132,39 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
             composable(Screen.Settings.route) {
                 PlaceholderScreen(title = stringResource(Screen.Settings.titleResId))
             }
+
+            composable(
+                route = "video_detail/{seriesId}",
+                arguments = listOf(navArgument("seriesId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val viewModel: VideoDetailViewModel = viewModel(
+                    factory = VideoDetailViewModelFactory(backStackEntry)
+                )
+                VideoDetailScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onPlayClick = { videoId ->
+                        // TODO: Navigate to video player
+                    }
+                )
+            }
         }
+    }
+}
+
+private val bottomNavRoutes = listOf(
+    Screen.Home.route,
+    Screen.Videos.route,
+    Screen.Music.route,
+    Screen.Comics.route,
+    Screen.Settings.route
+)
+
+class VideoDetailViewModelFactory(
+    private val backStackEntry: androidx.navigation.NavBackStackEntry
+) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+        return VideoDetailViewModel(backStackEntry.savedStateHandle) as T
     }
 }

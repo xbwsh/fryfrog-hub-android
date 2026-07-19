@@ -22,6 +22,25 @@ class MediaRepository {
         ) } ?: emptyList()
     }
 
+    suspend fun getVideoSeriesDetail(id: Long): Result<SeriesDTO> = safeApiCall {
+        api.getVideoSeriesDetail(id).data?.let { series ->
+            series.copy(
+                coverUrl = fixUrl(series.coverUrl),
+                fanartUrl = fixUrl(series.fanartUrl),
+                episodes = series.episodes?.map { it.copy(
+                    coverUrl = fixUrl(it.coverUrl),
+                    fanartUrl = fixUrl(it.fanartUrl)
+                ) }
+            )
+        } ?: throw Exception("Series not found")
+    }
+
+    suspend fun getVideoActors(videoId: Long): Result<List<VideoActor>> = safeApiCall {
+        api.getVideoActors(videoId).data?.map { it.copy(
+            imageUrl = fixUrl(it.imageUrl)
+        ) } ?: emptyList()
+    }
+
     suspend fun getVideoFavorites(): Result<List<SeriesDTO>> = safeApiCall {
         api.getVideoFavorites().data?.map { it.copy(
             coverUrl = fixUrl(it.coverUrl),
