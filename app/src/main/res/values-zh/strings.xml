@@ -37,4 +37,19 @@
     <string name="episodes">剧集</string>
     <string name="director">导演</string>
     <string name="minutes">分钟</string>
+
+    <!-- Player -->
+    <string name="pause">暂停</string>
+    <string name="player_error">播放错误</string>
+
+    <!-- Media Info -->
+    <string name="media_info">媒体信息</string>
+    <string name="resolution">分辨率</string>
+    <string name="video_codec">视频编码</string>
+    <string name="audio_codec">音频编码</string>
+    <string name="frame_rate">帧率</string>
+    <string name="bitrate">码率</string>
+    <string name="file_size">文件大小</string>
+    <string name="format">格式</string>
+    <string name="file_name">文件名</string>
 </resources>
