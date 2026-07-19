@@ -35,9 +35,10 @@ class MpvImpl : VideoPlayer {
         }
         override fun eventProperty(property: String, value: String) {}
         override fun event(eventId: Int) {
+            // Event IDs: 6=START_FILE, 7=END_FILE, 8=FILE_LOADED
             when (eventId) {
-                MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> Log.d("MpvImpl", "File loaded")
-                MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
+                8 -> Log.d("MpvImpl", "File loaded")
+                7 -> {
                     isPlaying = false
                     Log.d("MpvImpl", "Playback ended")
                 }
