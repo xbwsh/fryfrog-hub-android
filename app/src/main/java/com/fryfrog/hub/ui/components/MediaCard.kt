@@ -131,7 +131,6 @@ fun WideMediaCard(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val cardHeight = when {
-        isTablet && isLandscape -> 280.dp
         isTablet -> 320.dp
         isLandscape -> 180.dp
         else -> 220.dp
