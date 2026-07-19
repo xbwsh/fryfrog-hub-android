@@ -32,4 +32,14 @@ object Dimens {
     // Page Padding
     val pageHorizontalPadding = 16.dp
     val pageVerticalPadding = 8.dp
+
+    // Component Sizes
+    val iconSize = 24.dp
+    val buttonHeight = 48.dp
+    val topBarHeight = 56.dp
+
+    // Alpha
+    const val alphaOverlay = 0.7f
+    const val alphaSubtle = 0.8f
+    const val alphaDisabled = 0.38f
 }

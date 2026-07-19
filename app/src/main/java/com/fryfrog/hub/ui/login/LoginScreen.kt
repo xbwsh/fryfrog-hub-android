@@ -13,12 +13,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.data.remote.FryfrogApi
+import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.util.PrefsManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -145,14 +145,14 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
+                .padding(Dimens.spacingXl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = stringResource(R.string.welcome),
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 32.dp)
+                modifier = Modifier.padding(bottom = Dimens.spacingXxl)
             )
 
             OutlinedTextField(
@@ -164,7 +164,7 @@ fun LoginScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Dimens.spacingLg))
 
             OutlinedTextField(
                 value = uiState.password,
@@ -189,11 +189,11 @@ fun LoginScreen(
                     text = errorText,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = Dimens.spacingSm)
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(Dimens.spacingXl))
 
             Button(
                 onClick = { viewModel.login(onLoginSuccess) },
@@ -202,7 +202,7 @@ fun LoginScreen(
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(Dimens.iconSize),
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {

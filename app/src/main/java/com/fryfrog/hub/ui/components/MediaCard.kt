@@ -161,7 +161,7 @@ fun WideMediaCard(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = Dimens.alphaOverlay))
                     )
                 )
         )
@@ -183,7 +183,7 @@ fun WideMediaCard(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.8f),
+                    color = Color.White.copy(alpha = Dimens.alphaSubtle),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
