@@ -69,6 +69,7 @@ data class VideoDTO(
     val audioCodec: String?,
     val resolution: String?,
     val frameRate: Double?,
+    val bitrateKbps: Int?,
     val format: String?,
     val favorite: Boolean?,
     val tmdbId: Long?,
