@@ -1,6 +1,7 @@
 package com.fryfrog.hub.player
 
 import android.content.Context
+import android.util.Log
 import android.view.SurfaceView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -29,7 +30,11 @@ object PlayerFactory {
     fun create(type: PlayerType): VideoPlayer {
         return when (type) {
             PlayerType.EXOPLAYER -> ExoPlayerImpl()
-            PlayerType.MPV -> MpvImpl()
+            PlayerType.MPV -> {
+                Log.w("PlayerFactory", "MPV player not fully integrated. Using ExoPlayer as fallback.")
+                // TODO: When mpv-android is properly integrated, return MpvImpl()
+                ExoPlayerImpl()
+            }
         }
     }
 }
