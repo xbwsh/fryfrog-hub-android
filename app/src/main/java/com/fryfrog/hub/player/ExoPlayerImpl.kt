@@ -1,18 +1,18 @@
 package com.fryfrog.hub.player
 
 import android.content.Context
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 class ExoPlayerImpl : VideoPlayer {
 
     private var _player: ExoPlayer? = null
@@ -41,6 +41,19 @@ class ExoPlayerImpl : VideoPlayer {
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
             }
+
+        // Connect player to SurfaceView
+        surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
+            override fun surfaceCreated(holder: SurfaceHolder) {
+                _player?.setVideoSurfaceHolder(holder)
+            }
+
+            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+
+            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                _player?.setVideoSurfaceHolder(null)
+            }
+        })
     }
 
     override fun play(url: String) {

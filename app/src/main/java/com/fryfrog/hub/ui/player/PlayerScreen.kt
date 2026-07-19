@@ -21,12 +21,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.player.ExoPlayerImpl
 import com.fryfrog.hub.player.VideoPlayer
 import com.fryfrog.hub.ui.theme.Dimens
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class PlayerUiState(
     val isLoading: Boolean = true,
@@ -37,6 +42,7 @@ data class PlayerUiState(
     val error: String? = null
 )
 
+@OptIn(UnstableApi::class)
 class PlayerViewModel(
     private val videoId: Long,
     private val title: String
