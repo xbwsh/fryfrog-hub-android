@@ -45,6 +45,7 @@ fun MediaCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.7f)
+                .clip(RoundedCornerShape(Dimens.radiusMd))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             if (coverUrl != null) {
