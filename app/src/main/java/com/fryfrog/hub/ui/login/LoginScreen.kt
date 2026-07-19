@@ -61,6 +61,7 @@ class LoginViewModel : ViewModel() {
 
             try {
                 val baseUrl = state.serverUrl.trimEnd('/')
+                val baseUrlWithSlash = "$baseUrl/"
 
                 // Create a temporary API client for login
                 val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -74,7 +75,7 @@ class LoginViewModel : ViewModel() {
                     .build()
 
                 val tempRetrofit = Retrofit.Builder()
-                    .baseUrl("$baseUrl/")
+                    .baseUrl(baseUrlWithSlash)
                     .client(okHttpClient)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
@@ -83,8 +84,8 @@ class LoginViewModel : ViewModel() {
 
                 val response = tempApi.login(mapOf("password" to state.password))
 
-                if (response.success && response.data != null) {
-                    val token = response.data["token"] ?: ""
+                if (response.success) {
+                    val token = response.token ?: response.data?.get("token") ?: ""
 
                     // Save credentials
                     val context = com.fryfrog.hub.FryfrogHubApplication.instance
@@ -106,9 +107,10 @@ class LoginViewModel : ViewModel() {
                     )
                 }
             } catch (e: Exception) {
+                android.util.Log.e("LoginScreen", "Login failed", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Connection failed"
+                    error = "Connection failed: ${e.message}"
                 )
             }
         }

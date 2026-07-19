@@ -86,7 +86,7 @@ interface FryfrogApi {
 
     // ========== Auth ==========
     @POST("/api/v1/auth/login")
-    suspend fun login(@Body body: Map<String, String>): ApiResponse<Map<String, String>>
+    suspend fun login(@Body body: Map<String, String>): LoginResponse
 
     @GET("/api/v1/auth/status")
     suspend fun authStatus(): ApiResponse<Map<String, Any>>

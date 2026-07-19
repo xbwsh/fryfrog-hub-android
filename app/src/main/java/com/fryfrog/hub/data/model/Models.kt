@@ -8,6 +8,12 @@ data class ApiResponse<T>(
     val data: T?
 )
 
+data class LoginResponse(
+    val success: Boolean,
+    val message: String?,
+    val token: String?
+)
+
 data class PageResponse<T>(
     val content: List<T>,
     val page: Int,
