@@ -2,7 +2,6 @@ package com.fryfrog.hub.player
 
 import android.content.Context
 import android.util.Log
-import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.media3.common.Player
@@ -29,14 +28,20 @@ class MpvImpl : VideoPlayer {
                 "duration" -> duration = (value * 1000).toLong()
             }
         }
-        override fun eventProperty(property: String, value: Boolean) {}
+        override fun eventProperty(property: String, value: Boolean) {
+            when (property) {
+                "pause" -> isPlaying = !value
+            }
+        }
         override fun eventProperty(property: String, value: String) {}
         override fun event(eventId: Int) {
+            // Event IDs from mpv:
+            // 6 = MPV_EVENT_START_FILE
+            // 7 = MPV_EVENT_END_FILE
+            // 8 = MPV_EVENT_FILE_LOADED
             when (eventId) {
-                MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> {
-                    Log.d("MpvImpl", "File loaded")
-                }
-                MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
+                8 -> Log.d("MpvImpl", "File loaded")
+                7 -> {
                     isPlaying = false
                     Log.d("MpvImpl", "Playback ended")
                 }
@@ -61,7 +66,6 @@ class MpvImpl : VideoPlayer {
 
                 // Set options
                 mpv.setOptionString("keep-open", "yes")
-                mpv.setOptionString("ytdl", "no")
 
                 Log.d("MpvImpl", "MPV initialized successfully")
             }
