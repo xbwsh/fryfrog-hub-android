@@ -23,6 +23,7 @@ import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
+import com.fryfrog.hub.ui.videos.VideosScreen
 import com.fryfrog.hub.util.PrefsManager
 
 class MainActivity : ComponentActivity() {
@@ -106,7 +107,11 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
             }
 
             composable(Screen.Videos.route) {
-                PlaceholderScreen(title = stringResource(Screen.Videos.titleResId))
+                VideosScreen(
+                    onVideoClick = { videoId ->
+                        // TODO: Navigate to video detail
+                    }
+                )
             }
 
             composable(Screen.Music.route) {
