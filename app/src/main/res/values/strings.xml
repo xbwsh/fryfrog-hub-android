@@ -37,4 +37,8 @@
     <string name="episodes">Episodes</string>
     <string name="director">Director</string>
     <string name="minutes">min</string>
+
+    <!-- Player -->
+    <string name="pause">Pause</string>
+    <string name="player_error">Playback error</string>
 </resources>

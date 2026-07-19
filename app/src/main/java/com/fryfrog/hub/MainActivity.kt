@@ -27,6 +27,7 @@ import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
+import com.fryfrog.hub.ui.player.PlayerScreen
 import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.ui.videos.VideosScreen
@@ -147,8 +148,24 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
                     onPlayClick = { videoId ->
-                        // TODO: Navigate to video player
+                        navController.navigate("player/$videoId/${viewModel.uiState.value.series?.title ?: ""}")
                     }
+                )
+            }
+
+            composable(
+                route = "player/{videoId}/{title}",
+                arguments = listOf(
+                    navArgument("videoId") { type = NavType.LongType },
+                    navArgument("title") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val videoId = backStackEntry.arguments?.getLong("videoId") ?: 0L
+                val title = backStackEntry.arguments?.getString("title") ?: ""
+                PlayerScreen(
+                    videoId = videoId,
+                    title = title,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
         }
