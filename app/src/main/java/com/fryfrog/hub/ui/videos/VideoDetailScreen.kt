@@ -23,9 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowWidthSizeClass
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.SeriesDTO
@@ -77,6 +80,11 @@ private fun VideoDetailContent(
     onBackClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
+    val windowInsets = WindowInsets.statusBars
+    val topPadding = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(LocalDensity.current).toDp()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize()
@@ -124,11 +132,11 @@ private fun VideoDetailContent(
             }
         }
 
-        // Floating Back Button
+        // Floating Back Button with status bar padding
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
-                .padding(Dimens.spacingMd)
+                .padding(start = Dimens.spacingMd, top = topPadding + Dimens.spacingSm)
                 .align(Alignment.TopStart)
                 .background(
                     color = Color.Black.copy(alpha = Dimens.alphaOverlay),
