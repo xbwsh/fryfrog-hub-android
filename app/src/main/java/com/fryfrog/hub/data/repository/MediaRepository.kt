@@ -5,7 +5,7 @@ import com.fryfrog.hub.data.remote.ApiClient
 
 class MediaRepository {
 
-    private val api = ApiClient.api
+    private val api get() = ApiClient.getApi()
 
     // Video
     suspend fun getVideoSeries(): Result<List<SeriesDTO>> = safeApiCall {
@@ -52,10 +52,10 @@ class MediaRepository {
     }
 
     // Cover URL helper
-    fun getVideoCoverUrl(id: Long): String = "${ApiClient.api.toString().removeSuffix("/")}api/v1/video/$id/cover"
-    fun getMusicCoverUrl(id: Long): String = "${ApiClient.api.toString().removeSuffix("/")}api/v1/music/$id/cover"
-    fun getComicCoverUrl(id: Long): String = "${ApiClient.api.toString().removeSuffix("/")}api/v1/comic/$id/cover"
-    fun getEbookCoverUrl(id: Long): String = "${ApiClient.api.toString().removeSuffix("/")}api/v1/ebook/$id/cover"
+    fun getVideoCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/video/$id/cover"
+    fun getMusicCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/music/$id/cover"
+    fun getComicCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/comic/$id/cover"
+    fun getEbookCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/ebook/$id/cover"
 
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {
         return try {

@@ -1,5 +1,8 @@
 package com.fryfrog.hub.data.remote
 
+import android.content.Context
+import com.fryfrog.hub.util.PrefsManager
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,24 +11,62 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    private const val BASE_URL = "http://192.168.31.127:20058"
+    private var retrofit: Retrofit? = null
+    private var api: FryfrogApi? = null
+    private var currentServerUrl: String? = null
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
-    private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+    fun init(context: Context) {
+        val prefs = PrefsManager(context)
+        createRetrofit(prefs.serverUrl, prefs.authToken)
+    }
 
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .client(okHttpClient)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    fun updateServer(serverUrl: String, token: String?) {
+        createRetrofit(serverUrl, token)
+    }
 
-    val api: FryfrogApi = retrofit.create(FryfrogApi::class.java)
+    private fun createRetrofit(serverUrl: String, token: String?) {
+        if (serverUrl == currentServerUrl && api != null) return
+
+        val authInterceptor = Interceptor { chain ->
+            val request = chain.request().newBuilder().apply {
+                addHeader("Content-Type", "application/json")
+                token?.let {
+                    addHeader("Authorization", "Bearer $it")
+                }
+            }.build()
+            chain.proceed(request)
+        }
+
+        val okHttpClient = OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+
+        retrofit = Retrofit.Builder()
+            .baseUrl(serverUrl)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        api = retrofit!!.create(FryfrogApi::class.java)
+        currentServerUrl = serverUrl
+    }
+
+    fun getApi(): FryfrogApi {
+        if (api == null) {
+            throw IllegalStateException("ApiClient not initialized. Call init(context) first.")
+        }
+        return api!!
+    }
+
+    fun getBaseUrl(): String {
+        return currentServerUrl ?: throw IllegalStateException("ApiClient not initialized")
+    }
 }
