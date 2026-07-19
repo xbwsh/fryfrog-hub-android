@@ -20,11 +20,15 @@
     <string name="hide_password">隐藏密码</string>
     <string name="show_password">显示密码</string>
 
-    <!-- Home Sections -->
+    <!-- Navigation -->
+    <string name="section_home">首页</string>
     <string name="section_videos">视频</string>
     <string name="section_continue_watching">继续观看</string>
     <string name="section_music">音乐</string>
     <string name="section_comics">漫画</string>
     <string name="section_ebooks">电子书</string>
+    <string name="section_settings">设置</string>
+
+    <!-- Common -->
     <string name="unknown_album">未知专辑</string>
 </resources>

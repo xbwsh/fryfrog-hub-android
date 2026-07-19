@@ -5,16 +5,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.fryfrog.hub.data.remote.ApiClient
+import com.fryfrog.hub.ui.components.PlaceholderScreen
 import com.fryfrog.hub.ui.home.HomeScreen
 import com.fryfrog.hub.ui.login.LoginScreen
+import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
+import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
 import com.fryfrog.hub.util.PrefsManager
 
@@ -34,46 +41,84 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     var isLoggedIn by remember { mutableStateOf(prefs.isLoggedIn) }
 
-                    // Initialize API if already logged in
                     LaunchedEffect(Unit) {
                         if (prefs.isLoggedIn) {
                             ApiClient.init(this@MainActivity)
                         }
                     }
 
-                    NavHost(
-                        navController = navController,
-                        startDestination = if (isLoggedIn) "home" else "login"
-                    ) {
-                        composable("login") {
-                            LoginScreen(
-                                onLoginSuccess = {
-                                    isLoggedIn = true
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
-                                }
-                            )
-                        }
-
-                        composable("home") {
-                            HomeScreen(
-                                onVideoClick = { videoId ->
-                                    // TODO: Navigate to video detail
-                                },
-                                onMusicClick = { musicId ->
-                                    // TODO: Navigate to music player
-                                },
-                                onComicClick = { comicId ->
-                                    // TODO: Navigate to comic reader
-                                },
-                                onEbookClick = { ebookId ->
-                                    // TODO: Navigate to ebook reader
-                                }
-                            )
-                        }
+                    if (isLoggedIn) {
+                        MainContent(navController = navController)
+                    } else {
+                        LoginScreen(
+                            onLoginSuccess = {
+                                isLoggedIn = true
+                            }
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainContent(navController: androidx.navigation.NavHostController) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    Scaffold(
+        bottomBar = {
+            FryfrogBottomBar(
+                currentRoute = currentRoute,
+                onNavigate = { route ->
+                    navController.navigate(route) {
+                        popUpTo(Screen.Home.route) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onVideoClick = { videoId ->
+                        // TODO: Navigate to video detail
+                    },
+                    onMusicClick = { musicId ->
+                        // TODO: Navigate to music player
+                    },
+                    onComicClick = { comicId ->
+                        // TODO: Navigate to comic reader
+                    },
+                    onEbookClick = { ebookId ->
+                        // TODO: Navigate to ebook reader
+                    }
+                )
+            }
+
+            composable(Screen.Videos.route) {
+                PlaceholderScreen(title = stringResource(Screen.Videos.titleResId))
+            }
+
+            composable(Screen.Music.route) {
+                PlaceholderScreen(title = stringResource(Screen.Music.titleResId))
+            }
+
+            composable(Screen.Comics.route) {
+                PlaceholderScreen(title = stringResource(Screen.Comics.titleResId))
+            }
+
+            composable(Screen.Settings.route) {
+                PlaceholderScreen(title = stringResource(Screen.Settings.titleResId))
             }
         }
     }
