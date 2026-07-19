@@ -4,10 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
@@ -100,9 +96,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(paddingValues),
-            enterTransition = { fadeIn(animationSpec = tween(300)) },
-            exitTransition = { fadeOut(animationSpec = tween(300)) }
+            modifier = Modifier.padding(paddingValues)
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -143,19 +137,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
 
             composable(
                 route = "video_detail/{seriesId}",
-                arguments = listOf(navArgument("seriesId") { type = NavType.LongType }),
-                enterTransition = {
-                    expandVertically(animationSpec = tween(400)) + fadeIn(animationSpec = tween(400))
-                },
-                exitTransition = {
-                    shrinkVertically(animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
-                },
-                popEnterTransition = {
-                    expandVertically(animationSpec = tween(400)) + fadeIn(animationSpec = tween(400))
-                },
-                popExitTransition = {
-                    shrinkVertically(animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
-                }
+                arguments = listOf(navArgument("seriesId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val seriesId = backStackEntry.arguments?.getLong("seriesId") ?: 0L
                 val viewModel: VideoDetailViewModel = viewModel(
