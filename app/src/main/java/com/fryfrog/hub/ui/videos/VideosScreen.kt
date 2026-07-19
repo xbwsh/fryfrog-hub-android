@@ -39,6 +39,7 @@ fun VideosScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.section_videos)) },
+                modifier = Modifier.statusBarsPadding(),
                 actions = {
                     IconButton(onClick = { viewModel.loadVideos() }) {
                         Icon(

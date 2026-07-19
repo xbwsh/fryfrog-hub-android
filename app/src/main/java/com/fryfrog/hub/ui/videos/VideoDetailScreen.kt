@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +78,10 @@ private fun VideoDetailContent(
     onBackClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
+    val statusBarPadding = with(LocalDensity.current) {
+        WindowInsets.statusBars.getTop(this).toDp()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize()
@@ -128,6 +133,7 @@ private fun VideoDetailContent(
         IconButton(
             onClick = onBackClick,
             modifier = Modifier
+                .statusBarsPadding()
                 .padding(Dimens.spacingMd)
                 .align(Alignment.TopStart)
                 .background(

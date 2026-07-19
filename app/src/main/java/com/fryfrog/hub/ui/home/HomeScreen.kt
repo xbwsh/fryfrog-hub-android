@@ -36,6 +36,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
+                modifier = Modifier.statusBarsPadding(),
                 actions = {
                     IconButton(onClick = { viewModel.loadHomeData() }) {
                         Icon(
