@@ -1,6 +1,8 @@
 package com.fryfrog.hub.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,7 +30,9 @@ fun MediaCard(
     subtitle: String?,
     coverUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    sharedTransitionKey: String? = null
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -47,6 +51,19 @@ fun MediaCard(
                 .aspectRatio(0.7f)
                 .clip(RoundedCornerShape(Dimens.radiusMd))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(
+                    if (animatedVisibilityScope != null && sharedTransitionKey != null) {
+                        Modifier.sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = sharedTransitionKey),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            boundsTransform = { _, _ -> tween(400) },
+                            fadeOutSpec = { tween(300) },
+                            fadeInSpec = { tween(300) }
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
         ) {
             if (coverUrl != null) {
                 AsyncImage(

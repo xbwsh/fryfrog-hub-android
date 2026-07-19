@@ -1,5 +1,7 @@
 package com.fryfrog.hub.ui.videos
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,7 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,10 +79,6 @@ private fun VideoDetailContent(
     onBackClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
-    val statusBarPadding = with(LocalDensity.current) {
-        WindowInsets.statusBars.getTop(this).toDp()
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize()
@@ -159,6 +156,13 @@ private fun HeroSection(
         modifier = Modifier
             .fillMaxWidth()
             .height(320.dp)
+            .sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "cover_${series.id}"),
+                animatedVisibilityScope = LocalAnimatedVisibilityScope.current,
+                boundsTransform = { _, _ -> tween(400) },
+                fadeOutSpec = { tween(300) },
+                fadeInSpec = { tween(300) }
+            )
     ) {
         if (series.fanartUrl != null) {
             AsyncImage(
