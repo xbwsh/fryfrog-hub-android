@@ -1,5 +1,6 @@
 package com.fryfrog.hub.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,11 +14,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
+import kotlin.math.min
 
 @Composable
 fun MediaCard(
@@ -122,10 +125,19 @@ fun WideMediaCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp.dp
+    val isTablet = configuration.screenWidthDp >= 600
+    val cardHeight = if (isTablet) {
+        min(screenHeight * 0.35f, 320.dp)
+    } else {
+        min(screenHeight * 0.25f, 240.dp)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(cardHeight)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
