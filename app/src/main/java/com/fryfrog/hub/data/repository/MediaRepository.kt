@@ -23,6 +23,8 @@ class MediaRepository {
     }
 
     suspend fun getVideoSeriesDetail(id: Long): Result<SeriesDTO> = safeApiCall {
+        val url = "$baseUrl/api/v1/video/series/$id"
+        android.util.Log.d("MediaRepository", "Fetching: $url")
         api.getVideoSeriesDetail(id).data?.let { series ->
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
