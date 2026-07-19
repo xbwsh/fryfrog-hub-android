@@ -4,10 +4,9 @@ import android.content.Context
 import android.view.SurfaceView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.source.MediaSource
-import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import okhttp3.OkHttpClient
@@ -32,7 +31,8 @@ class ExoPlayerImpl : VideoPlayer {
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(okHttpClient)
+        val dataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
         _player = ExoPlayer.Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
