@@ -1,6 +1,5 @@
 package com.fryfrog.hub.ui.videos
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.model.SeriesDTO
@@ -19,20 +18,16 @@ data class VideoDetailUiState(
 )
 
 class VideoDetailViewModel(
-    savedStateHandle: SavedStateHandle
+    private val seriesId: Long
 ) : ViewModel() {
 
     private val repository = MediaRepository()
-    private val seriesId: Long = savedStateHandle.get<String>("seriesId")?.toLongOrNull() ?: 0L
-
-    init {
-        android.util.Log.d("VideoDetailVM", "Received seriesId: $seriesId")
-    }
 
     private val _uiState = MutableStateFlow(VideoDetailUiState())
     val uiState: StateFlow<VideoDetailUiState> = _uiState.asStateFlow()
 
     init {
+        android.util.Log.d("VideoDetailVM", "Loading series ID: $seriesId")
         loadVideoDetail()
     }
 
@@ -40,14 +35,10 @@ class VideoDetailViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            android.util.Log.d("VideoDetailVM", "Loading series ID: $seriesId")
-
             val seriesResult = repository.getVideoSeriesDetail(seriesId)
             val actorsResult = repository.getVideoActors(seriesId)
 
             android.util.Log.d("VideoDetailVM", "Series result: ${seriesResult.isSuccess}, Actors result: ${actorsResult.isSuccess}")
-            seriesResult.exceptionOrNull()?.let { android.util.Log.e("VideoDetailVM", "Series error", it) }
-            actorsResult.exceptionOrNull()?.let { android.util.Log.e("VideoDetailVM", "Actors error", it) }
 
             _uiState.value = VideoDetailUiState(
                 isLoading = false,

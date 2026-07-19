@@ -137,10 +137,11 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
 
             composable(
                 route = "video_detail/{seriesId}",
-                arguments = listOf(navArgument("seriesId") { type = NavType.StringType })
+                arguments = listOf(navArgument("seriesId") { type = NavType.LongType })
             ) { backStackEntry ->
+                val seriesId = backStackEntry.arguments?.getLong("seriesId") ?: 0L
                 val viewModel: VideoDetailViewModel = viewModel(
-                    factory = VideoDetailViewModelFactory(backStackEntry)
+                    factory = VideoDetailViewModelFactory(seriesId)
                 )
                 VideoDetailScreen(
                     viewModel = viewModel,
@@ -163,10 +164,10 @@ private val bottomNavRoutes = listOf(
 )
 
 class VideoDetailViewModelFactory(
-    private val backStackEntry: androidx.navigation.NavBackStackEntry
+    private val seriesId: Long
 ) : androidx.lifecycle.ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-        return VideoDetailViewModel(backStackEntry.savedStateHandle) as T
+        return VideoDetailViewModel(seriesId) as T
     }
 }
