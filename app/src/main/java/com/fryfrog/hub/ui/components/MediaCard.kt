@@ -125,7 +125,7 @@ fun WideMediaCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .height(220.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
