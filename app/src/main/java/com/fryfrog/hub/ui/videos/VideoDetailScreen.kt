@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -345,83 +346,124 @@ private fun MediaInfoSection(episode: VideoDTO) {
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        shape = RoundedCornerShape(Dimens.radiusMd)
+        shape = RoundedCornerShape(Dimens.radiusLg)
     ) {
         Column(
             modifier = Modifier.padding(Dimens.spacingLg)
         ) {
             Text(
                 text = stringResource(R.string.media_info),
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
+            Spacer(modifier = Modifier.height(Dimens.spacingMd))
+
+            // Video info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+            ) {
+                episode.resolution?.let { resolution ->
+                    MediaInfoChip(
+                        label = stringResource(R.string.resolution),
+                        value = resolution,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                episode.videoCodec?.let { codec ->
+                    MediaInfoChip(
+                        label = stringResource(R.string.video_codec),
+                        value = codec.uppercase(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(Dimens.spacingSm))
 
-            // File info grid
-            Column(
-                verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+            // Audio info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
-                // Format
-                episode.format?.let { format ->
-                    MediaInfoRow(label = stringResource(R.string.format), value = format)
-                }
-
-                // Resolution
-                episode.resolution?.let { resolution ->
-                    MediaInfoRow(label = stringResource(R.string.resolution), value = resolution)
-                }
-
-                // Video Codec
-                episode.videoCodec?.let { codec ->
-                    MediaInfoRow(label = stringResource(R.string.video_codec), value = codec)
-                }
-
-                // Audio Codec
                 episode.audioCodec?.let { codec ->
-                    MediaInfoRow(label = stringResource(R.string.audio_codec), value = codec)
+                    MediaInfoChip(
+                        label = stringResource(R.string.audio_codec),
+                        value = codec.uppercase(),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-
-                // Frame Rate
                 episode.frameRate?.let { fps ->
-                    MediaInfoRow(label = stringResource(R.string.frame_rate), value = String.format("%.2f fps", fps))
+                    MediaInfoChip(
+                        label = stringResource(R.string.frame_rate),
+                        value = String.format("%.2f fps", fps),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
+            }
 
-                // Bitrate
-                episode.bitrateKbps?.let { bitrate ->
-                    MediaInfoRow(label = stringResource(R.string.bitrate), value = String.format("%.1f Mbps", bitrate / 1000.0))
+            Spacer(modifier = Modifier.height(Dimens.spacingSm))
+
+            // File info row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+            ) {
+                episode.format?.let { format ->
+                    MediaInfoChip(
+                        label = stringResource(R.string.format),
+                        value = format,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-
-                // File Size
                 episode.fileSize?.let { size ->
-                    MediaInfoRow(label = stringResource(R.string.file_size), value = formatFileSize(size))
+                    MediaInfoChip(
+                        label = stringResource(R.string.file_size),
+                        value = formatFileSize(size),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
+            }
 
-                // File Name
-                episode.fileName?.let { name ->
-                    MediaInfoRow(label = stringResource(R.string.file_name), value = name)
-                }
+            // Bitrate (if available)
+            episode.bitrateKbps?.let { bitrate ->
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                MediaInfoChip(
+                    label = stringResource(R.string.bitrate),
+                    value = String.format("%.1f Mbps", bitrate / 1000.0)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun MediaInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+private fun MediaInfoChip(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(Dimens.radiusSm)
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Column(
+            modifier = Modifier.padding(Dimens.spacingSm)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
