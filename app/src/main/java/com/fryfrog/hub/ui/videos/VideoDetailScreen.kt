@@ -34,6 +34,7 @@ import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.util.PrefsManager
 
 @Composable
 fun VideoDetailScreen(
@@ -412,11 +413,18 @@ private fun MediaInfoSection(episode: VideoDTO) {
 
             Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-            // Video info row
+            // Row 1: Format, Resolution, Video Codec
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
+                episode.format?.let { format ->
+                    MediaInfoChip(
+                        label = stringResource(R.string.format),
+                        value = format,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 episode.resolution?.let { resolution ->
                     MediaInfoChip(
                         label = stringResource(R.string.resolution),
@@ -435,7 +443,7 @@ private fun MediaInfoSection(episode: VideoDTO) {
 
             Spacer(modifier = Modifier.height(Dimens.spacingSm))
 
-            // Audio info row
+            // Row 2: Audio Codec, Frame Rate, Bitrate
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
@@ -454,22 +462,22 @@ private fun MediaInfoSection(episode: VideoDTO) {
                         modifier = Modifier.weight(1f)
                     )
                 }
+                episode.bitrateKbps?.let { bitrate ->
+                    MediaInfoChip(
+                        label = stringResource(R.string.bitrate),
+                        value = String.format("%.1f Mbps", bitrate / 1000.0),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(Dimens.spacingSm))
 
-            // File info row
+            // Row 3: File Size
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
-                episode.format?.let { format ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.format),
-                        value = format,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
                 episode.fileSize?.let { size ->
                     MediaInfoChip(
                         label = stringResource(R.string.file_size),
@@ -477,15 +485,6 @@ private fun MediaInfoSection(episode: VideoDTO) {
                         modifier = Modifier.weight(1f)
                     )
                 }
-            }
-
-            // Bitrate (if available)
-            episode.bitrateKbps?.let { bitrate ->
-                Spacer(modifier = Modifier.height(Dimens.spacingSm))
-                MediaInfoChip(
-                    label = stringResource(R.string.bitrate),
-                    value = String.format("%.1f Mbps", bitrate / 1000.0)
-                )
             }
         }
     }
