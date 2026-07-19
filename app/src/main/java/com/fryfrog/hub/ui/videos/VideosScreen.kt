@@ -1,7 +1,5 @@
 package com.fryfrog.hub.ui.videos
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -119,13 +117,6 @@ private fun VideoCard(
                 .aspectRatio(0.7f)
                 .clip(RoundedCornerShape(Dimens.radiusMd))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                .sharedBounds(
-                    sharedContentState = rememberSharedContentState(key = "cover_${series.id}"),
-                    animatedVisibilityScope = LocalAnimatedVisibilityScope.current,
-                    boundsTransform = { _, _ -> tween(400) },
-                    fadeOutSpec = { tween(300) },
-                    fadeInSpec = { tween(300) }
-                )
         ) {
             if (series.coverUrl != null) {
                 AsyncImage(
