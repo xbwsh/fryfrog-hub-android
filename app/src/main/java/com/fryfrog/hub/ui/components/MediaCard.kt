@@ -20,7 +20,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
-import kotlin.math.min
 
 @Composable
 fun MediaCard(
@@ -126,12 +125,12 @@ fun WideMediaCard(
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp.dp
+    val screenHeight = configuration.screenHeightDp.toFloat()
     val isTablet = configuration.screenWidthDp >= 600
     val cardHeight = if (isTablet) {
-        min(screenHeight * 0.35f, 320.dp)
+        (screenHeight * 0.35f).coerceAtMost(320f).dp
     } else {
-        min(screenHeight * 0.25f, 240.dp)
+        (screenHeight * 0.25f).coerceAtMost(240f).dp
     }
 
     Box(
