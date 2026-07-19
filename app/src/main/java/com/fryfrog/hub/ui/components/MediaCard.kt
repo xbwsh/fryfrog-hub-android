@@ -13,9 +13,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.fryfrog.hub.R
 
 @Composable
 fun MediaCard(
@@ -103,7 +105,7 @@ fun SectionHeader(
 
         if (onSeeAll != null) {
             Text(
-                text = "See All",
+                text = stringResource(R.string.see_all),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable(onClick = onSeeAll)

@@ -12,8 +12,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.fryfrog.hub.R
 import com.fryfrog.hub.ui.components.MediaCard
 import com.fryfrog.hub.ui.components.SectionHeader
 import com.fryfrog.hub.ui.components.WideMediaCard
@@ -32,12 +34,12 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Fryfrog Hub") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     IconButton(onClick = { viewModel.loadHomeData() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
+                            contentDescription = stringResource(R.string.refresh)
                         )
                     }
                 },
@@ -58,7 +60,7 @@ fun HomeScreen(
             }
         } else if (uiState.error != null) {
             ErrorContent(
-                message = uiState.error ?: "Unknown error",
+                message = uiState.error ?: stringResource(R.string.unknown_error),
                 onRetry = { viewModel.loadHomeData() },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -84,14 +86,15 @@ private fun HomeContent(
     onEbookClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val unknownTitle = stringResource(R.string.unknown)
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        // Video Section
         if (uiState.videoSeries.isNotEmpty()) {
             item {
-                SectionHeader(title = "Videos")
+                SectionHeader(title = stringResource(R.string.section_videos))
             }
             item {
                 LazyRow(
@@ -110,11 +113,10 @@ private fun HomeContent(
             }
         }
 
-        // Featured Video
         if (uiState.videoSeries.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                SectionHeader(title = "Continue Watching")
+                SectionHeader(title = stringResource(R.string.section_continue_watching))
             }
             item {
                 val featured = uiState.videoSeries.first()
@@ -128,11 +130,10 @@ private fun HomeContent(
             }
         }
 
-        // Music Section
         if (uiState.musicAlbums.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                SectionHeader(title = "Music")
+                SectionHeader(title = stringResource(R.string.section_music))
             }
             item {
                 LazyRow(
@@ -141,7 +142,7 @@ private fun HomeContent(
                 ) {
                     items(uiState.musicAlbums) { album ->
                         MediaCard(
-                            title = album.album ?: "Unknown Album",
+                            title = album.album ?: stringResource(R.string.unknown_album),
                             subtitle = album.artist,
                             coverUrl = album.coverUrl,
                             onClick = { album.tracks?.firstOrNull()?.let { onMusicClick(it.id) } }
@@ -151,11 +152,10 @@ private fun HomeContent(
             }
         }
 
-        // Comic Section
         if (uiState.comicSeries.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                SectionHeader(title = "Comics")
+                SectionHeader(title = stringResource(R.string.section_comics))
             }
             item {
                 LazyRow(
@@ -164,7 +164,7 @@ private fun HomeContent(
                 ) {
                     items(uiState.comicSeries) { series ->
                         MediaCard(
-                            title = series.name ?: "Unknown",
+                            title = series.name ?: unknownTitle,
                             subtitle = series.author,
                             coverUrl = series.coverUrl,
                             onClick = { series.seriesId?.let { onComicClick(it) } }
@@ -174,11 +174,10 @@ private fun HomeContent(
             }
         }
 
-        // Ebook Section
         if (uiState.ebookSeries.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                SectionHeader(title = "Ebooks")
+                SectionHeader(title = stringResource(R.string.section_ebooks))
             }
             item {
                 LazyRow(
@@ -187,7 +186,7 @@ private fun HomeContent(
                 ) {
                     items(uiState.ebookSeries) { series ->
                         MediaCard(
-                            title = series.name ?: "Unknown",
+                            title = series.name ?: unknownTitle,
                             subtitle = series.author,
                             coverUrl = series.coverUrl,
                             onClick = { series.seriesId?.let { onEbookClick(it) } }
@@ -211,7 +210,7 @@ private fun ErrorContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Failed to load data",
+            text = stringResource(R.string.failed_to_load),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.error
         )
@@ -227,7 +226,7 @@ private fun ErrorContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = onRetry) {
-            Text("Retry")
+            Text(stringResource(R.string.retry))
         }
     }
 }

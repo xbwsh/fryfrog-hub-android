@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">Fryfrog Hub</string>
+
+    <!-- Common -->
+    <string name="retry">重试</string>
+    <string name="see_all">查看全部</string>
+    <string name="unknown">未知</string>
+    <string name="unknown_error">未知错误</string>
+    <string name="failed_to_load">加载数据失败</string>
+    <string name="refresh">刷新</string>
+
+    <!-- Login -->
+    <string name="welcome">欢迎</string>
+    <string name="server_address">服务器地址</string>
+    <string name="password">密码</string>
+    <string name="login">登录</string>
+    <string name="password_required">请输入密码</string>
+    <string name="login_failed">登录失败</string>
+    <string name="connection_failed">连接失败: %s</string>
+    <string name="hide_password">隐藏密码</string>
+    <string name="show_password">显示密码</string>
+
+    <!-- Home Sections -->
+    <string name="section_videos">视频</string>
+    <string name="section_continue_watching">继续观看</string>
+    <string name="section_music">音乐</string>
+    <string name="section_comics">漫画</string>
+    <string name="section_ebooks">电子书</string>
+    <string name="unknown_album">未知专辑</string>
+</resources>
