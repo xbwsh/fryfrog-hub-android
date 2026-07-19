@@ -1,15 +1,9 @@
 package com.fryfrog.hub.player
 
 import android.content.Context
-import android.util.Log
 import android.view.SurfaceView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-
-enum class PlayerType {
-    EXOPLAYER,
-    MPV
-}
 
 interface VideoPlayer {
     val player: Player?
@@ -27,13 +21,7 @@ interface VideoPlayer {
 
 @OptIn(UnstableApi::class)
 object PlayerFactory {
-    fun create(type: PlayerType): VideoPlayer {
-        return when (type) {
-            PlayerType.EXOPLAYER -> ExoPlayerImpl()
-            PlayerType.MPV -> {
-                Log.d("PlayerFactory", "Creating MPV player")
-                MpvImpl()
-            }
-        }
+    fun create(): VideoPlayer {
+        return ExoPlayerImpl()
     }
 }

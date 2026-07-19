@@ -27,12 +27,10 @@ import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
-import com.fryfrog.hub.player.ExternalPlayerHelper
 import com.fryfrog.hub.ui.player.PlayerScreen
 import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.ui.videos.VideosScreen
-import com.fryfrog.hub.util.PrefsManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,15 +147,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
                     onPlayClick = { videoId ->
-                        val context = navController.context
-                        val prefs = PrefsManager(context)
-                        if (prefs.playerType == PrefsManager.PLAYER_MPV) {
-                            // Launch external mpv player
-                            ExternalPlayerHelper.launchMpv(context, videoId, viewModel.uiState.value.series?.title ?: "")
-                        } else {
-                            // Use built-in ExoPlayer
-                            navController.navigate("player/$videoId/${viewModel.uiState.value.series?.title ?: ""}")
-                        }
+                        navController.navigate("player/$videoId/${viewModel.uiState.value.series?.title ?: ""}")
                     }
                 )
             }

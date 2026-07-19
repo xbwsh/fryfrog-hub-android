@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -24,12 +23,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
-import com.fryfrog.hub.player.MpvImpl
 import com.fryfrog.hub.player.PlayerFactory
-import com.fryfrog.hub.player.PlayerType
 import com.fryfrog.hub.player.VideoPlayer
 import com.fryfrog.hub.ui.theme.Dimens
-import com.fryfrog.hub.util.PrefsManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -55,14 +51,11 @@ class PlayerViewModel(
 
     private var videoPlayer: VideoPlayer? = null
 
-    fun initializePlayer(surfaceView: SurfaceView, playerType: String) {
-        val player = PlayerFactory.create(
-            if (playerType == PrefsManager.PLAYER_MPV) PlayerType.MPV else PlayerType.EXOPLAYER
-        )
+    fun initializePlayer(surfaceView: SurfaceView) {
+        val player = PlayerFactory.create()
         videoPlayer = player
         player.initialize(surfaceView.context, surfaceView)
 
-        // Handle ExoPlayer listener
         player.player?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
@@ -126,8 +119,6 @@ class PlayerViewModel(
         videoPlayer?.release()
         videoPlayer = null
     }
-
-    fun getPlayer(): VideoPlayer? = videoPlayer
 }
 
 class PlayerViewModelFactory(
@@ -150,8 +141,6 @@ fun PlayerScreen(
         factory = PlayerViewModelFactory(videoId, title)
     )
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val prefs = remember { PrefsManager(context) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -159,7 +148,6 @@ fun PlayerScreen(
         }
     }
 
-    // Progress update
     LaunchedEffect(uiState.isPlaying) {
         while (uiState.isPlaying) {
             viewModel.updateProgress()
@@ -172,21 +160,18 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Video surface
         AndroidView(
             factory = { ctx ->
                 SurfaceView(ctx).apply {
-                    viewModel.initializePlayer(this, prefs.playerType)
+                    viewModel.initializePlayer(this)
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Controls overlay
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -220,14 +205,12 @@ fun PlayerScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Bottom controls
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(Dimens.spacingLg)
             ) {
-                // Progress bar
                 if (uiState.duration > 0) {
                     Slider(
                         value = uiState.currentPosition.toFloat(),
@@ -240,7 +223,6 @@ fun PlayerScreen(
                         )
                     )
 
-                    // Time display
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -260,7 +242,6 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-                // Play/Pause button
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -282,7 +263,6 @@ fun PlayerScreen(
             }
         }
 
-        // Loading indicator
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),

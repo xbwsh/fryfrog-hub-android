@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -22,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,7 +32,6 @@ import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
-import com.fryfrog.hub.util.PrefsManager
 
 @Composable
 fun VideoDetailScreen(
@@ -160,11 +157,6 @@ private fun HeroSection(
     series: SeriesDTO,
     onPlayClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val prefs = remember { PrefsManager(context) }
-    var showPlayerMenu by remember { mutableStateOf(false) }
-    var selectedPlayer by remember { mutableStateOf(prefs.playerType) }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -246,54 +238,6 @@ private fun HeroSection(
                     )
                     Spacer(modifier = Modifier.width(Dimens.spacingSm))
                     Text(stringResource(R.string.play))
-                }
-
-                // Player selection
-                Box {
-                    Surface(
-                        onClick = { showPlayerMenu = true },
-                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
-                        shape = RoundedCornerShape(Dimens.radiusSm)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (selectedPlayer == PrefsManager.PLAYER_MPV) "MPV" else "ExoPlayer",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded = showPlayerMenu,
-                        onDismissRequest = { showPlayerMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("ExoPlayer") },
-                            onClick = {
-                                selectedPlayer = PrefsManager.PLAYER_EXOPLAYER
-                                prefs.playerType = PrefsManager.PLAYER_EXOPLAYER
-                                showPlayerMenu = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("MPV") },
-                            onClick = {
-                                selectedPlayer = PrefsManager.PLAYER_MPV
-                                prefs.playerType = PrefsManager.PLAYER_MPV
-                                showPlayerMenu = false
-                            }
-                        )
-                    }
                 }
 
                 // Rating badge
