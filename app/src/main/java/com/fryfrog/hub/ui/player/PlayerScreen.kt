@@ -24,9 +24,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
-import com.fryfrog.hub.player.ExoPlayerImpl
+import com.fryfrog.hub.player.PlayerFactory
+import com.fryfrog.hub.player.PlayerType
 import com.fryfrog.hub.player.VideoPlayer
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.util.PrefsManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,8 +54,10 @@ class PlayerViewModel(
 
     private var videoPlayer: VideoPlayer? = null
 
-    fun initializePlayer(surfaceView: SurfaceView) {
-        val player = ExoPlayerImpl()
+    fun initializePlayer(surfaceView: SurfaceView, playerType: String) {
+        val player = PlayerFactory.create(
+            if (playerType == PrefsManager.PLAYER_MPV) PlayerType.MPV else PlayerType.EXOPLAYER
+        )
         videoPlayer = player
         player.initialize(surfaceView.context, surfaceView)
 
@@ -143,6 +147,8 @@ fun PlayerScreen(
         factory = PlayerViewModelFactory(videoId, title)
     )
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val prefs = remember { PrefsManager(context) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -167,7 +173,7 @@ fun PlayerScreen(
         AndroidView(
             factory = { ctx ->
                 SurfaceView(ctx).apply {
-                    viewModel.initializePlayer(this)
+                    viewModel.initializePlayer(this, prefs.playerType)
                 }
             },
             modifier = Modifier.fillMaxSize()
