@@ -125,12 +125,16 @@ fun WideMediaCard(
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp.toFloat()
-    val isTablet = configuration.screenWidthDp >= 600
-    val cardHeight = if (isTablet) {
-        (screenHeight * 0.35f).coerceAtMost(320f).dp
-    } else {
-        (screenHeight * 0.25f).coerceAtMost(240f).dp
+    val screenWidth = configuration.screenWidthDp
+    val screenHeight = configuration.screenHeightDp
+    val isTablet = screenWidth >= 600
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val cardHeight = when {
+        isTablet && isLandscape -> 280.dp
+        isTablet -> 320.dp
+        isLandscape -> 180.dp
+        else -> 220.dp
     }
 
     Box(
