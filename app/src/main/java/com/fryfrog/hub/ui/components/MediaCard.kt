@@ -37,6 +37,7 @@ fun MediaCard(
     Column(
         modifier = modifier
             .width(cardWidth)
+            .clip(RoundedCornerShape(Dimens.radiusMd))
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -44,7 +45,6 @@ fun MediaCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(Dimens.radiusMd))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             if (coverUrl != null) {
