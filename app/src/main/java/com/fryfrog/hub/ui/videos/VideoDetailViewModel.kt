@@ -25,6 +25,10 @@ class VideoDetailViewModel(
     private val repository = MediaRepository()
     private val seriesId: Long = savedStateHandle.get<String>("seriesId")?.toLongOrNull() ?: 0L
 
+    init {
+        android.util.Log.d("VideoDetailVM", "Received seriesId: $seriesId")
+    }
+
     private val _uiState = MutableStateFlow(VideoDetailUiState())
     val uiState: StateFlow<VideoDetailUiState> = _uiState.asStateFlow()
 

@@ -99,6 +99,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
             composable(Screen.Home.route) {
                 HomeScreen(
                     onVideoClick = { videoId ->
+                        android.util.Log.d("Navigation", "Video clicked: $videoId")
                         navController.navigate("video_detail/$videoId")
                     },
                     onMusicClick = { musicId ->
@@ -116,6 +117,7 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
             composable(Screen.Videos.route) {
                 VideosScreen(
                     onVideoClick = { videoId ->
+                        android.util.Log.d("Navigation", "Video clicked from list: $videoId")
                         navController.navigate("video_detail/$videoId")
                     }
                 )
