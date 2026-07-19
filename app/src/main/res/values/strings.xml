@@ -41,4 +41,15 @@
     <!-- Player -->
     <string name="pause">Pause</string>
     <string name="player_error">Playback error</string>
+
+    <!-- Media Info -->
+    <string name="media_info">Media Info</string>
+    <string name="resolution">Resolution</string>
+    <string name="video_codec">Video Codec</string>
+    <string name="audio_codec">Audio Codec</string>
+    <string name="frame_rate">Frame Rate</string>
+    <string name="bitrate">Bitrate</string>
+    <string name="file_size">File Size</string>
+    <string name="format">Format</string>
+    <string name="file_name">File Name</string>
 </resources>

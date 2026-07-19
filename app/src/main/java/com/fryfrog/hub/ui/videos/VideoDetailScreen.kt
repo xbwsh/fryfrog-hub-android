@@ -95,6 +95,13 @@ private fun VideoDetailContent(
                 VideoInfoSection(series = series)
             }
 
+            // Media Info Section
+            item {
+                series.episodes?.firstOrNull()?.let { episode ->
+                    MediaInfoSection(episode = episode)
+                }
+            }
+
             // Actors Section
             if (actors.isNotEmpty()) {
                 item {
@@ -327,6 +334,108 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.padding(horizontal = Dimens.spacingLg)
     )
+}
+
+@Composable
+private fun MediaInfoSection(episode: VideoDTO) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingSm),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        shape = RoundedCornerShape(Dimens.radiusMd)
+    ) {
+        Column(
+            modifier = Modifier.padding(Dimens.spacingLg)
+        ) {
+            Text(
+                text = stringResource(R.string.media_info),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(Dimens.spacingSm))
+
+            // File info grid
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+            ) {
+                // Format
+                episode.format?.let { format ->
+                    MediaInfoRow(label = stringResource(R.string.format), value = format)
+                }
+
+                // Resolution
+                episode.resolution?.let { resolution ->
+                    MediaInfoRow(label = stringResource(R.string.resolution), value = resolution)
+                }
+
+                // Video Codec
+                episode.videoCodec?.let { codec ->
+                    MediaInfoRow(label = stringResource(R.string.video_codec), value = codec)
+                }
+
+                // Audio Codec
+                episode.audioCodec?.let { codec ->
+                    MediaInfoRow(label = stringResource(R.string.audio_codec), value = codec)
+                }
+
+                // Frame Rate
+                episode.frameRate?.let { fps ->
+                    MediaInfoRow(label = stringResource(R.string.frame_rate), value = String.format("%.2f fps", fps))
+                }
+
+                // Bitrate
+                episode.bitrateKbps?.let { bitrate ->
+                    MediaInfoRow(label = stringResource(R.string.bitrate), value = String.format("%.1f Mbps", bitrate / 1000.0))
+                }
+
+                // File Size
+                episode.fileSize?.let { size ->
+                    MediaInfoRow(label = stringResource(R.string.file_size), value = formatFileSize(size))
+                }
+
+                // File Name
+                episode.fileName?.let { name ->
+                    MediaInfoRow(label = stringResource(R.string.file_name), value = name)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    val kb = bytes / 1024.0
+    val mb = kb / 1024.0
+    val gb = mb / 1024.0
+
+    return when {
+        gb >= 1.0 -> String.format("%.2f GB", gb)
+        mb >= 1.0 -> String.format("%.2f MB", mb)
+        kb >= 1.0 -> String.format("%.2f KB", kb)
+        else -> "$bytes B"
+    }
 }
 
 @Composable
