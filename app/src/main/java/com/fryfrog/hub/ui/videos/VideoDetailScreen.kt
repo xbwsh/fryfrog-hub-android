@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -31,7 +33,6 @@ import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoDetailScreen(
     viewModel: VideoDetailViewModel,
@@ -40,54 +41,31 @@ fun VideoDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    } else if (uiState.error != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = uiState.error ?: stringResource(R.string.unknown_error),
+                color = MaterialTheme.colorScheme.error
             )
         }
-    ) { paddingValues ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (uiState.error != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = uiState.error ?: stringResource(R.string.unknown_error),
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        } else {
-            uiState.series?.let { series ->
-                VideoDetailContent(
-                    series = series,
-                    actors = uiState.actors,
-                    onPlayClick = onPlayClick,
-                    modifier = Modifier.padding(paddingValues)
-                )
-            }
+    } else {
+        uiState.series?.let { series ->
+            VideoDetailContent(
+                series = series,
+                actors = uiState.actors,
+                onBackClick = onBackClick,
+                onPlayClick = { series.episodes?.firstOrNull()?.let { onPlayClick(it.id) } }
+            )
         }
     }
 }
@@ -96,52 +74,72 @@ fun VideoDetailScreen(
 private fun VideoDetailContent(
     series: SeriesDTO,
     actors: List<VideoActor>,
-    onPlayClick: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    onBackClick: () -> Unit,
+    onPlayClick: () -> Unit
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize()
-    ) {
-        // Hero Area
-        item {
-            HeroSection(
-                series = series,
-                onPlayClick = { series.episodes?.firstOrNull()?.let { onPlayClick(it.id) } }
-            )
-        }
-
-        // Video Info
-        item {
-            VideoInfoSection(series = series)
-        }
-
-        // Actors Section
-        if (actors.isNotEmpty()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Hero Area with Back Button
             item {
-                Spacer(modifier = Modifier.height(Dimens.spacingXl))
-                SectionHeader(title = stringResource(R.string.actors))
-            }
-            item {
-                ActorsRow(actors = actors)
-            }
-        }
-
-        // Episodes Section
-        if (!series.episodes.isNullOrEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(Dimens.spacingXl))
-                SectionHeader(title = stringResource(R.string.episodes))
-            }
-            items(series.episodes) { episode ->
-                EpisodeCard(
-                    episode = episode,
-                    onClick = { onPlayClick(episode.id) }
+                HeroSection(
+                    series = series,
+                    onPlayClick = onPlayClick
                 )
             }
+
+            // Video Info
+            item {
+                VideoInfoSection(series = series)
+            }
+
+            // Actors Section
+            if (actors.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(Dimens.spacingXl))
+                    SectionHeader(title = stringResource(R.string.actors))
+                }
+                item {
+                    ActorsRow(actors = actors)
+                }
+            }
+
+            // Episodes Section
+            if (!series.episodes.isNullOrEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(Dimens.spacingXl))
+                    SectionHeader(title = stringResource(R.string.episodes))
+                }
+                items(series.episodes) { episode ->
+                    EpisodeCard(
+                        episode = episode,
+                        onClick = { onPlayClick() }
+                    )
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(Dimens.spacingXxl))
+            }
         }
 
-        item {
-            Spacer(modifier = Modifier.height(Dimens.spacingXxl))
+        // Floating Back Button
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .padding(Dimens.spacingMd)
+                .align(Alignment.TopStart)
+                .background(
+                    color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                    shape = CircleShape
+                )
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = stringResource(R.string.back),
+                tint = Color.White
+            )
         }
     }
 }
@@ -154,7 +152,7 @@ private fun HeroSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp)
+            .height(320.dp)
     ) {
         if (series.fanartUrl != null) {
             AsyncImage(
@@ -178,7 +176,11 @@ private fun HeroSection(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f))
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.3f),
+                            Color.Black.copy(alpha = 0.8f)
+                        )
                     )
                 )
         )
@@ -209,21 +211,41 @@ private fun HeroSection(
                 }
             }
 
-            Spacer(modifier = Modifier.height(Dimens.spacingSm))
+            Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-            Button(
-                onClick = onPlayClick,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(Dimens.spacingSm))
-                Text(stringResource(R.string.play))
+                Button(
+                    onClick = onPlayClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                    Text(stringResource(R.string.play))
+                }
+
+                // Rating badge
+                series.rating?.let { rating ->
+                    Surface(
+                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = String.format("%.1f", rating),
+                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
     }
@@ -234,19 +256,11 @@ private fun VideoInfoSection(series: SeriesDTO) {
     Column(
         modifier = Modifier.padding(Dimens.spacingLg)
     ) {
-        // Rating and metadata row
+        // Metadata row
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Dimens.spacingLg)
         ) {
-            series.rating?.let { rating ->
-                Text(
-                    text = String.format("%.1f", rating),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
             series.year?.let { year ->
                 Text(
                     text = year.toString(),
@@ -258,6 +272,14 @@ private fun VideoInfoSection(series: SeriesDTO) {
             series.episodeCount?.let { count ->
                 Text(
                     text = "$count ${stringResource(R.string.episodes)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            series.episodes?.firstOrNull()?.durationMinutes?.let { duration ->
+                Text(
+                    text = "${duration} ${stringResource(R.string.minutes)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
