@@ -29,11 +29,7 @@ object PlayerFactory {
     fun create(type: PlayerType): VideoPlayer {
         return when (type) {
             PlayerType.EXOPLAYER -> ExoPlayerImpl()
-            PlayerType.MPV -> {
-                // MPV will be implemented later
-                // Fallback to ExoPlayer for now
-                ExoPlayerImpl()
-            }
+            PlayerType.MPV -> MpvImpl()
         }
     }
 }

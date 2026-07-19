@@ -24,6 +24,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
+import com.fryfrog.hub.player.MpvImpl
 import com.fryfrog.hub.player.PlayerFactory
 import com.fryfrog.hub.player.PlayerType
 import com.fryfrog.hub.player.VideoPlayer
@@ -61,6 +62,7 @@ class PlayerViewModel(
         videoPlayer = player
         player.initialize(surfaceView.context, surfaceView)
 
+        // Handle ExoPlayer listener
         player.player?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
@@ -92,8 +94,18 @@ class PlayerViewModel(
             }
         })
 
+        // Handle MPV listener
+        if (player is MpvImpl) {
+            player.setListener(object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
+                }
+            })
+        }
+
         val streamUrl = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
         player.play(streamUrl)
+        _uiState.value = _uiState.value.copy(isLoading = false)
     }
 
     fun togglePlayPause() {
@@ -270,7 +282,7 @@ fun PlayerScreen(
                     ) {
                         Icon(
                             imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (uiState.isPlaying) "Pause" else "Play",
+                            contentDescription = if (uiState.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
                             tint = Color.White,
                             modifier = Modifier.size(36.dp)
                         )
