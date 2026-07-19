@@ -149,15 +149,8 @@ private fun MainContent(navController: androidx.navigation.NavHostController) {
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
                     onPlayClick = { videoId ->
-                        val context = navController.context
-                        val prefs = PrefsManager(context)
-                        if (prefs.playerType == PrefsManager.PLAYER_MPV) {
-                            // Launch external mpv player
-                            ExternalPlayerHelper.launchMpv(context, videoId, viewModel.uiState.value.series?.title ?: "")
-                        } else {
-                            // Use built-in ExoPlayer
-                            navController.navigate("player/$videoId/${viewModel.uiState.value.series?.title ?: ""}")
-                        }
+                        // Use built-in player (ExoPlayer or MPV)
+                        navController.navigate("player/$videoId/${viewModel.uiState.value.series?.title ?: ""}")
                     }
                 )
             }

@@ -84,8 +84,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.5.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.5.0")
 
-    // MPV Player - TODO: 需要手动集成 mpv-android AAR
-    // implementation("is.xyz.mpv:mpv-lib:0.39.0")
+    // MPV Player (libmpv)
+    implementation("dev.jdtech.mpv:libmpv:0.4.1")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

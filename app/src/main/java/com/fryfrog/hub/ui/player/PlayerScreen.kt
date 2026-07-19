@@ -94,15 +94,6 @@ class PlayerViewModel(
             }
         })
 
-        // Handle MPV listener
-        if (player is MpvImpl) {
-            player.setListener(object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
-                }
-            })
-        }
-
         val streamUrl = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
         player.play(streamUrl)
         _uiState.value = _uiState.value.copy(isLoading = false)

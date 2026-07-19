@@ -31,9 +31,8 @@ object PlayerFactory {
         return when (type) {
             PlayerType.EXOPLAYER -> ExoPlayerImpl()
             PlayerType.MPV -> {
-                Log.w("PlayerFactory", "MPV player not fully integrated. Using ExoPlayer as fallback.")
-                // TODO: When mpv-android is properly integrated, return MpvImpl()
-                ExoPlayerImpl()
+                Log.d("PlayerFactory", "Creating MPV player")
+                MpvImpl()
             }
         }
     }
