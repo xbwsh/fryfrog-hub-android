@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spacing -->
+    <dimen name="spacing_xxs">2dp</dimen>
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">12dp</dimen>
+    <dimen name="spacing_lg">16dp</dimen>
+    <dimen name="spacing_xl">24dp</dimen>
+    <dimen name="spacing_xxl">32dp</dimen>
+
+    <!-- Corner Radius -->
+    <dimen name="radius_sm">4dp</dimen>
+    <dimen name="radius_md">8dp</dimen>
+    <dimen name="radius_lg">12dp</dimen>
+    <dimen name="radius_xl">16dp</dimen>
+    <dimen name="radius_full">999dp</dimen>
+
+    <!-- Media Card -->
+    <dimen name="card_media_width">140dp</dimen>
+    <dimen name="card_media_width_tablet">180dp</dimen>
+    <dimen name="card_media_ratio">0.7f</dimen>
+
+    <!-- Wide Media Card -->
+    <dimen name="card_wide_width">260dp</dimen>
+    <dimen name="card_wide_width_tablet">320dp</dimen>
+    <dimen name="card_wide_height">150dp</dimen>
+    <dimen name="card_wide_height_tablet">180dp</dimen>
+
+    <!-- Top App Bar -->
+    <dimen name="topbar_height">56dp</dimen>
+
+    <!-- Page Padding -->
+    <dimen name="page_horizontal_padding">16dp</dimen>
+    <dimen name="page_vertical_padding">8dp</dimen>
+
+    <!-- Text Max Lines -->
+    <integer name="text_max_lines_single">1</integer>
+    <integer name="text_max_lines_double">2</integer>
+    <integer name="text_max_lines_triple">3</integer>
+</resources>

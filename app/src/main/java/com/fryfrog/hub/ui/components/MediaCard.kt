@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
+import com.fryfrog.hub.ui.theme.Dimens
 
 @Composable
 fun MediaCard(
@@ -29,9 +30,13 @@ fun MediaCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    val cardWidth = if (isTablet) Dimens.cardMediaWidthTablet else Dimens.cardMediaWidth
+
     Column(
         modifier = modifier
-            .width(140.dp)
+            .width(cardWidth)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -39,7 +44,7 @@ fun MediaCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(Dimens.radiusMd))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             if (coverUrl != null) {
@@ -63,7 +68,7 @@ fun MediaCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Dimens.spacingSm))
 
         Text(
             text = title,
@@ -95,7 +100,7 @@ fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Dimens.pageHorizontalPadding, vertical = Dimens.pageVerticalPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -126,14 +131,14 @@ fun WideMediaCard(
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
-    val cardWidth = if (isTablet) 320.dp else 260.dp
-    val cardHeight = if (isTablet) 180.dp else 150.dp
+    val cardWidth = if (isTablet) Dimens.cardWideWidthTablet else Dimens.cardWideWidth
+    val cardHeight = if (isTablet) Dimens.cardWideHeightTablet else Dimens.cardWideHeight
 
     Box(
         modifier = modifier
             .width(cardWidth)
             .height(cardHeight)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(Dimens.radiusLg))
             .clickable(onClick = onClick)
     ) {
         if (coverUrl != null) {
@@ -151,7 +156,6 @@ fun WideMediaCard(
             )
         }
 
-        // Gradient overlay at bottom
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -165,7 +169,7 @@ fun WideMediaCard(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(16.dp)
+                .padding(Dimens.spacingLg)
         ) {
             Text(
                 text = title,

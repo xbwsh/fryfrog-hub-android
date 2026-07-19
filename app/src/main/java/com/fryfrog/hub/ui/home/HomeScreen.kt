@@ -13,12 +13,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fryfrog.hub.R
 import com.fryfrog.hub.ui.components.MediaCard
 import com.fryfrog.hub.ui.components.SectionHeader
 import com.fryfrog.hub.ui.components.WideMediaCard
+import com.fryfrog.hub.ui.theme.Dimens
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +90,7 @@ private fun HomeContent(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
+        contentPadding = PaddingValues(bottom = Dimens.spacingLg)
     ) {
         if (uiState.videoSeries.isNotEmpty()) {
             item {
@@ -98,8 +98,8 @@ private fun HomeContent(
             }
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                 ) {
                     items(uiState.videoSeries) { series ->
                         MediaCard(
@@ -115,13 +115,13 @@ private fun HomeContent(
 
         if (uiState.videoSeries.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingLg))
                 SectionHeader(title = stringResource(R.string.section_continue_watching))
             }
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                 ) {
                     items(uiState.videoSeries) { series ->
                         WideMediaCard(
@@ -137,13 +137,13 @@ private fun HomeContent(
 
         if (uiState.musicAlbums.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingXl))
                 SectionHeader(title = stringResource(R.string.section_music))
             }
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                 ) {
                     items(uiState.musicAlbums) { album ->
                         MediaCard(
@@ -159,13 +159,13 @@ private fun HomeContent(
 
         if (uiState.comicSeries.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingXl))
                 SectionHeader(title = stringResource(R.string.section_comics))
             }
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                 ) {
                     items(uiState.comicSeries) { series ->
                         MediaCard(
@@ -181,13 +181,13 @@ private fun HomeContent(
 
         if (uiState.ebookSeries.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Dimens.spacingXl))
                 SectionHeader(title = stringResource(R.string.section_ebooks))
             }
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                 ) {
                     items(uiState.ebookSeries) { series ->
                         MediaCard(
@@ -220,7 +220,7 @@ private fun ErrorContent(
             color = MaterialTheme.colorScheme.error
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(Dimens.spacingSm))
 
         Text(
             text = message,
@@ -228,7 +228,7 @@ private fun ErrorContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Dimens.spacingLg))
 
         Button(onClick = onRetry) {
             Text(stringResource(R.string.retry))
