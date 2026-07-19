@@ -16,11 +16,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.remote.ApiClient
+import com.fryfrog.hub.data.remote.FryfrogApi
 import com.fryfrog.hub.util.PrefsManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 data class LoginUiState(
     val serverUrl: String = "http://192.168.31.127:20058",
@@ -55,11 +61,25 @@ class LoginViewModel : ViewModel() {
 
             try {
                 val baseUrl = state.serverUrl.trimEnd('/')
-                val api = ApiClient.getApi()
 
-                // Temporarily create API with new server URL
-                ApiClient.updateServer(baseUrl, null)
-                val tempApi = ApiClient.getApi()
+                // Create a temporary API client for login
+                val loggingInterceptor = HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                }
+
+                val okHttpClient = OkHttpClient.Builder()
+                    .addInterceptor(loggingInterceptor)
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .build()
+
+                val tempRetrofit = Retrofit.Builder()
+                    .baseUrl("$baseUrl/")
+                    .client(okHttpClient)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+
+                val tempApi = tempRetrofit.create(FryfrogApi::class.java)
 
                 val response = tempApi.login(mapOf("password" to state.password))
 
