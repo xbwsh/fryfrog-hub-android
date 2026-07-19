@@ -85,7 +85,7 @@ class LoginViewModel : ViewModel() {
                 val response = tempApi.login(mapOf("password" to state.password))
 
                 if (response.success) {
-                    val token = response.token ?: response.data?.get("token") ?: ""
+                    val token = response.token ?: ""
 
                     // Save credentials
                     val context = com.fryfrog.hub.FryfrogHubApplication.instance
