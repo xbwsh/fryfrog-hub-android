@@ -6,56 +6,72 @@ import com.fryfrog.hub.data.remote.ApiClient
 class MediaRepository {
 
     private val api get() = ApiClient.getApi()
+    private val baseUrl get() = ApiClient.getBaseUrl()
+
+    private fun fixUrl(url: String?): String? {
+        if (url == null) return null
+        if (url.startsWith("http")) return url
+        return "$baseUrl$url"
+    }
 
     // Video
     suspend fun getVideoSeries(): Result<List<SeriesDTO>> = safeApiCall {
-        api.getVideoSeries().data?.content ?: emptyList()
+        api.getVideoSeries().data?.content?.map { it.copy(
+            coverUrl = fixUrl(it.coverUrl),
+            fanartUrl = fixUrl(it.fanartUrl)
+        ) } ?: emptyList()
     }
 
     suspend fun getVideoFavorites(): Result<List<SeriesDTO>> = safeApiCall {
-        api.getVideoFavorites().data ?: emptyList()
+        api.getVideoFavorites().data?.map { it.copy(
+            coverUrl = fixUrl(it.coverUrl),
+            fanartUrl = fixUrl(it.fanartUrl)
+        ) } ?: emptyList()
     }
 
     // Music
     suspend fun getMusicByAlbum(): Result<List<AlbumGroup>> = safeApiCall {
-        api.getMusicByAlbum().data?.content ?: emptyList()
+        api.getMusicByAlbum().data?.content?.map { album ->
+            album.copy(
+                coverUrl = fixUrl(album.coverUrl),
+                tracks = album.tracks?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
+            )
+        } ?: emptyList()
     }
 
     suspend fun getRecentlyAddedMusic(): Result<List<MusicTrack>> = safeApiCall {
-        api.getRecentlyAddedMusic().data ?: emptyList()
+        api.getRecentlyAddedMusic().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     suspend fun getMusicFavorites(): Result<List<MusicTrack>> = safeApiCall {
-        api.getMusicFavorites().data ?: emptyList()
+        api.getMusicFavorites().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     // Comic
     suspend fun getComicSeries(): Result<List<ComicSeries>> = safeApiCall {
-        api.getComicSeries().data?.content ?: emptyList()
+        api.getComicSeries().data?.content?.map { it.copy(
+            coverUrl = fixUrl(it.coverUrl)
+        ) } ?: emptyList()
     }
 
     suspend fun getComicFavorites(): Result<List<ComicDTO>> = safeApiCall {
-        api.getComicFavorites().data ?: emptyList()
+        api.getComicFavorites().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     // Ebook
     suspend fun getEbookSeries(): Result<List<EbookSeries>> = safeApiCall {
-        api.getEbookSeries().data?.content ?: emptyList()
+        api.getEbookSeries().data?.content?.map { it.copy(
+            coverUrl = fixUrl(it.coverUrl)
+        ) } ?: emptyList()
     }
 
     suspend fun getRecentlyAddedEbooks(): Result<List<EbookDTO>> = safeApiCall {
-        api.getRecentlyAddedEbooks().data ?: emptyList()
+        api.getRecentlyAddedEbooks().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     suspend fun getEbookFavorites(): Result<List<EbookDTO>> = safeApiCall {
-        api.getEbookFavorites().data ?: emptyList()
+        api.getEbookFavorites().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
-
-    // Cover URL helper
-    fun getVideoCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/video/$id/cover"
-    fun getMusicCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/music/$id/cover"
-    fun getComicCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/comic/$id/cover"
-    fun getEbookCoverUrl(id: Long): String = "${ApiClient.getBaseUrl()}/api/v1/ebook/$id/cover"
 
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {
         return try {
