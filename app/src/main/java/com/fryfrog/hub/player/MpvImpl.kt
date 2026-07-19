@@ -9,7 +9,7 @@ import dev.jdtech.mpv.MPVLib
 
 class MpvImpl : VideoPlayer {
 
-    private var mpv: MPVLib? = null
+    private var mpvInstance: MPVLib? = null
     private var _context: Context? = null
     private var _surfaceView: SurfaceView? = null
     private var currentUrl: String? = null
@@ -35,13 +35,9 @@ class MpvImpl : VideoPlayer {
         }
         override fun eventProperty(property: String, value: String) {}
         override fun event(eventId: Int) {
-            // Event IDs from mpv:
-            // 6 = MPV_EVENT_START_FILE
-            // 7 = MPV_EVENT_END_FILE
-            // 8 = MPV_EVENT_FILE_LOADED
             when (eventId) {
-                8 -> Log.d("MpvImpl", "File loaded")
-                7 -> {
+                MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> Log.d("MpvImpl", "File loaded")
+                MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
                     isPlaying = false
                     Log.d("MpvImpl", "Playback ended")
                 }
@@ -54,20 +50,23 @@ class MpvImpl : VideoPlayer {
         _surfaceView = surfaceView
 
         try {
-            mpv = MPVLib.create(context)
-            mpv?.let { mpv ->
-                mpv.init()
-                mpv.addObserver(eventObserver)
+            val instance = MPVLib.create(context)
+            if (instance != null) {
+                mpvInstance = instance
+                instance.init()
+                instance.addObserver(eventObserver)
 
                 // Observe properties
-                mpv.observeProperty("time-pos", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
-                mpv.observeProperty("duration", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
-                mpv.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
+                instance.observeProperty("time-pos", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
+                instance.observeProperty("duration", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
+                instance.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
 
                 // Set options
-                mpv.setOptionString("keep-open", "yes")
+                instance.setOptionString("keep-open", "yes")
 
                 Log.d("MpvImpl", "MPV initialized successfully")
+            } else {
+                Log.e("MpvImpl", "Failed to create MPV instance")
             }
         } catch (e: Exception) {
             Log.e("MpvImpl", "Failed to initialize MPV", e)
@@ -75,22 +74,22 @@ class MpvImpl : VideoPlayer {
 
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
-                mpv?.attachSurface(holder.surface)
+                mpvInstance?.attachSurface(holder.surface)
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                mpv?.attachSurface(holder.surface)
+                mpvInstance?.attachSurface(holder.surface)
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
-                mpv?.detachSurface()
+                mpvInstance?.detachSurface()
             }
         })
     }
 
     override fun play(url: String) {
         currentUrl = url
-        mpv?.let { mpv ->
+        mpvInstance?.let { mpv ->
             mpv.command(arrayOf("loadfile", url))
             isPlaying = true
             Log.d("MpvImpl", "Playing: $url")
@@ -98,17 +97,17 @@ class MpvImpl : VideoPlayer {
     }
 
     override fun pause() {
-        mpv?.setPropertyBoolean("pause", true)
+        mpvInstance?.setPropertyBoolean("pause", true)
         isPlaying = false
     }
 
     override fun resume() {
-        mpv?.setPropertyBoolean("pause", false)
+        mpvInstance?.setPropertyBoolean("pause", false)
         isPlaying = true
     }
 
     override fun seekTo(position: Long) {
-        mpv?.let { mpv ->
+        mpvInstance?.let { mpv ->
             val seconds = position / 1000.0
             mpv.command(arrayOf("seek", seconds.toString(), "absolute"))
             currentPosition = position
@@ -116,17 +115,17 @@ class MpvImpl : VideoPlayer {
     }
 
     override fun release() {
-        mpv?.let { mpv ->
+        mpvInstance?.let { mpv ->
             mpv.removeObserver(eventObserver)
             mpv.destroy()
         }
-        mpv = null
+        mpvInstance = null
         _context = null
         _surfaceView = null
     }
 
     override fun setVolume(volume: Float) {
-        mpv?.setPropertyDouble("volume", (volume * 100).toDouble())
+        mpvInstance?.setPropertyDouble("volume", (volume * 100).toDouble())
     }
 
     override fun isPlaying(): Boolean {
