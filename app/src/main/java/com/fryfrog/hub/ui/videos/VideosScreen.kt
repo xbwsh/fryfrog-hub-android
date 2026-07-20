@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,7 +31,7 @@ import com.fryfrog.hub.ui.theme.Dimens
 @Composable
 fun VideosScreen(
     viewModel: VideosViewModel = viewModel(),
-    onVideoClick: (Long) -> Unit = {}
+    onVideoClick: (Long, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -49,7 +50,7 @@ fun VideosScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         }
@@ -82,20 +83,20 @@ fun VideosScreen(
 @Composable
 private fun VideosGrid(
     series: List<SeriesDTO>,
-    onVideoClick: (Long) -> Unit,
+    onVideoClick: (Long, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 140.dp),
+        columns = GridCells.Adaptive(minSize = 110.dp),
         contentPadding = PaddingValues(Dimens.spacingLg),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd),
         verticalArrangement = Arrangement.spacedBy(Dimens.spacingLg),
         modifier = modifier.fillMaxSize()
     ) {
-        items(series, key = { it.id }) { item ->
+        items(series, key = { "${it.id}_${it.type}" }) { item ->
             VideoCard(
                 series = item,
-                onClick = { onVideoClick(item.id) }
+                onClick = { onVideoClick(item.id, item.type ?: "series") }
             )
         }
     }
@@ -143,14 +144,37 @@ private fun VideoCard(
                     modifier = Modifier
                         .padding(Dimens.spacingSm)
                         .align(Alignment.TopEnd),
-                    color = MaterialTheme.colorScheme.error,
+                    color = Color(0xFFFF4D4F),
                     shape = RoundedCornerShape(Dimens.radiusSm)
                 ) {
                     Text(
-                        text = "18+",
+                        text = "R-18",
                         modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onError
+                        color = Color.White
+                    )
+                }
+            }
+
+            // 类型标签
+            val typeLabel = when (series.mediaType) {
+                "movie" -> "电影"
+                "tv" -> "剧集"
+                else -> null
+            }
+            typeLabel?.let { label ->
+                Surface(
+                    modifier = Modifier
+                        .padding(Dimens.spacingSm)
+                        .align(Alignment.TopStart),
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(Dimens.radiusSm)
+                ) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
                     )
                 }
             }

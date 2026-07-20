@@ -2,6 +2,7 @@ package com.fryfrog.hub.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.ChromeReaderMode
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Settings
@@ -37,6 +38,12 @@ sealed class Screen(
         icon = Icons.Default.Book
     )
 
+    data object Ebooks : Screen(
+        route = "ebooks",
+        titleResId = com.fryfrog.hub.R.string.section_ebooks,
+        icon = Icons.Default.ChromeReaderMode
+    )
+
     data object Settings : Screen(
         route = "settings",
         titleResId = com.fryfrog.hub.R.string.section_settings,
@@ -49,5 +56,6 @@ val bottomNavScreens = listOf(
     Screen.Videos,
     Screen.Music,
     Screen.Comics,
+    Screen.Ebooks,
     Screen.Settings
 )

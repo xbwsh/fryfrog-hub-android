@@ -18,7 +18,8 @@ data class VideoDetailUiState(
 )
 
 class VideoDetailViewModel(
-    private val seriesId: Long
+    private val seriesId: Long,
+    private val type: String? = null
 ) : ViewModel() {
 
     private val repository = MediaRepository()
@@ -27,7 +28,7 @@ class VideoDetailViewModel(
     val uiState: StateFlow<VideoDetailUiState> = _uiState.asStateFlow()
 
     init {
-        android.util.Log.d("VideoDetailVM", "Loading series ID: $seriesId")
+        android.util.Log.d("VideoDetailVM", "Loading series ID: $seriesId type: $type")
         loadVideoDetail()
     }
 
@@ -35,7 +36,7 @@ class VideoDetailViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
-            val seriesResult = repository.getVideoSeriesDetail(seriesId)
+            val seriesResult = repository.getVideoSeriesDetail(seriesId, type)
             val actorsResult = repository.getVideoActors(seriesId)
 
             android.util.Log.d("VideoDetailVM", "Series result: ${seriesResult.isSuccess}, Actors result: ${actorsResult.isSuccess}")

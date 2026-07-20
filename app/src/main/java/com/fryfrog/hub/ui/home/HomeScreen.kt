@@ -24,7 +24,7 @@ import com.fryfrog.hub.ui.theme.Dimens
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
-    onVideoClick: (Long) -> Unit = {},
+    onVideoClick: (Long, String) -> Unit = { _, _ -> },
     onMusicClick: (Long) -> Unit = {},
     onComicClick: (Long) -> Unit = {},
     onEbookClick: (Long) -> Unit = {}
@@ -46,7 +46,7 @@ fun HomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         }
@@ -82,7 +82,7 @@ fun HomeScreen(
 @Composable
 private fun HomeContent(
     uiState: HomeUiState,
-    onVideoClick: (Long) -> Unit,
+    onVideoClick: (Long, String) -> Unit,
     onMusicClick: (Long) -> Unit,
     onComicClick: (Long) -> Unit,
     onEbookClick: (Long) -> Unit,
@@ -108,7 +108,7 @@ private fun HomeContent(
                             title = series.title,
                             subtitle = series.year?.toString(),
                             coverUrl = series.coverUrl,
-                            onClick = { onVideoClick(series.id) }
+                            onClick = { onVideoClick(series.id, series.type ?: "series") }
                         )
                     }
                 }
@@ -130,7 +130,7 @@ private fun HomeContent(
                             title = series.title,
                             subtitle = series.overview?.take(50),
                             coverUrl = series.fanartUrl ?: series.coverUrl,
-                            onClick = { onVideoClick(series.id) }
+                            onClick = { onVideoClick(series.id, series.type ?: "series") }
                         )
                     }
                 }

@@ -54,4 +54,22 @@
     <string name="file_size">File Size</string>
     <string name="format">Format</string>
     <string name="file_name">File Name</string>
+
+    <!-- Settings -->
+    <string name="theme_mode">Theme Mode</string>
+    <string name="dark_theme">Dark Theme</string>
+    <string name="light_theme">Light Theme</string>
+
+    <!-- Music -->
+    <string name="section_albums">Albums</string>
+    <string name="section_recently_added">Recently Added</string>
+    <string name="tracks">tracks</string>
+
+    <!-- Comic & Ebook -->
+    <string name="comic_volumes">Volumes</string>
+    <string name="ebook_volumes">Books</string>
+    <string name="volumes">Volumes</string>
+    <string name="ebook_count">Books</string>
+    <string name="start_date">Start Date</string>
+    <string name="characters">Characters</string>
 </resources>

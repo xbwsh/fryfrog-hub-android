@@ -4,6 +4,7 @@ import android.content.Context
 import com.fryfrog.hub.util.PrefsManager
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -14,12 +15,17 @@ object ApiClient {
     private var retrofit: Retrofit? = null
     private var api: FryfrogApi? = null
     private var currentServerUrl: String? = null
+    private var currentToken: String? = null
+    private var context: Context? = null
+
+    var onUnauthorized: (() -> Unit)? = null
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
 
     fun init(context: Context) {
+        this.context = context.applicationContext
         val prefs = PrefsManager(context)
         createRetrofit(prefs.serverUrl, prefs.authToken)
     }
@@ -29,7 +35,8 @@ object ApiClient {
     }
 
     private fun createRetrofit(serverUrl: String, token: String?) {
-        if (serverUrl == currentServerUrl && api != null) return
+        if (serverUrl == currentServerUrl && token == currentToken && api != null) return
+        currentToken = token
 
         val authInterceptor = Interceptor { chain ->
             val request = chain.request().newBuilder().apply {
@@ -38,7 +45,16 @@ object ApiClient {
                     addHeader("Authorization", "Bearer $it")
                 }
             }.build()
-            chain.proceed(request)
+            val response = chain.proceed(request)
+
+            if (response.code == 401) {
+                context?.let { ctx ->
+                    PrefsManager(ctx).clearLogin()
+                }
+                onUnauthorized?.invoke()
+            }
+
+            response
         }
 
         val okHttpClient = OkHttpClient.Builder()

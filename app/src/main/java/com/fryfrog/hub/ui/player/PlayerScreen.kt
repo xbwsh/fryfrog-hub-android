@@ -1,7 +1,12 @@
 package com.fryfrog.hub.ui.player
 
+import android.app.Activity
+import android.content.Context
+import android.content.pm.ActivityInfo
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -13,122 +18,102 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
-import com.fryfrog.hub.player.PlayerFactory
-import com.fryfrog.hub.player.VideoPlayer
-import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.player.VlcPlayer
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
-data class PlayerUiState(
-    val isLoading: Boolean = true,
-    val isPlaying: Boolean = false,
-    val currentPosition: Long = 0L,
-    val duration: Long = 0L,
-    val title: String = "",
-    val error: String? = null
-)
+class PlayerViewModel(private val videoId: Long) : ViewModel() {
 
-@OptIn(UnstableApi::class)
-class PlayerViewModel(
-    private val videoId: Long,
-    private val title: String
-) : ViewModel() {
+    private var player: VlcPlayer? = null
+    private var _isPlaying = mutableStateOf(false)
+    private var _isLoading = mutableStateOf(true)
+    private var _currentPos = mutableStateOf(0L)
+    private var _totalDuration = mutableStateOf(0L)
+    private var hasStartedPlayback = false
 
-    private val _uiState = MutableStateFlow(PlayerUiState(title = title))
-    val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+    val isPlaying: Boolean by _isPlaying
+    val isLoading: Boolean by _isLoading
+    val currentPos: Long by _currentPos
+    val totalDuration: Long by _totalDuration
 
-    private var videoPlayer: VideoPlayer? = null
-
-    fun initializePlayer(surfaceView: SurfaceView) {
-        val player = PlayerFactory.create()
-        videoPlayer = player
-        player.initialize(surfaceView.context, surfaceView)
-
-        player.player?.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                when (playbackState) {
-                    Player.STATE_READY -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            duration = player.getDuration()
-                        )
+    fun init(context: Context) {
+        if (player == null) {
+            hasStartedPlayback = false
+            player = VlcPlayer(context).apply {
+                setOnEventListener { eventType ->
+                    when (eventType) {
+                        VlcPlayer.EVENT_PLAYING -> {
+                            _isPlaying.value = true
+                            _isLoading.value = false
+                        }
+                        VlcPlayer.EVENT_PAUSED -> _isPlaying.value = false
+                        VlcPlayer.EVENT_END_REACHED -> {
+                            _isPlaying.value = false
+                            _isLoading.value = false
+                        }
+                        VlcPlayer.EVENT_BUFFERING -> _isLoading.value = true
+                        VlcPlayer.EVENT_ERROR -> _isLoading.value = false
                     }
-                    Player.STATE_ENDED -> {
-                        _uiState.value = _uiState.value.copy(isPlaying = false)
-                    }
-                    Player.STATE_BUFFERING -> {
-                        _uiState.value = _uiState.value.copy(isLoading = true)
-                    }
-                    Player.STATE_IDLE -> {}
                 }
-            }
-
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = error.message
-                )
-            }
-        })
-
-        val streamUrl = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
-        player.play(streamUrl)
-        _uiState.value = _uiState.value.copy(isLoading = false)
-    }
-
-    fun togglePlayPause() {
-        videoPlayer?.let { player ->
-            if (player.isPlaying()) {
-                player.pause()
-            } else {
-                player.resume()
             }
         }
     }
 
-    fun seekTo(position: Long) {
-        videoPlayer?.seekTo(position)
+    fun attachSurface(surfaceView: SurfaceView) {
+        surfaceView.post {
+            val w = surfaceView.width
+            val h = surfaceView.height
+            if (w > 0 && h > 0) {
+                player?.attachSurface(surfaceView, w, h)
+            }
+        }
     }
 
-    fun updateProgress() {
-        videoPlayer?.let { player ->
-            _uiState.value = _uiState.value.copy(
-                currentPosition = player.getCurrentPosition(),
-                duration = player.getDuration()
-            )
+    fun startPlaybackIfNeeded() {
+        if (!hasStartedPlayback) {
+            hasStartedPlayback = true
+            val url = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
+            player?.open(url)
+        }
+    }
+
+    fun detachSurface() {
+        player?.detachSurface()
+    }
+
+    fun togglePlayPause() {
+        player?.togglePlayPause()
+    }
+
+    fun seekTo(ms: Long) {
+        player?.seekTo(ms)
+    }
+
+    fun tick() {
+        player?.let {
+            _currentPos.value = it.getPosition()
+            _totalDuration.value = it.getDuration()
         }
     }
 
     fun release() {
-        videoPlayer?.release()
-        videoPlayer = null
+        player?.release()
+        player = null
     }
 }
 
-class PlayerViewModelFactory(
-    private val videoId: Long,
-    private val title: String
-) : ViewModelProvider.Factory {
+class PlayerVMFactory(private val videoId: Long) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return PlayerViewModel(videoId, title) as T
-    }
+    override fun <T : ViewModel> create(modelClass: Class<T>): T = PlayerViewModel(videoId) as T
 }
 
 @Composable
@@ -137,21 +122,41 @@ fun PlayerScreen(
     title: String,
     onBackClick: () -> Unit
 ) {
-    val viewModel: PlayerViewModel = viewModel(
-        factory = PlayerViewModelFactory(videoId, title)
-    )
-    val uiState by viewModel.uiState.collectAsState()
+    val vm: PlayerViewModel = viewModel(factory = PlayerVMFactory(videoId))
+    val activity = LocalContext.current as Activity
+    var showControls by remember { mutableStateOf(true) }
 
     DisposableEffect(Unit) {
+        val orig = activity.requestedOrientation
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        val window = activity.window
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val ctrl = WindowInsetsControllerCompat(window, window.decorView)
+        ctrl.hide(WindowInsetsCompat.Type.systemBars())
+        ctrl.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        vm.init(activity)
+
         onDispose {
-            viewModel.release()
+            ctrl.show(WindowInsetsCompat.Type.systemBars())
+            WindowCompat.setDecorFitsSystemWindows(window, true)
+            activity.requestedOrientation = orig
+            vm.release()
         }
     }
 
-    LaunchedEffect(uiState.isPlaying) {
-        while (uiState.isPlaying) {
-            viewModel.updateProgress()
+    // 进度更新
+    LaunchedEffect(vm.isPlaying) {
+        while (vm.isPlaying) {
+            vm.tick()
             delay(500)
+        }
+    }
+
+    // 控件自动隐藏
+    LaunchedEffect(showControls, vm.isPlaying) {
+        if (showControls && vm.isPlaying) {
+            delay(3000)
+            showControls = false
         }
     }
 
@@ -159,130 +164,115 @@ fun PlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .clickable { showControls = !showControls }
     ) {
+        // 视频 Surface
         AndroidView(
             factory = { ctx ->
                 SurfaceView(ctx).apply {
-                    viewModel.initializePlayer(this)
+                    holder.addCallback(object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) {
+                            vm.init(ctx)
+                            vm.attachSurface(this@apply)
+                            vm.startPlaybackIfNeeded()
+                        }
+                        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                            vm.attachSurface(this@apply)
+                        }
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            vm.detachSurface()
+                        }
+                    })
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Row(
+        // 控件
+        if (showControls) {
+            // 顶栏
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.6f))
                     .statusBarsPadding()
-                    .padding(Dimens.spacingMd),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(16.dp)
             ) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.background(
-                        Color.Black.copy(alpha = Dimens.alphaOverlay),
-                        CircleShape
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = stringResource(R.string.back),
-                        tint = Color.White
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                 }
-
-                Spacer(modifier = Modifier.width(Dimens.spacingMd))
-
-                Text(
-                    text = uiState.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
-                )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
+            // 底栏
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Color.Black.copy(alpha = 0.6f))
                     .navigationBarsPadding()
-                    .padding(Dimens.spacingLg)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                if (uiState.duration > 0) {
+                if (vm.totalDuration > 0) {
                     Slider(
-                        value = uiState.currentPosition.toFloat(),
-                        valueRange = 0f..uiState.duration.toFloat(),
-                        onValueChange = { viewModel.seekTo(it.toLong()) },
+                        value = vm.currentPos.toFloat(),
+                        valueRange = 0f..vm.totalDuration.toFloat(),
+                        onValueChange = { vm.seekTo(it.toLong()) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = SliderDefaults.colors(
                             thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.3f)
                         )
                     )
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = formatTime(uiState.currentPosition),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White
-                        )
-                        Text(
-                            text = formatTime(uiState.duration),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White
-                        )
+                        Text(fmtTime(vm.currentPos), color = Color.White, style = MaterialTheme.typography.bodySmall)
+                        Text(fmtTime(vm.totalDuration), color = Color.White, style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(Dimens.spacingMd))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     IconButton(
-                        onClick = { viewModel.togglePlayPause() },
+                        onClick = { vm.togglePlayPause() },
                         modifier = Modifier
-                            .size(64.dp)
-                            .background(Color.White.copy(alpha = Dimens.alphaOverlay), CircleShape)
+                            .size(56.dp)
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape)
                     ) {
                         Icon(
-                            imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (uiState.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
+                            imageVector = if (vm.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
             }
         }
 
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = Color.White)
-            }
+        // 加载指示
+        if (vm.isLoading && vm.totalDuration == 0L) {
+            CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center))
         }
     }
 }
 
-private fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-
-    return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format("%02d:%02d", minutes, seconds)
-    }
+private fun fmtTime(ms: Long): String {
+    val s = ms / 1000
+    val h = s / 3600
+    val m = (s % 3600) / 60
+    val sec = s % 60
+    return if (h > 0) String.format("%d:%02d:%02d", h, m, sec) else String.format("%02d:%02d", m, sec)
 }

@@ -22,10 +22,10 @@ class MediaRepository {
         ) } ?: emptyList()
     }
 
-    suspend fun getVideoSeriesDetail(id: Long): Result<SeriesDTO> = safeApiCall {
+    suspend fun getVideoSeriesDetail(id: Long, type: String? = null): Result<SeriesDTO> = safeApiCall {
         val url = "$baseUrl/api/v1/video/series/$id"
-        android.util.Log.d("MediaRepository", "Fetching: $url")
-        api.getVideoSeriesDetail(id).data?.let { series ->
+        android.util.Log.d("MediaRepository", "Fetching: $url type=$type")
+        api.getVideoSeriesDetail(id, type).data?.let { series ->
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
                 fanartUrl = fixUrl(series.fanartUrl),
@@ -61,37 +61,51 @@ class MediaRepository {
     }
 
     suspend fun getRecentlyAddedMusic(): Result<List<MusicTrack>> = safeApiCall {
-        api.getRecentlyAddedMusic().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+        api.getRecentlyAddedMusic().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     suspend fun getMusicFavorites(): Result<List<MusicTrack>> = safeApiCall {
-        api.getMusicFavorites().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+        api.getMusicFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     // Comic
     suspend fun getComicSeries(): Result<List<ComicSeries>> = safeApiCall {
-        api.getComicSeries().data?.content?.map { it.copy(
-            coverUrl = fixUrl(it.coverUrl)
-        ) } ?: emptyList()
+        api.getComicSeries().data?.content?.map { series ->
+            series.copy(
+                coverUrl = fixUrl(series.coverUrl),
+                comics = series.comics?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
+            )
+        } ?: emptyList()
     }
 
     suspend fun getComicFavorites(): Result<List<ComicDTO>> = safeApiCall {
-        api.getComicFavorites().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+        api.getComicFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+    }
+
+    suspend fun getComicCharacters(comicId: Long): Result<List<MediaCharacter>> = safeApiCall {
+        api.getComicCharacters(comicId).data?.map { it.copy(imageUrl = fixUrl(it.imageUrl)) } ?: emptyList()
     }
 
     // Ebook
     suspend fun getEbookSeries(): Result<List<EbookSeries>> = safeApiCall {
-        api.getEbookSeries().data?.content?.map { it.copy(
-            coverUrl = fixUrl(it.coverUrl)
-        ) } ?: emptyList()
+        api.getEbookSeries().data?.content?.map { series ->
+            series.copy(
+                coverUrl = fixUrl(series.coverUrl),
+                books = series.books?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
+            )
+        } ?: emptyList()
     }
 
     suspend fun getRecentlyAddedEbooks(): Result<List<EbookDTO>> = safeApiCall {
-        api.getRecentlyAddedEbooks().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+        api.getRecentlyAddedEbooks().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
     suspend fun getEbookFavorites(): Result<List<EbookDTO>> = safeApiCall {
-        api.getEbookFavorites().data?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+        api.getEbookFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
+    }
+
+    suspend fun getEbookCharacters(ebookId: Long): Result<List<MediaCharacter>> = safeApiCall {
+        api.getEbookCharacters(ebookId).data?.map { it.copy(imageUrl = fixUrl(it.imageUrl)) } ?: emptyList()
     }
 
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {

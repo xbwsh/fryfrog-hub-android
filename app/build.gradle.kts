@@ -77,12 +77,8 @@ dependencies {
     // Gson
     implementation("com.google.code.gson:gson:2.11.0")
 
-    // Media3 ExoPlayer
-    implementation("androidx.media3:media3-exoplayer:1.5.0")
-    implementation("androidx.media3:media3-ui:1.5.0")
-    implementation("androidx.media3:media3-session:1.5.0")
-    implementation("androidx.media3:media3-exoplayer-hls:1.5.0")
-    implementation("androidx.media3:media3-datasource-okhttp:1.5.0")
+    // libVLC - ASS/SSA 字幕完整支持
+    implementation("org.videolan.android:libvlc-all:3.6.2")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

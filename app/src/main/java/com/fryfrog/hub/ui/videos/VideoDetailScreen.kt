@@ -1,5 +1,6 @@
 package com.fryfrog.hub.ui.videos
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -32,6 +33,9 @@ import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun VideoDetailScreen(
@@ -81,7 +85,7 @@ private fun VideoDetailContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Hero Area with Back Button
+            // Hero Area
             item {
                 HeroSection(
                     series = series,
@@ -92,13 +96,6 @@ private fun VideoDetailContent(
             // Video Info
             item {
                 VideoInfoSection(series = series)
-            }
-
-            // Media Info Section
-            item {
-                series.episodes?.firstOrNull()?.let { episode ->
-                    MediaInfoSection(episode = episode)
-                }
             }
 
             // Actors Section
@@ -112,42 +109,34 @@ private fun VideoDetailContent(
                 }
             }
 
-            // Episodes Section
+            // Episodes Section - 数字选集块
             if (!series.episodes.isNullOrEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
                     SectionHeader(title = stringResource(R.string.episodes))
                 }
-                items(series.episodes) { episode ->
-                    EpisodeCard(
-                        episode = episode,
-                        onClick = { onPlayClick() }
+                item {
+                    EpisodeGrid(
+                        episodes = series.episodes,
+                        onEpisodeClick = { index -> onPlayClick() }
                     )
+                }
+            }
+
+            // Media Info Section - 放在剧集下面
+            item {
+                Spacer(modifier = Modifier.height(Dimens.spacingXl))
+                SectionHeader(title = stringResource(R.string.media_info))
+            }
+            item {
+                series.episodes?.firstOrNull()?.let { episode ->
+                    MediaInfoSection(episode = episode)
                 }
             }
 
             item {
                 Spacer(modifier = Modifier.height(Dimens.spacingXxl))
             }
-        }
-
-        // Floating Back Button
-        IconButton(
-            onClick = onBackClick,
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(Dimens.spacingMd)
-                .align(Alignment.TopStart)
-                .background(
-                    color = Color.Black.copy(alpha = Dimens.alphaOverlay),
-                    shape = CircleShape
-                )
-        ) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = stringResource(R.string.back),
-                tint = Color.White
-            )
         }
     }
 }
@@ -193,12 +182,53 @@ private fun HeroSection(
                 )
         )
 
-        // Title and play button
+        // Title and tags
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(Dimens.spacingLg)
         ) {
+            // Tags row
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+                modifier = Modifier.padding(bottom = Dimens.spacingSm)
+            ) {
+                // 类型标签
+                val typeLabel = when (series.mediaType) {
+                    "movie" -> "电影"
+                    "tv" -> "电视剧"
+                    else -> null
+                }
+                typeLabel?.let { label ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // 成人内容标签
+                if (series.isAdult == true) {
+                    Surface(
+                        color = Color(0xFFFF4D4F),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = "R-18",
+                            modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
             Text(
                 text = series.title,
                 style = MaterialTheme.typography.headlineMedium,
@@ -596,5 +626,64 @@ private fun EpisodeCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EpisodeGrid(
+    episodes: List<VideoDTO>,
+    onEpisodeClick: (Int) -> Unit
+) {
+    val columns = 6
+    val rows = (episodes.size + columns - 1) / columns
+
+    Column(
+        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
+    ) {
+        for (row in 0 until rows) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+            ) {
+                for (col in 0 until columns) {
+                    val index = row * columns + col
+                    if (index < episodes.size) {
+                        val episode = episodes[index]
+                        EpisodeNumberBlock(
+                            number = episode.episodeNumber ?: (index + 1),
+                            onClick = { onEpisodeClick(index) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+            if (row < rows - 1) {
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeNumberBlock(
+    number: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(Dimens.radiusSm))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "$number",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }

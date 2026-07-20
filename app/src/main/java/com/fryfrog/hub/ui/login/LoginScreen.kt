@@ -138,7 +138,7 @@ fun LoginScreen(
                 title = { Text(stringResource(R.string.app_name)) },
                 modifier = Modifier.statusBarsPadding(),
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         }

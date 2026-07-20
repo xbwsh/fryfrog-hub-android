@@ -168,3 +168,15 @@ data class EbookDTO(
     val coverUrl: String?,
     val rating: Double?
 )
+
+// Character (通用角色模型，用于漫画和电子书)
+data class MediaCharacter(
+    val id: Long,
+    val name: String,
+    val originalName: String?,
+    val description: String?,
+    val role: String?,
+    val sourceCharacterId: Long?,
+    val source: String?,
+    val imageUrl: String?
+)
