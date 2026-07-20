@@ -12,7 +12,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
         fetch-depth: 0
 
     - name: Set up JDK 17
@@ -24,26 +23,14 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Auto bump version
+    - name: Calculate version
       run: |
         COMMIT_COUNT=$(git rev-list --count HEAD)
-        # 版本号格式: 0.0.{commit_count}
         VERSION_NAME="0.0.${COMMIT_COUNT}"
         VERSION_CODE=$((COMMIT_COUNT + 1))
         echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
         echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-        # 更新 build.gradle.kts
-        sed -i "s/versionCode = .*/versionCode = $VERSION_CODE/" app/build.gradle.kts
-        sed -i "s/versionName = \".*\"/versionName = \"$VERSION_NAME\"/" app/build.gradle.kts
-        echo "Version bumped to $VERSION_NAME (code: $VERSION_CODE)"
-
-    - name: Commit version bump
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add app/build.gradle.kts
-        git diff --cached --quiet || git commit -m "ci: bump version to ${{ env.VERSION_NAME }}"
-        git push
+        echo "Version: $VERSION_NAME (code: $VERSION_CODE)"
 
     - name: Decode keystore
       if: env.KEYSTORE_BASE64 != ''
@@ -55,7 +42,7 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease -PversionCode=${{ env.VERSION_CODE }} -PversionName=${{ env.VERSION_NAME }}
       env:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

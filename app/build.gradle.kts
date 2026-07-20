@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val versionCode: Int by project
+val versionName: String by project
+
 android {
     namespace = "com.fryfrog.hub"
     compileSdk = 35
@@ -12,8 +15,8 @@ android {
         applicationId = "com.fryfrog.hub"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.0.1"
+        this.versionCode = versionCode
+        this.versionName = versionName
     }
 
     signingConfigs {
