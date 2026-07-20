@@ -60,6 +60,40 @@
     <string name="dark_theme">暗夜黑</string>
     <string name="light_theme">流光白</string>
 
+    <!-- Media Libraries -->
+    <string name="media_libraries">媒体资源库</string>
+    <string name="scan_all">全部扫描</string>
+    <string name="scan">扫描</string>
+    <string name="add">添加</string>
+    <string name="create">创建</string>
+    <string name="no_libraries">暂无资源库</string>
+    <string name="delete_library">删除资源库</string>
+    <string name="delete_library_confirm">确定要删除「%s」吗？</string>
+    <string name="delete">删除</string>
+    <string name="cancel">取消</string>
+    <string name="logout">退出登录</string>
+    <string name="logout_confirm">确定要退出登录吗？</string>
+    <string name="confirm">确定</string>
+    <string name="resume_play">继续播放</string>
+    <string name="watched">已看完</string>
+    <string name="disabled">已禁用</string>
+    <string name="create_library">新建资源库</string>
+    <string name="library_name">名称</string>
+    <string name="library_path">路径</string>
+    <string name="library_type">类型</string>
+    <string name="video_sub_type">视频子类型</string>
+    <string name="description">描述</string>
+    <string name="type_video">视频</string>
+    <string name="type_music">音乐</string>
+    <string name="type_comic">漫画</string>
+    <string name="type_ebook">电子书</string>
+    <string name="subtype_movie">电影</string>
+    <string name="subtype_tv">电视剧</string>
+    <string name="subtype_mixed">混合</string>
+    <string name="select_directory">选择目录</string>
+    <string name="browse">浏览</string>
+    <string name="select">选择</string>
+
     <!-- Music -->
     <string name="section_albums">专辑</string>
     <string name="section_recently_added">最近添加</string>

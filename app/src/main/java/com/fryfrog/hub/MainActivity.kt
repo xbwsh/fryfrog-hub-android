@@ -91,7 +91,11 @@ class MainActivity : ComponentActivity() {
                                 isDarkTheme = dark
                                 prefs.isDarkTheme = dark
                             },
-                            isDarkTheme = isDarkTheme
+                            isDarkTheme = isDarkTheme,
+                            onLogout = {
+                                prefs.clearLogin()
+                                isLoggedIn = false
+                            }
                         )
                     } else {
                         LoginScreen(
@@ -110,7 +114,8 @@ class MainActivity : ComponentActivity() {
 private fun MainContent(
     navController: androidx.navigation.NavHostController,
     onThemeChange: (Boolean) -> Unit,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean,
+    onLogout: () -> Unit = {}
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -202,7 +207,8 @@ private fun MainContent(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     isDarkTheme = isDarkTheme,
-                    onThemeChange = onThemeChange
+                    onThemeChange = onThemeChange,
+                    onLogout = onLogout
                 )
             }
 

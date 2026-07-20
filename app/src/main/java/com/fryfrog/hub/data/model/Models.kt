@@ -180,3 +180,33 @@ data class MediaCharacter(
     val source: String?,
     val imageUrl: String?
 )
+
+// Watch Progress
+data class WatchProgressRequest(
+    val position: Double,
+    val duration: Double,
+    val completed: Boolean = false
+)
+
+data class WatchProgressDTO(
+    val videoId: Long,
+    val positionSeconds: Double,
+    val durationSeconds: Double,
+    val completed: Boolean,
+    val progressPercent: Double,
+    val updatedAt: String?
+)
+
+// Media Library
+data class MediaLibrary(
+    val id: Long,
+    val name: String,
+    val path: String,
+    val type: String,
+    val subType: String?,
+    val enabled: Boolean,
+    val sortOrder: Int?,
+    val description: String?,
+    val createdAt: String?,
+    val updatedAt: String?
+)

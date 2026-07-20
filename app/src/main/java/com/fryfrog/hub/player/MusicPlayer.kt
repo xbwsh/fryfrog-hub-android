@@ -1,54 +1,95 @@
 package com.fryfrog.hub.player
 
 import android.content.Context
-import android.net.Uri
-import org.videolan.libvlc.LibVLC
-import org.videolan.libvlc.Media
-import org.videolan.libvlc.MediaPlayer
+import `is`.xyz.mpv.MPVLib
 
-class MusicPlayer(context: Context) {
+class MusicPlayer(private val context: Context) {
 
-    private val libVLC = LibVLC(context.applicationContext)
-    private var mp: MediaPlayer? = null
     private var listener: ((Int) -> Unit)? = null
+    private var initialized = false
 
     fun setOnEventListener(listener: (eventType: Int) -> Unit) {
         this.listener = listener
     }
 
-    fun play(url: String) {
-        mp?.stop()
-        mp?.release()
-
-        val media = Media(libVLC, Uri.parse(url))
-        mp = MediaPlayer(libVLC).apply {
-            setEventListener { event -> listener?.invoke(event.type) }
-            setMedia(media)
-            play()
+    private fun ensureInit() {
+        if (!initialized) {
+            MPVLib.create(context)
+            MPVLib.setOptionString("vo", "null")
+            MPVLib.setOptionString("ao", "audiotrack")
+            MPVLib.setOptionString("config", "no")
+            MPVLib.setOptionString("idle", "once")
+            MPVLib.init()
+            MPVLib.addObserver(eventObserver)
+            initialized = true
         }
-        media.release()
     }
 
-    fun pause() { mp?.pause() }
-    fun resume() { mp?.play() }
-    fun togglePlayPause() { mp?.let { if (it.isPlaying) it.pause() else it.play() } }
-    fun seekTo(ms: Long) { mp?.time = ms }
-    fun getPosition(): Long = mp?.time ?: 0L
-    fun getDuration(): Long = mp?.length ?: 0L
-    fun isPlaying(): Boolean = mp?.isPlaying ?: false
-    fun setVolume(percent: Int) { mp?.volume = percent }
+    private val eventObserver = object : MPVLib.EventObserver {
+        override fun eventProperty(property: String) {}
+        override fun eventProperty(property: String, value: Long) {}
+        override fun eventProperty(property: String, value: Boolean) {}
+        override fun eventProperty(property: String, value: String) {}
+        override fun eventProperty(property: String, value: Double) {}
+        override fun event(eventId: Int) {
+            when (eventId) {
+                MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> listener?.invoke(EVENT_PLAYING)
+                MPVLib.MpvEvent.MPV_EVENT_END_FILE -> listener?.invoke(EVENT_END_REACHED)
+                MPVLib.MpvEvent.MPV_EVENT_PLAYBACK_RESTART -> listener?.invoke(EVENT_PLAYING)
+            }
+        }
+    }
+
+    fun play(url: String) {
+        ensureInit()
+        MPVLib.command(arrayOf("loadfile", url))
+    }
+
+    fun pause() {
+        MPVLib.setPropertyBoolean("pause", true)
+    }
+
+    fun resume() {
+        MPVLib.setPropertyBoolean("pause", false)
+    }
+
+    fun togglePlayPause() {
+        val paused = MPVLib.getPropertyBoolean("pause") ?: false
+        MPVLib.setPropertyBoolean("pause", !paused)
+    }
+
+    fun seekTo(ms: Long) {
+        MPVLib.command(arrayOf("seek", "${ms / 1000.0}", "absolute"))
+    }
+
+    fun getPosition(): Long {
+        return ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong()
+    }
+
+    fun getDuration(): Long {
+        return ((MPVLib.getPropertyDouble("duration") ?: 0.0) * 1000).toLong()
+    }
+
+    fun isPlaying(): Boolean {
+        val paused = MPVLib.getPropertyBoolean("pause") ?: true
+        return !paused
+    }
+
+    fun setVolume(percent: Int) {
+        MPVLib.setPropertyInt("volume", percent)
+    }
 
     fun release() {
-        mp?.setEventListener(null)
-        mp?.stop()
-        mp?.release()
-        mp = null
-        libVLC.release()
+        if (initialized) {
+            MPVLib.removeObserver(eventObserver)
+            MPVLib.destroy()
+            initialized = false
+        }
     }
 
     companion object {
-        const val EVENT_PLAYING = MediaPlayer.Event.Playing
-        const val EVENT_PAUSED = MediaPlayer.Event.Paused
-        const val EVENT_END_REACHED = MediaPlayer.Event.EndReached
+        const val EVENT_PLAYING = 1
+        const val EVENT_PAUSED = 2
+        const val EVENT_END_REACHED = 3
     }
 }

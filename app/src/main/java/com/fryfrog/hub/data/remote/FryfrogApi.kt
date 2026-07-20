@@ -24,6 +24,12 @@ interface FryfrogApi {
     @GET("/api/v1/video/favorites")
     suspend fun getVideoFavorites(): ApiResponse<List<SeriesDTO>>
 
+    @GET("/api/v1/video/{id}/progress")
+    suspend fun getVideoProgress(@Path("id") id: Long): ApiResponse<WatchProgressDTO>
+
+    @PUT("/api/v1/video/{id}/progress")
+    suspend fun saveVideoProgress(@Path("id") id: Long, @Body request: WatchProgressRequest): ApiResponse<WatchProgressDTO>
+
     // ========== Music ==========
     @GET("/api/v1/music")
     suspend fun getMusicByAlbum(): ApiResponse<PageResponse<AlbumGroup>>
@@ -99,6 +105,31 @@ interface FryfrogApi {
 
     @GET("/api/v1/auth/status")
     suspend fun authStatus(): ApiResponse<Map<String, Any>>
+
+    // ========== Media Libraries ==========
+    @GET("/api/v1/media-libraries")
+    suspend fun getMediaLibraries(): ApiResponse<List<MediaLibrary>>
+
+    @POST("/api/v1/media-libraries")
+    suspend fun createMediaLibrary(@Body library: MediaLibrary): ApiResponse<MediaLibrary>
+
+    @PUT("/api/v1/media-libraries/{id}")
+    suspend fun updateMediaLibrary(@Path("id") id: Long, @Body library: MediaLibrary): ApiResponse<MediaLibrary>
+
+    @DELETE("/api/v1/media-libraries/{id}")
+    suspend fun deleteMediaLibrary(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @PUT("/api/v1/media-libraries/{id}/toggle")
+    suspend fun toggleMediaLibrary(@Path("id") id: Long): ApiResponse<MediaLibrary>
+
+    @POST("/api/v1/media-libraries/{id}/scan")
+    suspend fun scanMediaLibrary(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @POST("/api/v1/media-libraries/scan")
+    suspend fun scanAllMediaLibraries(): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/media-libraries/browse")
+    suspend fun browseDirectory(@Query("path") path: String? = null): ApiResponse<List<Map<String, Any>>>
 
     // ========== Settings ==========
     @GET("/api/v1/settings")

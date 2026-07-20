@@ -93,8 +93,7 @@ dependencies {
     // Gson
     implementation("com.google.code.gson:gson:2.11.0")
 
-    // libVLC - ASS/SSA 字幕完整支持
-    implementation("org.videolan.android:libvlc-all:3.6.2")
+    // MPV player - loaded via jniLibs
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

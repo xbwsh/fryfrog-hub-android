@@ -60,6 +60,40 @@
     <string name="dark_theme">Dark Theme</string>
     <string name="light_theme">Light Theme</string>
 
+    <!-- Media Libraries -->
+    <string name="media_libraries">Media Libraries</string>
+    <string name="scan_all">Scan All</string>
+    <string name="scan">Scan</string>
+    <string name="add">Add</string>
+    <string name="create">Create</string>
+    <string name="no_libraries">No libraries configured</string>
+    <string name="delete_library">Delete Library</string>
+    <string name="delete_library_confirm">Are you sure you want to delete \"%s\"?</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="logout">Logout</string>
+    <string name="logout_confirm">Are you sure you want to logout?</string>
+    <string name="confirm">Confirm</string>
+    <string name="resume_play">Resume</string>
+    <string name="watched">Watched</string>
+    <string name="disabled">Disabled</string>
+    <string name="create_library">Create Library</string>
+    <string name="library_name">Name</string>
+    <string name="library_path">Path</string>
+    <string name="library_type">Type</string>
+    <string name="video_sub_type">Video Sub Type</string>
+    <string name="description">Description</string>
+    <string name="type_video">Video</string>
+    <string name="type_music">Music</string>
+    <string name="type_comic">Comic</string>
+    <string name="type_ebook">Ebook</string>
+    <string name="subtype_movie">Movie</string>
+    <string name="subtype_tv">TV</string>
+    <string name="subtype_mixed">Mixed</string>
+    <string name="select_directory">Select Directory</string>
+    <string name="browse">Browse</string>
+    <string name="select">Select</string>
+
     <!-- Music -->
     <string name="section_albums">Albums</string>
     <string name="section_recently_added">Recently Added</string>

@@ -67,6 +67,7 @@ fun VideoDetailScreen(
             VideoDetailContent(
                 series = series,
                 actors = uiState.actors,
+                progress = uiState.progress,
                 onBackClick = onBackClick,
                 onPlayClick = { series.episodes?.firstOrNull()?.let { onPlayClick(it.id) } }
             )
@@ -78,6 +79,7 @@ fun VideoDetailScreen(
 private fun VideoDetailContent(
     series: SeriesDTO,
     actors: List<VideoActor>,
+    progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
     onBackClick: () -> Unit,
     onPlayClick: () -> Unit
 ) {
@@ -89,6 +91,7 @@ private fun VideoDetailContent(
             item {
                 HeroSection(
                     series = series,
+                    progress = progress,
                     onPlayClick = onPlayClick
                 )
             }
@@ -123,17 +126,6 @@ private fun VideoDetailContent(
                 }
             }
 
-            // Media Info Section - 放在剧集下面
-            item {
-                Spacer(modifier = Modifier.height(Dimens.spacingXl))
-                SectionHeader(title = stringResource(R.string.media_info))
-            }
-            item {
-                series.episodes?.firstOrNull()?.let { episode ->
-                    MediaInfoSection(episode = episode)
-                }
-            }
-
             item {
                 Spacer(modifier = Modifier.height(Dimens.spacingXxl))
             }
@@ -144,6 +136,7 @@ private fun VideoDetailContent(
 @Composable
 private fun HeroSection(
     series: SeriesDTO,
+    progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
     onPlayClick: () -> Unit
 ) {
     Box(
@@ -267,7 +260,13 @@ private fun HeroSection(
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(Dimens.spacingSm))
-                    Text(stringResource(R.string.play))
+                    Text(
+                        when {
+                            progress == null || progress.progressPercent == 0.0 -> stringResource(R.string.play)
+                            progress.completed -> stringResource(R.string.watched)
+                            else -> stringResource(R.string.resume_play)
+                        }
+                    )
                 }
 
                 // Rating badge
@@ -283,6 +282,30 @@ private fun HeroSection(
                             color = Color.White
                         )
                     }
+                }
+            }
+
+            // Progress indicator
+            if (progress != null && progress.progressPercent > 0) {
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                ) {
+                    LinearProgressIndicator(
+                        progress = { (progress.progressPercent / 100).toFloat() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = if (progress.completed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                        trackColor = Color.White.copy(alpha = 0.3f)
+                    )
+                    Text(
+                        text = if (progress.completed) stringResource(R.string.watched) else "${String.format("%.0f", progress.progressPercent)}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
                 }
             }
         }
@@ -363,147 +386,6 @@ private fun SectionHeader(title: String) {
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.padding(horizontal = Dimens.spacingLg)
     )
-}
-
-@Composable
-private fun MediaInfoSection(episode: VideoDTO) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingSm),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        shape = RoundedCornerShape(Dimens.radiusLg)
-    ) {
-        Column(
-            modifier = Modifier.padding(Dimens.spacingLg)
-        ) {
-            Text(
-                text = stringResource(R.string.media_info),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.spacingMd))
-
-            // Row 1: Format, Resolution, Video Codec
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-            ) {
-                episode.format?.let { format ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.format),
-                        value = format,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                episode.resolution?.let { resolution ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.resolution),
-                        value = resolution,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                episode.videoCodec?.let { codec ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.video_codec),
-                        value = codec.uppercase(),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.spacingSm))
-
-            // Row 2: Audio Codec, Frame Rate, Bitrate
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-            ) {
-                episode.audioCodec?.let { codec ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.audio_codec),
-                        value = codec.uppercase(),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                episode.frameRate?.let { fps ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.frame_rate),
-                        value = String.format("%.2f fps", fps),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                episode.bitrateKbps?.let { bitrate ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.bitrate),
-                        value = String.format("%.1f Mbps", bitrate / 1000.0),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Dimens.spacingSm))
-
-            // Row 3: File Size
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-            ) {
-                episode.fileSize?.let { size ->
-                    MediaInfoChip(
-                        label = stringResource(R.string.file_size),
-                        value = formatFileSize(size),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MediaInfoChip(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(Dimens.radiusSm)
-    ) {
-        Column(
-            modifier = Modifier.padding(Dimens.spacingSm)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}
-
-private fun formatFileSize(bytes: Long): String {
-    val kb = bytes / 1024.0
-    val mb = kb / 1024.0
-    val gb = mb / 1024.0
-
-    return when {
-        gb >= 1.0 -> String.format("%.2f GB", gb)
-        mb >= 1.0 -> String.format("%.2f MB", mb)
-        kb >= 1.0 -> String.format("%.2f KB", kb)
-        else -> "$bytes B"
-    }
 }
 
 @Composable

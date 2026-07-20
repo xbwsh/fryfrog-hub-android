@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.VideoActor
+import com.fryfrog.hub.data.model.WatchProgressDTO
+import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.data.repository.MediaRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +16,8 @@ data class VideoDetailUiState(
     val isLoading: Boolean = true,
     val series: SeriesDTO? = null,
     val actors: List<VideoActor> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val progress: WatchProgressDTO? = null
 )
 
 class VideoDetailViewModel(
@@ -48,6 +51,24 @@ class VideoDetailViewModel(
                 error = seriesResult.exceptionOrNull()?.message
                     ?: actorsResult.exceptionOrNull()?.message
             )
+
+            // Load progress for first episode
+            loadProgress()
+        }
+    }
+
+    private fun loadProgress() {
+        viewModelScope.launch {
+            try {
+                val firstEpisodeId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return@launch
+                val api = ApiClient.getApi()
+                val response = api.getVideoProgress(firstEpisodeId)
+                if (response.success) {
+                    _uiState.value = _uiState.value.copy(progress = response.data)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VideoDetailVM", "Failed to load progress", e)
+            }
         }
     }
 }
