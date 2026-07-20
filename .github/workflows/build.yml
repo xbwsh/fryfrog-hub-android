@@ -3,8 +3,6 @@ name: Build APK
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   build:
@@ -23,15 +21,46 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
+    - name: Auto bump version
+      run: |
+        COMMIT_COUNT=$(git rev-list --count HEAD)
+        # 版本号格式: 0.0.{commit_count}
+        VERSION_NAME="0.0.${COMMIT_COUNT}"
+        VERSION_CODE=$((COMMIT_COUNT + 1))
+        echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+        echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+        # 更新 build.gradle.kts
+        sed -i "s/versionCode = .*/versionCode = $VERSION_CODE/" app/build.gradle.kts
+        sed -i "s/versionName = \".*\"/versionName = \"$VERSION_NAME\"/" app/build.gradle.kts
+        echo "Version bumped to $VERSION_NAME (code: $VERSION_CODE)"
+
+    - name: Commit version bump
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add app/build.gradle.kts
+        git diff --cached --quiet || git commit -m "ci: bump version to ${{ env.VERSION_NAME }}"
+        git push
+
+    - name: Decode keystore
+      if: env.KEYSTORE_BASE64 != ''
+      run: echo "$KEYSTORE_BASE64" | base64 -d > app/release.jks
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+    - name: Build Release APK
+      run: ./gradlew assembleRelease
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-    - name: Upload APK
+    - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
-        name: fryfrog-hub-debug
-        path: app/build/outputs/apk/debug/*.apk
-        retention-days: 7
+        name: fryfrog-hub-${{ env.VERSION_NAME }}
+        path: app/build/outputs/apk/release/*.apk
+        retention-days: 30
