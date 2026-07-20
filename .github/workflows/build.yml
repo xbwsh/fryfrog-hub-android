@@ -54,3 +54,13 @@ jobs:
         name: fryfrog-hub-${{ env.VERSION_NAME }}
         path: app/build/outputs/apk/release/*.apk
         retention-days: 30
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ env.VERSION_NAME }}
+        name: Fryfrog Hub v${{ env.VERSION_NAME }}
+        files: app/build/outputs/apk/release/*.apk
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
