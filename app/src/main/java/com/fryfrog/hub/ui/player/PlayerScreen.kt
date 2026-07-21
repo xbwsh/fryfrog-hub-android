@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -815,13 +817,16 @@ fun PlayerScreen(
                                 }
 
                                 if (vm.showQualityMenu) {
+                                    val density = LocalDensity.current
+                                    val offsetX = with(density) { (-16).dp.roundToPx() }
+
                                     androidx.compose.ui.window.Popup(
                                         alignment = Alignment.CenterEnd,
+                                        offset = IntOffset(offsetX, 0),
                                         onDismissRequest = { vm.toggleQualityMenu() }
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .padding(end = 16.dp)
                                                 .width(140.dp)
                                                 .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
                                                 .padding(vertical = 4.dp)
