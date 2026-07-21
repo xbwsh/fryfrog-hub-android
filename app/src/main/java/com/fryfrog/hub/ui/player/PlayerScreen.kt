@@ -48,6 +48,7 @@ import android.util.Log
 import com.fryfrog.hub.data.model.WatchProgressRequest
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.player.MpvPlayer
+import com.fryfrog.hub.ui.theme.Dimens
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -461,8 +462,8 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(showControls, vm.isPlaying) {
-        if (showControls && vm.isPlaying) {
+    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu) {
+        if (showControls && vm.isPlaying && !vm.showQualityMenu) {
             delay(4000)
             showControls = false
         }
@@ -790,41 +791,53 @@ fun PlayerScreen(
 
                             // Quality selector
                             Box {
-                                TextButton(
+                                Surface(
                                     onClick = { vm.toggleQualityMenu() },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                    modifier = Modifier.height(32.dp)
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(4.dp)
                                 ) {
-                                    Text(
-                                        text = if (vm.currentQuality == "original") "原画" else vm.currentQuality,
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                    Icon(
-                                        Icons.Default.ArrowDropDown,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (vm.currentQuality == "original") "原画" else vm.currentQuality,
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                        Icon(
+                                            Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
 
                                 DropdownMenu(
                                     expanded = vm.showQualityMenu,
-                                    onDismissRequest = { vm.toggleQualityMenu() }
+                                    onDismissRequest = { vm.toggleQualityMenu() },
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
                                 ) {
                                     vm.qualities.forEach { quality ->
                                         DropdownMenuItem(
                                             text = {
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Text(if (quality == "original") "原画" else quality)
+                                                    Text(
+                                                        text = if (quality == "original") "原画" else quality,
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
                                                     if (quality == vm.currentQuality) {
                                                         Icon(
                                                             Icons.Default.Check,
                                                             contentDescription = null,
-                                                            modifier = Modifier.size(16.dp)
+                                                            modifier = Modifier.size(16.dp),
+                                                            tint = MaterialTheme.colorScheme.primary
                                                         )
                                                     }
                                                 }
