@@ -816,11 +816,12 @@ fun PlayerScreen(
 
                                 if (vm.showQualityMenu) {
                                     androidx.compose.ui.window.Popup(
-                                        alignment = Alignment.TopCenter,
+                                        alignment = Alignment.CenterEnd,
                                         onDismissRequest = { vm.toggleQualityMenu() }
                                     ) {
                                         Box(
                                             modifier = Modifier
+                                                .padding(end = 16.dp)
                                                 .width(140.dp)
                                                 .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
                                                 .padding(vertical = 4.dp)
