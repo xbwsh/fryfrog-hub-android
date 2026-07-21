@@ -792,80 +792,26 @@ fun PlayerScreen(
                             Spacer(modifier = Modifier.weight(1f))
 
                             // Quality selector
-                            Box {
-                                Surface(
-                                    onClick = { vm.toggleQualityMenu() },
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(4.dp)
+                            Surface(
+                                onClick = { vm.toggleQualityMenu() },
+                                color = Color.White.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (vm.currentQuality == "original") "原画" else vm.currentQuality,
-                                            color = Color.White,
-                                            style = MaterialTheme.typography.labelMedium
-                                        )
-                                        Icon(
-                                            Icons.Default.ArrowDropDown,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-
-                                if (vm.showQualityMenu) {
-                                    val density = LocalDensity.current
-                                    val offsetX = with(density) { (-16).dp.roundToPx() }
-
-                                    androidx.compose.ui.window.Popup(
-                                        alignment = Alignment.CenterEnd,
-                                        offset = IntOffset(offsetX, 0),
-                                        onDismissRequest = { vm.toggleQualityMenu() }
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(140.dp)
-                                                .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
-                                                .padding(vertical = 4.dp)
-                                        ) {
-                                            Column {
-                                                vm.qualities.forEach { quality ->
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .clickable {
-                                                                vm.changeQuality(quality)
-                                                            }
-                                                            .background(
-                                                                if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.2f)
-                                                                else Color.Transparent,
-                                                                RoundedCornerShape(Dimens.radiusSm)
-                                                            )
-                                                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = if (quality == "original") "原画" else quality,
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
-                                                        )
-                                                        if (quality == vm.currentQuality) {
-                                                            Icon(
-                                                                Icons.Default.Check,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(14.dp),
-                                                                tint = Color(0xFF409EFF)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                    Text(
+                                        text = if (vm.currentQuality == "original") "原画" else vm.currentQuality,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Icon(
+                                        Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
@@ -1018,6 +964,59 @@ fun PlayerScreen(
                             color = Color.White,
                             style = MaterialTheme.typography.bodyMedium
                         )
+                    }
+                }
+            }
+        }
+
+        // Quality menu - 屏幕右侧中间
+        if (vm.showQualityMenu) {
+            val density = LocalDensity.current
+            val offsetX = with(density) { (-16).dp.roundToPx() }
+
+            androidx.compose.ui.window.Popup(
+                alignment = Alignment.CenterEnd,
+                offset = IntOffset(offsetX, 0),
+                onDismissRequest = { vm.toggleQualityMenu() }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(140.dp)
+                        .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column {
+                        vm.qualities.forEach { quality ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        vm.changeQuality(quality)
+                                    }
+                                    .background(
+                                        if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                        else Color.Transparent,
+                                        RoundedCornerShape(Dimens.radiusSm)
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (quality == "original") "原画" else quality,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
+                                )
+                                if (quality == vm.currentQuality) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF409EFF)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
