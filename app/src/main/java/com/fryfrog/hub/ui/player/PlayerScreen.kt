@@ -818,7 +818,8 @@ fun PlayerScreen(
                                     expanded = vm.showQualityMenu,
                                     onDismissRequest = { vm.toggleQualityMenu() },
                                     modifier = Modifier
-                                        .background(Color(0xFF1E1E1E), RoundedCornerShape(Dimens.radiusMd))
+                                        .background(Color(0xFF1E1E1E), RoundedCornerShape(Dimens.radiusMd)),
+                                    tonalElevation = 0.dp
                                 ) {
                                     vm.qualities.forEach { quality ->
                                         DropdownMenuItem(
