@@ -815,42 +815,46 @@ fun PlayerScreen(
                                 }
 
                                 if (vm.showQualityMenu) {
-                                    Box(
-                                        modifier = Modifier
-                                            .offset(y = (-48).dp)
-                                            .width(120.dp)
-                                            .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
-                                            .padding(vertical = 4.dp)
+                                    androidx.compose.ui.window.Popup(
+                                        alignment = Alignment.TopCenter,
+                                        onDismissRequest = { vm.toggleQualityMenu() }
                                     ) {
-                                        Column {
-                                            vm.qualities.forEach { quality ->
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clickable {
-                                                            vm.changeQuality(quality)
+                                        Box(
+                                            modifier = Modifier
+                                                .width(140.dp)
+                                                .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
+                                                .padding(vertical = 4.dp)
+                                        ) {
+                                            Column {
+                                                vm.qualities.forEach { quality ->
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .clickable {
+                                                                vm.changeQuality(quality)
+                                                            }
+                                                            .background(
+                                                                if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                                                else Color.Transparent,
+                                                                RoundedCornerShape(Dimens.radiusSm)
+                                                            )
+                                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = if (quality == "original") "原画" else quality,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
+                                                        )
+                                                        if (quality == vm.currentQuality) {
+                                                            Icon(
+                                                                Icons.Default.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(14.dp),
+                                                                tint = Color(0xFF409EFF)
+                                                            )
                                                         }
-                                                        .background(
-                                                            if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.2f)
-                                                            else Color.Transparent,
-                                                            RoundedCornerShape(Dimens.radiusSm)
-                                                        )
-                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        text = if (quality == "original") "原画" else quality,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
-                                                    )
-                                                    if (quality == vm.currentQuality) {
-                                                        Icon(
-                                                            Icons.Default.Check,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(14.dp),
-                                                            tint = Color(0xFF409EFF)
-                                                        )
                                                     }
                                                 }
                                             }
