@@ -28,12 +28,20 @@ jobs:
 
     - name: Calculate version
       run: |
-        COMMIT_COUNT=$(git rev-list --count HEAD)
-        VERSION_NAME="0.0.${COMMIT_COUNT}"
-        VERSION_CODE=$((COMMIT_COUNT + 1))
-        echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-        echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-        echo "Version: $VERSION_NAME (code: $VERSION_CODE)"
+        # 获取最新的 tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        
+        # 解析版本号
+        VERSION=${LATEST_TAG#v}
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        
+        # 递增 patch 版本
+        NEW_PATCH=$((PATCH + 1))
+        NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+        
+        echo "VERSION_NAME=$NEW_VERSION" >> $GITHUB_ENV
+        echo "VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + NEW_PATCH))" >> $GITHUB_ENV
+        echo "Version: $NEW_VERSION (from $LATEST_TAG)"
 
     - name: Decode keystore
       if: env.KEYSTORE_BASE64 != ''
@@ -65,5 +73,11 @@ jobs:
         name: Fryfrog Hub v${{ env.VERSION_NAME }}
         files: app/build/outputs/apk/release/*.apk
         generate_release_notes: true
+        make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Push version tag
+      run: |
+        git tag "v${{ env.VERSION_NAME }}"
+        git push origin "v${{ env.VERSION_NAME }}"
