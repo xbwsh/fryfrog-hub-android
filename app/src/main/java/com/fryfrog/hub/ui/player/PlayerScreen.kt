@@ -814,44 +814,43 @@ fun PlayerScreen(
                                     }
                                 }
 
-                                DropdownMenu(
-                                    expanded = vm.showQualityMenu,
-                                    onDismissRequest = { vm.toggleQualityMenu() },
-                                    tonalElevation = 0.dp,
-                                    shadowElevation = 0.dp
-                                ) {
-                                    Surface(
-                                        color = Color(0xFF1E1E1E),
-                                        shape = RoundedCornerShape(Dimens.radiusMd),
-                                        tonalElevation = 0.dp
+                                if (vm.showQualityMenu) {
+                                    Box(
+                                        modifier = Modifier
+                                            .offset(y = (-48).dp)
+                                            .width(120.dp)
+                                            .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
+                                            .padding(vertical = 4.dp)
                                     ) {
-                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                        Column {
                                             vm.qualities.forEach { quality ->
-                                                Surface(
-                                                    onClick = { vm.changeQuality(quality) },
-                                                    color = if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.15f) else Color.Transparent,
-                                                    shape = RoundedCornerShape(Dimens.radiusSm)
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Text(
-                                                            text = if (quality == "original") "原画" else quality,
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
-                                                        )
-                                                        if (quality == vm.currentQuality) {
-                                                            Icon(
-                                                                Icons.Default.Check,
-                                                                contentDescription = null,
-                                                                modifier = Modifier.size(16.dp),
-                                                                tint = Color(0xFF409EFF)
-                                                            )
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            vm.changeQuality(quality)
                                                         }
+                                                        .background(
+                                                            if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                                            else Color.Transparent,
+                                                            RoundedCornerShape(Dimens.radiusSm)
+                                                        )
+                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = if (quality == "original") "原画" else quality,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
+                                                    )
+                                                    if (quality == vm.currentQuality) {
+                                                        Icon(
+                                                            Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            modifier = Modifier.size(14.dp),
+                                                            tint = Color(0xFF409EFF)
+                                                        )
                                                     }
                                                 }
                                             }
