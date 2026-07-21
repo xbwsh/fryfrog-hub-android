@@ -818,7 +818,7 @@ fun PlayerScreen(
                                     expanded = vm.showQualityMenu,
                                     onDismissRequest = { vm.toggleQualityMenu() },
                                     modifier = Modifier
-                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
+                                        .background(Color(0xFF1E1E1E), RoundedCornerShape(Dimens.radiusMd))
                                 ) {
                                     vm.qualities.forEach { quality ->
                                         DropdownMenuItem(
@@ -830,19 +830,23 @@ fun PlayerScreen(
                                                 ) {
                                                     Text(
                                                         text = if (quality == "original") "原画" else quality,
-                                                        style = MaterialTheme.typography.bodyMedium
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = Color.White
                                                     )
                                                     if (quality == vm.currentQuality) {
                                                         Icon(
                                                             Icons.Default.Check,
                                                             contentDescription = null,
                                                             modifier = Modifier.size(16.dp),
-                                                            tint = MaterialTheme.colorScheme.primary
+                                                            tint = Color(0xFF409EFF)
                                                         )
                                                     }
                                                 }
                                             },
-                                            onClick = { vm.changeQuality(quality) }
+                                            onClick = { vm.changeQuality(quality) },
+                                            colors = MenuDefaults.itemColors(
+                                                textColor = Color.White
+                                            )
                                         )
                                     }
                                 }
