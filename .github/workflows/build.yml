@@ -28,8 +28,8 @@ jobs:
 
     - name: Calculate version
       run: |
-        # 获取最新的 tag
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+        # 获取最新的 tag（允许失败）
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null) || true
 
         # 如果没有 tag，使用 1.0.0 作为起始版本
         if [ -z "$LATEST_TAG" ]; then
