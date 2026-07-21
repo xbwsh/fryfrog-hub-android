@@ -817,38 +817,45 @@ fun PlayerScreen(
                                 DropdownMenu(
                                     expanded = vm.showQualityMenu,
                                     onDismissRequest = { vm.toggleQualityMenu() },
-                                    modifier = Modifier
-                                        .background(Color(0xFF1E1E1E), RoundedCornerShape(Dimens.radiusMd)),
-                                    tonalElevation = 0.dp
+                                    tonalElevation = 0.dp,
+                                    shadowElevation = 0.dp
                                 ) {
-                                    vm.qualities.forEach { quality ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
+                                    Surface(
+                                        color = Color(0xFF1E1E1E),
+                                        shape = RoundedCornerShape(Dimens.radiusMd),
+                                        tonalElevation = 0.dp
+                                    ) {
+                                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                            vm.qualities.forEach { quality ->
+                                                Surface(
+                                                    onClick = { vm.changeQuality(quality) },
+                                                    color = if (quality == vm.currentQuality) Color(0xFF409EFF).copy(alpha = 0.15f) else Color.Transparent,
+                                                    shape = RoundedCornerShape(Dimens.radiusSm)
                                                 ) {
-                                                    Text(
-                                                        text = if (quality == "original") "原画" else quality,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = Color.White
-                                                    )
-                                                    if (quality == vm.currentQuality) {
-                                                        Icon(
-                                                            Icons.Default.Check,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.size(16.dp),
-                                                            tint = Color(0xFF409EFF)
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Text(
+                                                            text = if (quality == "original") "原画" else quality,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = if (quality == vm.currentQuality) Color(0xFF409EFF) else Color.White
                                                         )
+                                                        if (quality == vm.currentQuality) {
+                                                            Icon(
+                                                                Icons.Default.Check,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(16.dp),
+                                                                tint = Color(0xFF409EFF)
+                                                            )
+                                                        }
                                                     }
                                                 }
-                                            },
-                                            onClick = { vm.changeQuality(quality) },
-                                            colors = MenuDefaults.itemColors(
-                                                textColor = Color.White
-                                            )
-                                        )
+                                            }
+                                        }
                                     }
                                 }
                             }
