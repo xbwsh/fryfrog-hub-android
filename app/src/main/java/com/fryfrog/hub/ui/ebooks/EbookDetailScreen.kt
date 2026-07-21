@@ -187,7 +187,7 @@ fun EbookDetailScreen(
                 }
 
                 // 书目封面 - 每个占1列
-                items(series.books) { book ->
+                items(series.books, key = { it.id }) { book ->
                     EbookVolumeGridItem(
                         book = book,
                         onClick = { onEbookClick(book.id) }

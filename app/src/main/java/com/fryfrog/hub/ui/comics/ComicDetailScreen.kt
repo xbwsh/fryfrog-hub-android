@@ -215,7 +215,7 @@ fun ComicDetailScreen(
                 }
 
                 // 卷数封面 - 每个占1列
-                items(series.comics) { comic ->
+                items(series.comics, key = { it.id }) { comic ->
                     ComicVolumeGridItem(
                         comic = comic,
                         onClick = { onComicClick(comic.id) }
