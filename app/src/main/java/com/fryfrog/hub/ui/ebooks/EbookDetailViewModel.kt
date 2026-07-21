@@ -34,8 +34,11 @@ class EbookDetailViewModel(private val seriesId: Long) : ViewModel() {
             val seriesResult = repository.getEbookSeries()
             val series = seriesResult.getOrElse { emptyList() }.find { it.seriesId == seriesId }
 
-            val characters = if (seriesId > 0) {
-                repository.getEbookCharacters(seriesId).getOrElse { emptyList() }
+            val characters = if (series != null) {
+                val firstBookId = series.books?.firstOrNull()?.id
+                if (firstBookId != null && firstBookId > 0) {
+                    repository.getEbookCharacters(firstBookId).getOrElse { emptyList() }
+                } else emptyList()
             } else emptyList()
 
             _uiState.value = EbookDetailUiState(

@@ -255,7 +255,8 @@ private fun MainContent(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
                     onPlayClick = { videoId ->
-                        navController.navigate("player/$videoId/${viewModel.uiState.value.series?.title ?: ""}")
+                        val encodedTitle = android.net.Uri.encode(viewModel.uiState.value.series?.title ?: "")
+                        navController.navigate("player/$videoId/$encodedTitle")
                     }
                 )
             }

@@ -42,9 +42,12 @@ class ComicDetailViewModel(private val seriesId: Long) : ViewModel() {
 
             android.util.Log.d("ComicDetailVM", "Found series: ${series?.name}")
 
-            val characters = if (seriesId > 0) {
-                android.util.Log.d("ComicDetailVM", "Fetching characters for seriesId=$seriesId")
-                repository.getComicCharacters(seriesId).getOrElse { emptyList() }
+            val characters = if (series != null) {
+                val firstComicId = series.comics?.firstOrNull()?.id
+                android.util.Log.d("ComicDetailVM", "Fetching characters for firstComicId=$firstComicId (seriesId=$seriesId)")
+                if (firstComicId != null && firstComicId > 0) {
+                    repository.getComicCharacters(firstComicId).getOrElse { emptyList() }
+                } else emptyList()
             } else emptyList()
 
             android.util.Log.d("ComicDetailVM", "Characters count: ${characters.size}")

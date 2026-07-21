@@ -35,6 +35,8 @@ object Dimens {
 
     // Component Sizes
     val iconSize = 24.dp
+    val chipIconSize = 18.dp
+    val chipCloseIconSize = 14.dp
     val buttonHeight = 48.dp
     val topBarHeight = 56.dp
 

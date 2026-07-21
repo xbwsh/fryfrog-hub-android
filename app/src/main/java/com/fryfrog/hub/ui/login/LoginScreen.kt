@@ -1,8 +1,12 @@
 package com.fryfrog.hub.ui.login
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -28,28 +32,80 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.net.URI
 import java.util.concurrent.TimeUnit
 
 data class LoginUiState(
-    val serverUrl: String = "http://192.168.31.127:20058",
+    val serverUrl: String = "",
     val password: String = "",
     val isLoading: Boolean = false,
     val errorResId: Int? = null,
     val errorMessage: String? = null,
-    val isLoggedIn: Boolean = false
+    val isLoggedIn: Boolean = false,
+    val savedServers: List<PrefsManager.SavedServer> = emptyList(),
+    val selectedServerUrl: String? = null
 )
 
 class LoginViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(LoginUiState())
+    private val _uiState: MutableStateFlow<LoginUiState>
+
+    init {
+        val context = com.fryfrog.hub.FryfrogHubApplication.instance
+        val prefs = PrefsManager(context)
+        val servers = prefs.getSavedServers()
+        val lastUrl = prefs.serverUrl
+        _uiState = MutableStateFlow(
+            LoginUiState(
+                serverUrl = lastUrl,
+                savedServers = servers,
+                selectedServerUrl = servers.firstOrNull { it.url == lastUrl }?.url
+            )
+        )
+    }
+
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     fun updateServerUrl(url: String) {
-        _uiState.value = _uiState.value.copy(serverUrl = url)
+        _uiState.value = _uiState.value.copy(
+            serverUrl = url,
+            selectedServerUrl = null
+        )
+        val context = com.fryfrog.hub.FryfrogHubApplication.instance
+        PrefsManager(context).serverUrl = url
     }
 
     fun updatePassword(password: String) {
         _uiState.value = _uiState.value.copy(password = password)
+    }
+
+    fun selectServer(server: PrefsManager.SavedServer) {
+        _uiState.value = _uiState.value.copy(
+            serverUrl = server.url,
+            selectedServerUrl = server.url
+        )
+        val context = com.fryfrog.hub.FryfrogHubApplication.instance
+        PrefsManager(context).serverUrl = server.url
+    }
+
+    fun removeServer(server: PrefsManager.SavedServer) {
+        val context = com.fryfrog.hub.FryfrogHubApplication.instance
+        val prefs = PrefsManager(context)
+        prefs.removeServer(server.url)
+        val servers = prefs.getSavedServers()
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            savedServers = servers,
+            selectedServerUrl = if (state.selectedServerUrl == server.url) null else state.selectedServerUrl
+        )
+    }
+
+    fun addNewServer() {
+        _uiState.value = _uiState.value.copy(
+            serverUrl = "",
+            selectedServerUrl = null,
+            password = ""
+        )
     }
 
     fun login(onSuccess: () -> Unit) {
@@ -92,11 +148,16 @@ class LoginViewModel : ViewModel() {
                     val prefs = PrefsManager(context)
                     prefs.saveLogin(baseUrl, token)
 
+                    val serverName = extractHostName(baseUrl)
+                    prefs.saveServer(serverName, baseUrl, token)
+
                     ApiClient.updateServer(baseUrl, token)
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        isLoggedIn = true
+                        isLoggedIn = true,
+                        savedServers = prefs.getSavedServers(),
+                        selectedServerUrl = baseUrl
                     )
                     onSuccess()
                 } else {
@@ -112,6 +173,15 @@ class LoginViewModel : ViewModel() {
                     errorMessage = e.message
                 )
             }
+        }
+    }
+
+    private fun extractHostName(url: String): String {
+        return try {
+            val uri = URI(url)
+            uri.host ?: url
+        } catch (e: Exception) {
+            url
         }
     }
 }
@@ -157,6 +227,51 @@ fun LoginScreen(
                 modifier = Modifier.padding(bottom = Dimens.spacingXxl)
             )
 
+            // Saved servers chips
+            if (uiState.savedServers.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                ) {
+                    items(uiState.savedServers, key = { it.url }) { server ->
+                        val isSelected = uiState.selectedServerUrl == server.url
+                        InputChip(
+                            selected = isSelected,
+                            onClick = { viewModel.selectServer(server) },
+                            label = { Text(server.name, maxLines = 1) },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { viewModel.removeServer(server) },
+                                    modifier = Modifier.size(Dimens.chipIconSize)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.delete),
+                                        modifier = Modifier.size(Dimens.chipCloseIconSize)
+                                    )
+                                }
+                            }
+                        )
+                    }
+                    item {
+                        InputChip(
+                            selected = false,
+                            onClick = { viewModel.addNewServer() },
+                            label = { Text(stringResource(R.string.add)) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = stringResource(R.string.add),
+                                    modifier = Modifier.size(Dimens.chipIconSize)
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacingLg))
+            }
+
             OutlinedTextField(
                 value = uiState.serverUrl,
                 onValueChange = { viewModel.updateServerUrl(it) },
@@ -200,7 +315,7 @@ fun LoginScreen(
             Button(
                 onClick = { viewModel.login(onLoginSuccess) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isLoading && uiState.password.isNotBlank()
+                enabled = !uiState.isLoading && uiState.password.isNotBlank() && uiState.serverUrl.isNotBlank()
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
