@@ -29,19 +29,26 @@ jobs:
     - name: Calculate version
       run: |
         # 获取最新的 tag
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-        
-        # 解析版本号
-        VERSION=${LATEST_TAG#v}
-        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-        
-        # 递增 patch 版本
-        NEW_PATCH=$((PATCH + 1))
-        NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-        
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
+
+        # 如果没有 tag，使用 1.0.0 作为起始版本
+        if [ -z "$LATEST_TAG" ]; then
+          NEW_VERSION="1.0.0"
+          NEW_CODE=10001
+        else
+          # 解析版本号
+          VERSION=${LATEST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # 递增 patch 版本
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          NEW_CODE=$((MAJOR * 10000 + MINOR * 100 + NEW_PATCH))
+        fi
+
         echo "VERSION_NAME=$NEW_VERSION" >> $GITHUB_ENV
-        echo "VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + NEW_PATCH))" >> $GITHUB_ENV
-        echo "Version: $NEW_VERSION (from $LATEST_TAG)"
+        echo "VERSION_CODE=$NEW_CODE" >> $GITHUB_ENV
+        echo "Version: $NEW_VERSION"
 
     - name: Decode keystore
       if: env.KEYSTORE_BASE64 != ''
