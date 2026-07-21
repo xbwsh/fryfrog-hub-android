@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.fryfrog.hub.ui.comics
 
@@ -6,19 +6,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -26,8 +30,10 @@ import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.ComicDTO
 import com.fryfrog.hub.data.model.ComicSeries
 import com.fryfrog.hub.data.model.MediaCharacter
-import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.components.*
+import com.fryfrog.hub.ui.theme.*
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ComicDetailScreen(
     series: ComicSeries?,
@@ -42,134 +48,289 @@ fun ComicDetailScreen(
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 48.dp)
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+
+    if (isLandscape) {
+        // 横屏布局：左侧封面，右侧信息+角色+卷数
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 48.dp)
         ) {
-            // 系列封面卡片（左侧封面 + 右侧简介）
-            item { SeriesInfoCard(series = series) }
-
-            // 角色信息（在卷数上面）
-            if (characters.isNotEmpty()) {
-                item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
-                item { SectionHeader(title = stringResource(R.string.characters)) }
-                item { CharactersRow(characters = characters) }
-            }
-
-            // 漫画列表
-            if (!series.comics.isNullOrEmpty()) {
-                item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
-                item { SectionHeader(title = stringResource(R.string.comic_volumes)) }
-                items(series.comics) { comic ->
-                    ComicVolumeCard(comic = comic, onClick = { onComicClick(comic.id) })
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(Dimens.spacingXxl)) }
-        }
-    }
-}
-
-@Composable
-private fun SeriesInfoCard(series: ComicSeries) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(Dimens.spacingLg),
-        shape = RoundedCornerShape(Dimens.radiusMd)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth()) {
+            // 左侧：封面
             Box(
                 modifier = Modifier
-                    .width(140.dp)
-                    .aspectRatio(0.7f)
-                    .clip(RoundedCornerShape(topStart = Dimens.radiusMd, bottomStart = Dimens.radiusMd))
+                    .weight(1f)
+                    .padding(Dimens.spacingLg)
+                    .clip(RoundedCornerShape(Dimens.radiusLg))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 if (series.coverUrl != null) {
-                    AsyncImage(model = series.coverUrl, contentDescription = series.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    AsyncImage(
+                        model = series.coverUrl,
+                        contentDescription = series.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        alignment = Alignment.TopCenter
+                    )
                 }
             }
-            Column(modifier = Modifier.weight(1f).padding(Dimens.spacingMd)) {
-                Text(text = series.name ?: "", style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                series.author?.let {
-                    Spacer(modifier = Modifier.height(Dimens.spacingXs))
-                    Text(text = it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // 右侧：标题、作者、简介 → 角色 → 卷数
+            Column(
+                modifier = Modifier
+                    .weight(1.5f)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // 标题、作者、简介
+                Column(modifier = Modifier.padding(Dimens.spacingLg)) {
+                    Text(
+                        text = series.name ?: "",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    series.author?.let {
+                        Spacer(modifier = Modifier.height(Dimens.spacingXs))
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    series.seriesSummary?.let { summary ->
+                        Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                        Text(
+                            text = summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(Dimens.spacingSm))
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
-                    series.volumeCount?.let { InfoChip(label = stringResource(R.string.volumes), value = "${it}卷") }
-                    series.serializationStart?.let { InfoChip(label = stringResource(R.string.start_date), value = it) }
+
+                // 角色信息
+                if (characters.isNotEmpty()) {
+                    SectionTitle(title = stringResource(R.string.characters))
+                    CharactersRow(characters = characters)
+                    Spacer(modifier = Modifier.height(Dimens.spacingLg))
                 }
-                series.seriesSummary?.let { summary ->
-                    Spacer(modifier = Modifier.height(Dimens.spacingSm))
-                    Text(text = summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 4, overflow = TextOverflow.Ellipsis)
+
+                // 卷数网格
+                if (!series.comics.isNullOrEmpty()) {
+                    val title = buildString {
+                        append(stringResource(R.string.comic_volumes))
+                        series.volumeCount?.let { append(" ($it)") }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingMd),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        series.serializationStart?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    ComicVolumeLandscapeGrid(
+                        comics = series.comics,
+                        onComicClick = onComicClick
+                    )
+                }
+            }
+        }
+    } else {
+        // 竖屏布局：使用 LazyVerticalGrid 实现固定5列
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(5),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 48.dp),
+            contentPadding = PaddingValues(Dimens.spacingLg),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+            verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+        ) {
+            // 系列封面卡片 - 占满整行
+            item(span = { GridItemSpan(5) }) {
+                ModernSeriesCard(
+                    coverUrl = series.coverUrl,
+                    title = series.name ?: "",
+                    subtitle = series.author,
+                    summary = series.seriesSummary
+                )
+            }
+
+            // 角色信息 - 占满整行
+            if (characters.isNotEmpty()) {
+                item(span = { GridItemSpan(5) }) {
+                    Spacer(modifier = Modifier.height(Dimens.spacingLg))
+                }
+                item(span = { GridItemSpan(5) }) {
+                    SectionTitle(title = stringResource(R.string.characters))
+                }
+                item(span = { GridItemSpan(5) }) {
+                    CharactersRow(characters = characters)
+                }
+                item(span = { GridItemSpan(5) }) {
+                    Spacer(modifier = Modifier.height(Dimens.spacingLg))
+                }
+            }
+
+            // 卷数标题 - 占满整行
+            if (!series.comics.isNullOrEmpty()) {
+                item(span = { GridItemSpan(5) }) {
+                    val title = buildString {
+                        append(stringResource(R.string.comic_volumes))
+                        series.volumeCount?.let { append(" ($it)") }
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Dimens.spacingMd),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        series.serializationStart?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // 卷数封面 - 每个占1列
+                items(series.comics) { comic ->
+                    ComicVolumeGridItem(
+                        comic = comic,
+                        onClick = { onComicClick(comic.id) }
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun InfoChip(label: String, value: String) {
-    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(Dimens.radiusSm)) {
-        Column(modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs)) {
-            Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(text = value, style = MaterialTheme.typography.bodySmall)
+private fun ComicVolumeFlowGrid(
+    comics: List<ComicDTO>,
+    onComicClick: (Long) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.spacingLg),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+    ) {
+        comics.forEach { comic ->
+            ComicVolumeGridItem(
+                comic = comic,
+                onClick = { onComicClick(comic.id) }
+            )
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SectionHeader(title: String) {
-    Text(text = title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingMd))
-}
-
-@Composable
-private fun CharactersRow(characters: List<MediaCharacter>) {
-    LazyRow(contentPadding = PaddingValues(horizontal = Dimens.spacingLg), horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)) {
-        items(characters) { character -> CharacterCard(character = character) }
-    }
-}
-
-@Composable
-private fun CharacterCard(character: MediaCharacter) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
-        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(Dimens.radiusMd)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-            if (character.imageUrl != null) {
-                AsyncImage(model = character.imageUrl, contentDescription = character.name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+private fun ComicVolumeLandscapeGrid(
+    comics: List<ComicDTO>,
+    onComicClick: (Long) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.spacingLg),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+    ) {
+        comics.forEach { comic ->
+            Box(modifier = Modifier.width(65.dp)) {
+                ComicVolumeGridItem(
+                    comic = comic,
+                    onClick = { onComicClick(comic.id) }
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun ComicVolumeGridItem(
+    comic: ComicDTO,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        // 封面
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.7f)  // 漫画封面比例
+                .clip(RoundedCornerShape(Dimens.radiusMd))
+                .shadow(
+                    elevation = 4.dp,
+                    shape = RoundedCornerShape(Dimens.radiusMd),
+                    ambientColor = Primary.copy(alpha = 0.1f)
+                )
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            if (comic.coverUrl != null) {
+                AsyncImage(
+                    model = comic.coverUrl,
+                    contentDescription = comic.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter
+                )
+            }
+
+            // 卷号标签 - 右上角
+            comic.volume?.let { volume ->
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(Dimens.spacingXs),
+                    color = Primary,
+                    shape = RoundedCornerShape(Dimens.radiusSm)
+                ) {
+                    Text(
+                        text = "Vol.$volume",
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = androidx.compose.ui.graphics.Color.White
+                    )
+                }
+            }
+        }
+
+        // 标题
         Spacer(modifier = Modifier.height(Dimens.spacingXs))
-        Text(text = character.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        character.originalName?.let { origName ->
-            if (origName != character.name) {
-                Text(text = origName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ComicVolumeCard(comic: ComicDTO, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingSm).clickable(onClick = onClick), shape = RoundedCornerShape(Dimens.radiusMd)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(Dimens.spacingMd), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(60.dp).clip(RoundedCornerShape(Dimens.radiusSm)).background(MaterialTheme.colorScheme.surfaceVariant)) {
-                if (comic.coverUrl != null) {
-                    AsyncImage(model = comic.coverUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                }
-            }
-            Spacer(modifier = Modifier.width(Dimens.spacingMd))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = comic.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
-                    comic.volume?.let { Text(text = "第${it}卷", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    comic.pageCount?.let { Text(text = "${it}页", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    comic.format?.let { Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-            }
-            comic.rating?.let { Text(text = String.format("%.1f", it), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
-        }
+        Text(
+            text = comic.title,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

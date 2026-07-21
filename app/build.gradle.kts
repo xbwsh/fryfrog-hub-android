@@ -4,8 +4,50 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val versionCode: Int by project
-val versionName: String by project
+// 版本号管理：优先使用命令行参数，其次使用 git tag，最后使用默认值
+fun getVersionName(): String {
+    // 检查是否有命令行参数
+    val cmdVersion = project.findProperty("versionName") as? String
+    if (cmdVersion != null && cmdVersion != "1.0.0") return cmdVersion
+
+    // 尝试从 git tag 获取
+    return try {
+        val process = ProcessBuilder("git", "describe", "--tags", "--abbrev=0")
+            .directory(project.rootDir)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        if (process.exitValue() == 0 && output.startsWith("v")) {
+            output.removePrefix("v")
+        } else {
+            "1.0.0"
+        }
+    } catch (e: Exception) {
+        "1.0.0"
+    }
+}
+
+fun getVersionCode(): Int {
+    val cmdCode = project.findProperty("versionCode") as? String
+    if (cmdCode != null && cmdCode != "1") return cmdCode.toIntOrNull() ?: 1
+
+    return try {
+        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .directory(project.rootDir)
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        if (process.exitValue() == 0) {
+            output.toIntOrNull() ?: 1
+        } else {
+            1
+        }
+    } catch (e: Exception) {
+        1
+    }
+}
 
 android {
     namespace = "com.fryfrog.hub"
@@ -15,8 +57,8 @@ android {
         applicationId = "com.fryfrog.hub"
         minSdk = 24
         targetSdk = 35
-        this.versionCode = versionCode
-        this.versionName = versionName
+        versionCode = getVersionCode()
+        versionName = getVersionName()
 
         ndk {
             // 只生成 arm64-v8a 架构的 APK

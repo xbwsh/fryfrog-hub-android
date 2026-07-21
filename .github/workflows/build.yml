@@ -70,7 +70,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ env.VERSION_NAME }}
-        name: Fryfrog Hub v${{ env.VERSION_NAME }}
+        name: v${{ env.VERSION_NAME }}
         files: app/build/outputs/apk/release/*.apk
         generate_release_notes: true
         make_latest: true

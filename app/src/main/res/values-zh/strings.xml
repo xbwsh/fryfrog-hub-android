@@ -56,9 +56,13 @@
     <string name="file_name">文件名</string>
 
     <!-- Settings -->
+    <string name="appearance">外观</string>
+    <string name="content">内容</string>
+    <string name="account">账户</string>
     <string name="theme_mode">主题模式</string>
     <string name="dark_theme">暗夜黑</string>
     <string name="light_theme">流光白</string>
+    <string name="manage_media_libraries">管理你的媒体资源库</string>
 
     <!-- Media Libraries -->
     <string name="media_libraries">媒体资源库</string>

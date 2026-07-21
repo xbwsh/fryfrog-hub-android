@@ -124,7 +124,8 @@ private fun VideoCard(
                     model = series.coverUrl,
                     contentDescription = series.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter
                 )
             } else {
                 Box(

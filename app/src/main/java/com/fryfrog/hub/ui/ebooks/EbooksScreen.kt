@@ -103,7 +103,8 @@ private fun EbookCard(ebook: EbookSeries, onClick: () -> Unit) {
                     model = ebook.coverUrl,
                     contentDescription = ebook.name,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter
                 )
             } else {
                 Box(

@@ -43,6 +43,7 @@ import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
 import com.fryfrog.hub.ui.player.PlayerScreen
 import com.fryfrog.hub.ui.settings.SettingsScreen
+import com.fryfrog.hub.ui.settings.MediaLibrariesScreen
 import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.ui.videos.VideosScreen
@@ -208,7 +209,16 @@ private fun MainContent(
                 SettingsScreen(
                     isDarkTheme = isDarkTheme,
                     onThemeChange = onThemeChange,
+                    onMediaLibrariesClick = {
+                        navController.navigate("media_libraries")
+                    },
                     onLogout = onLogout
+                )
+            }
+
+            composable("media_libraries") {
+                MediaLibrariesScreen(
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 

@@ -53,7 +53,8 @@ fun MediaCard(
                     model = coverUrl,
                     contentDescription = title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter
                 )
             } else {
                 Box(

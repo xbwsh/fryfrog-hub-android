@@ -56,9 +56,13 @@
     <string name="file_name">File Name</string>
 
     <!-- Settings -->
+    <string name="appearance">Appearance</string>
+    <string name="content">Content</string>
+    <string name="account">Account</string>
     <string name="theme_mode">Theme Mode</string>
     <string name="dark_theme">Dark Theme</string>
     <string name="light_theme">Light Theme</string>
+    <string name="manage_media_libraries">Manage your media libraries</string>
 
     <!-- Media Libraries -->
     <string name="media_libraries">Media Libraries</string>

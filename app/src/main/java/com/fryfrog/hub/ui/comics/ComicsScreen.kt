@@ -103,7 +103,8 @@ private fun ComicCard(comic: ComicSeries, onClick: () -> Unit) {
                     model = comic.coverUrl,
                     contentDescription = comic.name,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.TopCenter
                 )
             } else {
                 Box(
