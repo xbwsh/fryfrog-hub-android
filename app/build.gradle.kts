@@ -29,9 +29,9 @@ android {
             val ksFile = file("release.jks")
             if (ksFile.exists()) {
                 storeFile = ksFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                storePassword = "fryfrog123"
+                keyAlias = "fryfrog"
+                keyPassword = "fryfrog123"
             }
         }
     }
