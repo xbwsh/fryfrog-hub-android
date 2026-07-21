@@ -17,6 +17,11 @@ android {
         targetSdk = 35
         this.versionCode = versionCode
         this.versionName = versionName
+
+        ndk {
+            // 只生成 arm64-v8a 架构的 APK
+            abiFilters += "arm64-v8a"
+        }
     }
 
     signingConfigs {
@@ -57,6 +62,13 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "fryfrog-hub-${versionName}-arm64.apk"
+        }
     }
 }
 
