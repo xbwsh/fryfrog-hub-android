@@ -89,6 +89,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun playPrevious() {
+        val allTracks = _uiState.value.albumGroups.flatMap { it.tracks ?: emptyList() }
+        val currentIndex = allTracks.indexOfFirst { it.id == _playbackState.value.currentTrack?.id }
+        if (currentIndex > 0) {
+            playTrack(allTracks[currentIndex - 1])
+        } else if (allTracks.isNotEmpty()) {
+            playTrack(allTracks.last())
+        }
+    }
+
+    fun playNext() {
+        val allTracks = _uiState.value.albumGroups.flatMap { it.tracks ?: emptyList() }
+        val currentIndex = allTracks.indexOfFirst { it.id == _playbackState.value.currentTrack?.id }
+        if (currentIndex < allTracks.size - 1) {
+            playTrack(allTracks[currentIndex + 1])
+        } else if (allTracks.isNotEmpty()) {
+            playTrack(allTracks.first())
+        }
+    }
+
     fun togglePlayPause() {
         musicPlayer?.togglePlayPause()
     }

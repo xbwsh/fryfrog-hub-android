@@ -40,6 +40,8 @@
 
     <!-- Player -->
     <string name="pause">Pause</string>
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
     <string name="player_error">Playback error</string>
     <string name="player_exoplayer">ExoPlayer</string>
     <string name="player_mpv">MPV</string>

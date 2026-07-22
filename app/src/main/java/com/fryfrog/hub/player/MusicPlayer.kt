@@ -21,6 +21,7 @@ class MusicPlayer(private val context: Context) {
             MPVLib.setOptionString("idle", "once")
             MPVLib.init()
             MPVLib.addObserver(eventObserver)
+            MPVLib.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
             initialized = true
         }
     }
@@ -28,7 +29,11 @@ class MusicPlayer(private val context: Context) {
     private val eventObserver = object : MPVLib.EventObserver {
         override fun eventProperty(property: String) {}
         override fun eventProperty(property: String, value: Long) {}
-        override fun eventProperty(property: String, value: Boolean) {}
+        override fun eventProperty(property: String, value: Boolean) {
+            if (property == "pause") {
+                listener?.invoke(if (value) EVENT_PAUSED else EVENT_PLAYING)
+            }
+        }
         override fun eventProperty(property: String, value: String) {}
         override fun eventProperty(property: String, value: Double) {}
         override fun event(eventId: Int) {

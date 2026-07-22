@@ -40,6 +40,8 @@
 
     <!-- Player -->
     <string name="pause">暂停</string>
+    <string name="previous">上一曲</string>
+    <string name="next">下一曲</string>
     <string name="player_error">播放错误</string>
     <string name="player_exoplayer">ExoPlayer</string>
     <string name="player_mpv">MPV</string>

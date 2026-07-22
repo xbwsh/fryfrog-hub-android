@@ -206,14 +206,16 @@ private fun MainContent(
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen(
-                    isDarkTheme = isDarkTheme,
-                    onThemeChange = onThemeChange,
-                    onMediaLibrariesClick = {
-                        navController.navigate("media_libraries")
-                    },
-                    onLogout = onLogout
-                )
+                key(isDarkTheme) {
+                    SettingsScreen(
+                        isDarkTheme = isDarkTheme,
+                        onThemeChange = onThemeChange,
+                        onMediaLibrariesClick = {
+                            navController.navigate("media_libraries")
+                        },
+                        onLogout = onLogout
+                    )
+                }
             }
 
             composable("media_libraries") {
