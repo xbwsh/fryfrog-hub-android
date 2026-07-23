@@ -200,10 +200,10 @@ private fun MainContent(
                         // TODO: Navigate to music player
                     },
                     onComicClick = { comicId ->
-                        // TODO: Navigate to comic reader
+                        navController.navigate("comic_detail/$comicId")
                     },
                     onEbookClick = { ebookId ->
-                        // TODO: Navigate to ebook reader
+                        navController.navigate("ebook_detail/$ebookId")
                     }
                 )
             }

@@ -56,7 +56,7 @@ fun ComicDetailScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 48.dp)
+                .statusBarsPadding()
         ) {
             // 左侧：封面
             Box(
@@ -167,7 +167,7 @@ fun ComicDetailScreen(
             columns = GridCells.Fixed(5),
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 48.dp),
+                .statusBarsPadding(),
             contentPadding = PaddingValues(Dimens.spacingLg),
             horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
             verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
