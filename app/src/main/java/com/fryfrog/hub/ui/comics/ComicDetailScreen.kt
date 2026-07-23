@@ -110,7 +110,10 @@ fun ComicDetailScreen(
 
                 // 角色信息
                 if (characters.isNotEmpty()) {
-                    SectionTitle(title = stringResource(R.string.characters))
+                    SectionTitle(
+                        title = stringResource(R.string.characters),
+                        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
+                    )
                     CharactersRow(characters = characters)
                     Spacer(modifier = Modifier.height(Dimens.spacingLg))
                 }
@@ -128,11 +131,21 @@ fun ComicDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .width(4.dp)
+                                    .height(16.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Primary)
+                            )
+                            Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                         series.serializationStart?.let {
                             Text(
                                 text = it,
@@ -199,11 +212,21 @@ fun ComicDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .width(4.dp)
+                                    .height(16.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Primary)
+                            )
+                            Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                         series.serializationStart?.let {
                             Text(
                                 text = it,
@@ -262,7 +285,7 @@ private fun ComicVolumeLandscapeGrid(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
     ) {
         comics.forEach { comic ->
-            Box(modifier = Modifier.width(65.dp)) {
+            Box(modifier = Modifier.width(100.dp)) {
                 ComicVolumeGridItem(
                     comic = comic,
                     onClick = { onComicClick(comic.id) }

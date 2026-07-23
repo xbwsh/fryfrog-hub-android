@@ -23,6 +23,7 @@ import com.fryfrog.hub.R
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.data.remote.FryfrogApi
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Primary
 import com.fryfrog.hub.util.PrefsManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -217,6 +218,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .imePadding()
                 .padding(Dimens.spacingXl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -250,7 +252,13 @@ fun LoginScreen(
                                         modifier = Modifier.size(Dimens.chipCloseIconSize)
                                     )
                                 }
-                            }
+                            },
+                            colors = InputChipDefaults.inputChipColors(
+                                selectedContainerColor = Primary.copy(alpha = 0.15f),
+                                selectedLabelColor = Primary,
+                                selectedLeadingIconColor = Primary,
+                                selectedTrailingIconColor = Primary
+                            )
                         )
                     }
                     item {

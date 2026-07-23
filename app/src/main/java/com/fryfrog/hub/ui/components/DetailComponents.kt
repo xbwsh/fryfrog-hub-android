@@ -43,7 +43,6 @@ fun ModernSeriesCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(Dimens.spacingLg)
             .shadow(
                 elevation = 8.dp,
                 shape = RoundedCornerShape(Dimens.radiusLg),
@@ -169,7 +168,7 @@ fun SectionTitle(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingMd),
+        modifier = modifier.padding(vertical = Dimens.spacingMd),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -198,7 +197,7 @@ fun CharactersRow(
 ) {
     LazyRow(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = Dimens.spacingLg),
+        contentPadding = PaddingValues(start = 0.dp, end = Dimens.spacingLg),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
     ) {
         items(characters) { character ->

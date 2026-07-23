@@ -110,7 +110,10 @@ fun EbookDetailScreen(
 
                 // 角色信息
                 if (characters.isNotEmpty()) {
-                    SectionTitle(title = stringResource(R.string.characters))
+                    SectionTitle(
+                        title = stringResource(R.string.characters),
+                        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
+                    )
                     CharactersRow(characters = characters)
                     Spacer(modifier = Modifier.height(Dimens.spacingLg))
                 }
@@ -121,12 +124,26 @@ fun EbookDetailScreen(
                         append(stringResource(R.string.ebook_volumes))
                         series.volumeCount?.let { append(" ($it)") }
                     }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingMd)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingMd),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Primary)
+                        )
+                        Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     EbookVolumeLandscapeGrid(
                         books = series.books,
                         onEbookClick = onEbookClick
@@ -178,12 +195,26 @@ fun EbookDetailScreen(
                         append(stringResource(R.string.ebook_volumes))
                         series.volumeCount?.let { append(" ($it)") }
                     }
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(vertical = Dimens.spacingMd)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = Dimens.spacingMd),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Primary)
+                        )
+                        Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
                 // 书目封面 - 每个占1列
@@ -234,7 +265,7 @@ private fun EbookVolumeLandscapeGrid(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
     ) {
         books.forEach { book ->
-            Box(modifier = Modifier.width(65.dp)) {
+            Box(modifier = Modifier.width(100.dp)) {
                 EbookVolumeGridItem(
                     book = book,
                     onClick = { onEbookClick(book.id) }

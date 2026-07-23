@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import com.fryfrog.hub.R
 import com.fryfrog.hub.ui.theme.*
 
@@ -205,7 +206,7 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Medium
                             )
                         }
-                        Switch(
+                        UniformSwitch(
                             checked = isCarouselEnabled,
                             onCheckedChange = onCarouselEnabledChange
                         )
@@ -357,7 +358,7 @@ fun SettingsScreen(
                                 }
 
                                 // Visibility switch
-                                Switch(
+                                UniformSwitch(
                                     checked = isVisible,
                                     onCheckedChange = { onSectionVisibleChange(sectionId, it) }
                                 )
@@ -464,7 +465,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(
+                        UniformSwitch(
                             checked = isAdultContentHidden,
                             onCheckedChange = onAdultContentHiddenChange
                         )
@@ -660,5 +661,54 @@ private fun ModernCard(
         shape = RoundedCornerShape(Dimens.radiusLg)
     ) {
         Column(content = content)
+    }
+}
+
+@Composable
+private fun UniformSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val thumbSize = 20.dp
+    val trackWidth = 52.dp
+    val trackHeight = 28.dp
+    val thumbPadding = 4.dp
+
+    val thumbPosition by animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "thumbPosition"
+    )
+
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) Primary else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(durationMillis = 200),
+        label = "trackColor"
+    )
+
+    val thumbColor by animateColorAsState(
+        targetValue = if (checked) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(durationMillis = 200),
+        label = "thumbColor"
+    )
+
+    Box(
+        modifier = modifier
+            .width(trackWidth)
+            .height(trackHeight)
+            .clip(RoundedCornerShape(trackHeight / 2))
+            .background(trackColor)
+            .clickable { onCheckedChange(!checked) },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(start = thumbPadding)
+                .offset(x = (trackWidth - thumbSize - thumbPadding * 2) * thumbPosition)
+                .size(thumbSize)
+                .clip(CircleShape)
+                .background(thumbColor)
+        )
     }
 }
