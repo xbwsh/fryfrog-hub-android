@@ -44,7 +44,7 @@ class PrefsManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
 
     var isDarkTheme: Boolean
-        get() = prefs.getBoolean(KEY_DARK_THEME, true)
+        get() = prefs.getBoolean(KEY_DARK_THEME, false)
         set(value) = prefs.edit().putBoolean(KEY_DARK_THEME, value).apply()
 
     var isAdultContentHidden: Boolean
