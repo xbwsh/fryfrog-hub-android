@@ -43,6 +43,12 @@ interface FryfrogApi {
     @GET("/api/v1/music/{id}/cover")
     suspend fun getMusicCover(@Path("id") id: Long): ApiResponse<String>
 
+    @GET("/api/v1/music/{id}/lyrics")
+    suspend fun getMusicEmbeddedLyrics(@Path("id") id: Long): ApiResponse<String?>
+
+    @GET("/api/v1/music/tracks/{id}/lyrics")
+    suspend fun getMusicExternalLyrics(@Path("id") id: Long): ApiResponse<String?>
+
     @GET("/api/v1/music/recently-added")
     suspend fun getRecentlyAddedMusic(): ApiResponse<PageResponse<MusicTrack>>
 

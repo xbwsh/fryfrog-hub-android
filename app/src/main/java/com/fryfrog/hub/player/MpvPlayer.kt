@@ -180,9 +180,14 @@ class MpvPlayer(private val context: Context) {
     }
 
     fun togglePlayPause() {
-        val paused = MPVLib.getPropertyBoolean("pause") ?: false
-        Log.d(TAG, "togglePlayPause() paused=$paused")
-        MPVLib.setPropertyBoolean("pause", !paused)
+        try {
+            if (!initialized) return
+            val paused = MPVLib.getPropertyBoolean("pause") ?: false
+            Log.d(TAG, "togglePlayPause() paused=$paused")
+            MPVLib.setPropertyBoolean("pause", !paused)
+        } catch (e: Exception) {
+            Log.e(TAG, "togglePlayPause() failed", e)
+        }
     }
 
     fun seekTo(ms: Long) {
@@ -191,16 +196,34 @@ class MpvPlayer(private val context: Context) {
     }
 
     fun getPosition(): Long {
-        return ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong()
+        return try {
+            if (!initialized) return 0L
+            ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong()
+        } catch (e: Exception) {
+            Log.e(TAG, "getPosition() failed", e)
+            0L
+        }
     }
 
     fun getDuration(): Long {
-        return ((MPVLib.getPropertyDouble("duration") ?: 0.0) * 1000).toLong()
+        return try {
+            if (!initialized) return 0L
+            ((MPVLib.getPropertyDouble("duration") ?: 0.0) * 1000).toLong()
+        } catch (e: Exception) {
+            Log.e(TAG, "getDuration() failed", e)
+            0L
+        }
     }
 
     fun isPlaying(): Boolean {
-        val paused = MPVLib.getPropertyBoolean("pause") ?: true
-        return !paused
+        return try {
+            if (!initialized) return false
+            val paused = MPVLib.getPropertyBoolean("pause") ?: true
+            !paused
+        } catch (e: Exception) {
+            Log.e(TAG, "isPlaying() failed", e)
+            false
+        }
     }
 
     fun setVolume(percent: Int) {

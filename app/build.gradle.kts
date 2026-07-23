@@ -134,6 +134,10 @@ dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
 
+    // Media Session
+    implementation("androidx.media:media:1.7.0")
+    implementation("androidx.media2:media2-session:1.2.1")
+
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")

@@ -68,6 +68,14 @@ class MediaRepository {
         api.getMusicFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
     }
 
+    suspend fun getMusicEmbeddedLyrics(trackId: Long): Result<String?> = safeApiCall {
+        api.getMusicEmbeddedLyrics(trackId).data
+    }
+
+    suspend fun getMusicExternalLyrics(trackId: Long): Result<String?> = safeApiCall {
+        api.getMusicExternalLyrics(trackId).data
+    }
+
     // Comic
     suspend fun getComicSeries(): Result<List<ComicSeries>> = safeApiCall {
         api.getComicSeries().data?.content?.map { series ->
