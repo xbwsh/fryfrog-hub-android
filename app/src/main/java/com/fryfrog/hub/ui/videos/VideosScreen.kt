@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -31,9 +31,20 @@ import com.fryfrog.hub.ui.theme.Dimens
 @Composable
 fun VideosScreen(
     viewModel: VideosViewModel = viewModel(),
+    isAdultContentHidden: Boolean = true,
     onVideoClick: (Long, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    val filteredSeries by remember(uiState.series, isAdultContentHidden) {
+        derivedStateOf {
+            if (isAdultContentHidden) {
+                uiState.series.filter { it.isAdult != true }
+            } else {
+                uiState.series
+            }
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -72,7 +83,7 @@ fun VideosScreen(
             )
         } else {
             VideosGrid(
-                series = uiState.series,
+                series = filteredSeries,
                 onVideoClick = onVideoClick,
                 modifier = Modifier.padding(paddingValues)
             )

@@ -28,11 +28,35 @@ import androidx.compose.ui.unit.dp
 import com.fryfrog.hub.R
 import com.fryfrog.hub.ui.theme.*
 
+private val SECTION_NAMES = mapOf(
+    "videos" to R.string.section_videos,
+    "music" to R.string.section_music,
+    "comics" to R.string.section_comics,
+    "ebooks" to R.string.section_ebooks
+)
+
+private val SECTION_ICONS = mapOf(
+    "videos" to Icons.Default.VideoLibrary,
+    "music" to Icons.Default.LibraryMusic,
+    "comics" to Icons.Default.MenuBook,
+    "ebooks" to Icons.Default.AutoStories
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     isDarkTheme: Boolean,
     onThemeChange: (Boolean) -> Unit,
+    isAdultContentHidden: Boolean,
+    onAdultContentHiddenChange: (Boolean) -> Unit,
+    isCarouselEnabled: Boolean,
+    onCarouselEnabledChange: (Boolean) -> Unit,
+    carouselSource: String,
+    onCarouselSourceChange: (String) -> Unit,
+    sectionOrder: List<String>,
+    onSectionOrderChange: (List<String>) -> Unit,
+    sectionVisible: Map<String, Boolean>,
+    onSectionVisibleChange: (String, Boolean) -> Unit,
     onMediaLibrariesClick: () -> Unit,
     onLogout: () -> Unit = {}
 ) {
@@ -46,7 +70,6 @@ fun SettingsScreen(
         }
     }
 
-    // 使用 Column 替代 Scaffold，确保 TopAppBar 和内容在同一个 recomposition 作用域
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -76,7 +99,6 @@ fun SettingsScreen(
 
             item {
                 ModernCard {
-                    // 动画效果
                     val iconBackground by animateColorAsState(
                         targetValue = if (isDarkTheme) Color(0xFF1A1A2E) else Color(0xFFFFF8E1),
                         animationSpec = tween(durationMillis = 300),
@@ -132,13 +154,222 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // 右侧显示当前主题的图标
                         Icon(
                             imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(20.dp)
                         )
+                    }
+                }
+            }
+
+            // Section: Home Layout
+            item {
+                Spacer(Modifier.height(Dimens.spacingSm))
+                SectionHeader(
+                    title = stringResource(R.string.home_layout),
+                    icon = Icons.Default.Home
+                )
+            }
+
+            // Carousel enabled
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCarouselEnabledChange(!isCarouselEnabled) }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ViewCarousel,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.carousel_enabled),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Switch(
+                            checked = isCarouselEnabled,
+                            onCheckedChange = onCarouselEnabledChange
+                        )
+                    }
+                }
+            }
+
+            // Carousel source
+            if (isCarouselEnabled) {
+                item {
+                    ModernCard {
+                        Column(
+                            modifier = Modifier.padding(Dimens.spacingLg)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Primary.copy(alpha = 0.1f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Source,
+                                        contentDescription = null,
+                                        tint = Primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(Modifier.width(Dimens.spacingMd))
+                                Text(
+                                    stringResource(R.string.carousel_source),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Spacer(Modifier.height(Dimens.spacingMd))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                            ) {
+                                val sources = listOf("videos", "music", "comics", "ebooks")
+                                val sourceLabels = sources.map { stringResource(SECTION_NAMES[it] ?: R.string.unknown) }
+                                sources.forEachIndexed { index, source ->
+                                    val isSelected = carouselSource == source
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(Dimens.radiusMd))
+                                            .background(
+                                                if (isSelected) Primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                            .clickable { onCarouselSourceChange(source) }
+                                            .padding(vertical = Dimens.spacingSm),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = sourceLabels[index],
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section order
+            item {
+                Spacer(Modifier.height(Dimens.spacingSm))
+                Text(
+                    stringResource(R.string.home_section_order_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Dimens.spacingLg)
+                )
+            }
+
+            item {
+                ModernCard {
+                    Column {
+                        sectionOrder.forEachIndexed { index, sectionId ->
+                            val sectionName = stringResource(SECTION_NAMES[sectionId] ?: R.string.unknown)
+                            val sectionIcon = SECTION_ICONS[sectionId] ?: Icons.Default.Folder
+                            val isVisible = sectionVisible[sectionId] != false
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingSm),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = sectionIcon,
+                                    contentDescription = null,
+                                    tint = if (isVisible) Primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaDisabled),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(Dimens.spacingMd))
+                                Text(
+                                    sectionName,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f),
+                                    color = if (isVisible) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = Dimens.alphaDisabled)
+                                )
+
+                                // Move up
+                                IconButton(
+                                    onClick = {
+                                        if (index > 0) {
+                                            val newList = sectionOrder.toMutableList()
+                                            newList.removeAt(index)
+                                            newList.add(index - 1, sectionId)
+                                            onSectionOrderChange(newList)
+                                        }
+                                    },
+                                    enabled = index > 0,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowUp,
+                                        contentDescription = stringResource(R.string.move_up),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                // Move down
+                                IconButton(
+                                    onClick = {
+                                        if (index < sectionOrder.size - 1) {
+                                            val newList = sectionOrder.toMutableList()
+                                            newList.removeAt(index)
+                                            newList.add(index + 1, sectionId)
+                                            onSectionOrderChange(newList)
+                                        }
+                                    },
+                                    enabled = index < sectionOrder.size - 1,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.KeyboardArrowDown,
+                                        contentDescription = stringResource(R.string.move_down),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                // Visibility switch
+                                Switch(
+                                    checked = isVisible,
+                                    onCheckedChange = { onSectionVisibleChange(sectionId, it) }
+                                )
+                            }
+
+                            if (index < sectionOrder.size - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = Dimens.spacingLg),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -192,6 +423,50 @@ fun SettingsScreen(
                             Icons.Default.ChevronRight,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAdultContentHiddenChange(!isAdultContentHidden) }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.privacy_mode),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                stringResource(R.string.privacy_mode_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isAdultContentHidden,
+                            onCheckedChange = onAdultContentHiddenChange
                         )
                     }
                 }
@@ -255,7 +530,7 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -277,7 +552,6 @@ fun SettingsScreen(
                     modifier = Modifier.padding(Dimens.spacingXl),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Icon
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -295,7 +569,6 @@ fun SettingsScreen(
 
                     Spacer(Modifier.height(Dimens.spacingLg))
 
-                    // Title
                     Text(
                         text = stringResource(R.string.logout),
                         style = MaterialTheme.typography.titleLarge,
@@ -305,7 +578,6 @@ fun SettingsScreen(
 
                     Spacer(Modifier.height(Dimens.spacingSm))
 
-                    // Message
                     Text(
                         text = stringResource(R.string.logout_confirm),
                         style = MaterialTheme.typography.bodyMedium,
@@ -315,12 +587,10 @@ fun SettingsScreen(
 
                     Spacer(Modifier.height(Dimens.spacingXl))
 
-                    // Buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                     ) {
-                        // Cancel button
                         OutlinedButton(
                             onClick = { showLogoutDialog = false },
                             modifier = Modifier.weight(1f),
@@ -332,7 +602,6 @@ fun SettingsScreen(
                             Text(stringResource(R.string.cancel))
                         }
 
-                        // Confirm button
                         Button(
                             onClick = {
                                 showLogoutDialog = false

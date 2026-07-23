@@ -58,6 +58,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var isDarkTheme by remember { mutableStateOf(prefs.isDarkTheme) }
+            var isAdultContentHidden by remember { mutableStateOf(prefs.isAdultContentHidden) }
+            var isCarouselEnabled by remember { mutableStateOf(prefs.isCarouselEnabled) }
+            var carouselSource by remember { mutableStateOf(prefs.carouselSource) }
+            var sectionOrder by remember { mutableStateOf(prefs.homeSectionOrder) }
+            var sectionVisible by remember { mutableStateOf(prefs.homeSectionVisible) }
 
             // 设置状态栏图标颜色
             LaunchedEffect(isDarkTheme) {
@@ -93,6 +98,31 @@ class MainActivity : ComponentActivity() {
                                 prefs.isDarkTheme = dark
                             },
                             isDarkTheme = isDarkTheme,
+                            isAdultContentHidden = isAdultContentHidden,
+                            onAdultContentHiddenChange = { hidden ->
+                                isAdultContentHidden = hidden
+                                prefs.isAdultContentHidden = hidden
+                            },
+                            isCarouselEnabled = isCarouselEnabled,
+                            onCarouselEnabledChange = { enabled ->
+                                isCarouselEnabled = enabled
+                                prefs.isCarouselEnabled = enabled
+                            },
+                            carouselSource = carouselSource,
+                            onCarouselSourceChange = { source ->
+                                carouselSource = source
+                                prefs.carouselSource = source
+                            },
+                            sectionOrder = sectionOrder,
+                            onSectionOrderChange = { order ->
+                                sectionOrder = order
+                                prefs.homeSectionOrder = order
+                            },
+                            sectionVisible = sectionVisible,
+                            onSectionVisibleChange = { sectionId, visible ->
+                                sectionVisible = sectionVisible + (sectionId to visible)
+                                prefs.homeSectionVisible = sectionVisible
+                            },
                             onLogout = {
                                 prefs.clearLogin()
                                 isLoggedIn = false
@@ -116,6 +146,16 @@ private fun MainContent(
     navController: androidx.navigation.NavHostController,
     onThemeChange: (Boolean) -> Unit,
     isDarkTheme: Boolean,
+    isAdultContentHidden: Boolean,
+    onAdultContentHiddenChange: (Boolean) -> Unit,
+    isCarouselEnabled: Boolean,
+    onCarouselEnabledChange: (Boolean) -> Unit,
+    carouselSource: String,
+    onCarouselSourceChange: (String) -> Unit,
+    sectionOrder: List<String>,
+    onSectionOrderChange: (List<String>) -> Unit,
+    sectionVisible: Map<String, Boolean>,
+    onSectionVisibleChange: (String, Boolean) -> Unit,
     onLogout: () -> Unit = {}
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -134,7 +174,8 @@ private fun MainContent(
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    sectionVisible = sectionVisible
                 )
             }
         },
@@ -147,6 +188,11 @@ private fun MainContent(
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
+                    isAdultContentHidden = isAdultContentHidden,
+                    sectionOrder = sectionOrder,
+                    sectionVisible = sectionVisible,
+                    carouselSource = carouselSource,
+                    isCarouselEnabled = isCarouselEnabled,
                     onVideoClick = { videoId, type ->
                         navController.navigate("video_detail/$videoId?type=$type")
                     },
@@ -164,6 +210,7 @@ private fun MainContent(
 
             composable(Screen.Videos.route) {
                 VideosScreen(
+                    isAdultContentHidden = isAdultContentHidden,
                     onVideoClick = { videoId, type ->
                         navController.navigate("video_detail/$videoId?type=$type")
                     }
@@ -210,6 +257,16 @@ private fun MainContent(
                     SettingsScreen(
                         isDarkTheme = isDarkTheme,
                         onThemeChange = onThemeChange,
+                        isAdultContentHidden = isAdultContentHidden,
+                        onAdultContentHiddenChange = onAdultContentHiddenChange,
+                        isCarouselEnabled = isCarouselEnabled,
+                        onCarouselEnabledChange = onCarouselEnabledChange,
+                        carouselSource = carouselSource,
+                        onCarouselSourceChange = onCarouselSourceChange,
+                        sectionOrder = sectionOrder,
+                        onSectionOrderChange = onSectionOrderChange,
+                        sectionVisible = sectionVisible,
+                        onSectionVisibleChange = onSectionVisibleChange,
                         onMediaLibrariesClick = {
                             navController.navigate("media_libraries")
                         },

@@ -26,11 +26,26 @@ import androidx.compose.ui.unit.dp
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.Primary
 
+private val SECTION_ROUTE_MAP = mapOf(
+    "videos" to "videos",
+    "music" to "music",
+    "comics" to "comics",
+    "ebooks" to "ebooks"
+)
+
 @Composable
 fun FryfrogBottomBar(
     currentRoute: String?,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    sectionVisible: Map<String, Boolean> = mapOf(
+        "videos" to true, "music" to true, "comics" to true, "ebooks" to true
+    )
 ) {
+    val visibleScreens = bottomNavScreens.filter { screen ->
+        val sectionId = SECTION_ROUTE_MAP[screen.route]
+        sectionId == null || sectionVisible[sectionId] != false
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -42,7 +57,7 @@ fun FryfrogBottomBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            bottomNavScreens.forEach { screen ->
+            visibleScreens.forEach { screen ->
                 val isSelected = currentRoute == screen.route
 
                 val iconColor by animateColorAsState(

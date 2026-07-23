@@ -16,7 +16,17 @@ class PrefsManager(context: Context) {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_DARK_THEME = "dark_theme"
+        private const val KEY_ADULT_CONTENT_HIDDEN = "adult_content_hidden"
+        private const val KEY_HOME_SECTION_ORDER = "home_section_order"
+        private const val KEY_HOME_SECTION_VISIBLE = "home_section_visible"
+        private const val KEY_CAROUSEL_SOURCE = "carousel_source"
+        private const val KEY_CAROUSEL_ENABLED = "carousel_enabled"
         private const val KEY_SAVED_SERVERS = "saved_servers"
+
+        private val DEFAULT_SECTION_ORDER = listOf("videos", "music", "comics", "ebooks")
+        private val DEFAULT_SECTION_VISIBLE = mapOf(
+            "videos" to true, "music" to true, "comics" to true, "ebooks" to true
+        )
 
         private const val DEFAULT_SERVER_URL = "http://192.168.31.127:20058"
     }
@@ -36,6 +46,42 @@ class PrefsManager(context: Context) {
     var isDarkTheme: Boolean
         get() = prefs.getBoolean(KEY_DARK_THEME, true)
         set(value) = prefs.edit().putBoolean(KEY_DARK_THEME, value).apply()
+
+    var isAdultContentHidden: Boolean
+        get() = prefs.getBoolean(KEY_ADULT_CONTENT_HIDDEN, true)
+        set(value) = prefs.edit().putBoolean(KEY_ADULT_CONTENT_HIDDEN, value).apply()
+
+    var homeSectionOrder: List<String>
+        get() {
+            val json = prefs.getString(KEY_HOME_SECTION_ORDER, null) ?: return DEFAULT_SECTION_ORDER
+            return try {
+                val type = object : TypeToken<List<String>>() {}.type
+                gson.fromJson(json, type)
+            } catch (e: Exception) {
+                DEFAULT_SECTION_ORDER
+            }
+        }
+        set(value) = prefs.edit().putString(KEY_HOME_SECTION_ORDER, gson.toJson(value)).apply()
+
+    var homeSectionVisible: Map<String, Boolean>
+        get() {
+            val json = prefs.getString(KEY_HOME_SECTION_VISIBLE, null) ?: return DEFAULT_SECTION_VISIBLE
+            return try {
+                val type = object : TypeToken<Map<String, Boolean>>() {}.type
+                gson.fromJson(json, type)
+            } catch (e: Exception) {
+                DEFAULT_SECTION_VISIBLE
+            }
+        }
+        set(value) = prefs.edit().putString(KEY_HOME_SECTION_VISIBLE, gson.toJson(value)).apply()
+
+    var carouselSource: String
+        get() = prefs.getString(KEY_CAROUSEL_SOURCE, "videos") ?: "videos"
+        set(value) = prefs.edit().putString(KEY_CAROUSEL_SOURCE, value).apply()
+
+    var isCarouselEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CAROUSEL_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_CAROUSEL_ENABLED, value).apply()
 
     data class SavedServer(
         val name: String,

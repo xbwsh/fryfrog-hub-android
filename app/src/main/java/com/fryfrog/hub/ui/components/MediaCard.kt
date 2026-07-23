@@ -28,7 +28,8 @@ fun MediaCard(
     subtitle: String?,
     coverUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    square: Boolean = false
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -44,7 +45,7 @@ fun MediaCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.7f)
+                .aspectRatio(if (square) 1f else 0.7f)
                 .clip(RoundedCornerShape(Dimens.radiusMd))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
@@ -129,7 +130,8 @@ fun WideMediaCard(
     subtitle: String?,
     coverUrl: String?,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fixedSize: Boolean = true
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -138,8 +140,7 @@ fun WideMediaCard(
 
     Box(
         modifier = modifier
-            .width(cardWidth)
-            .height(cardHeight)
+            .then(if (fixedSize) Modifier.width(cardWidth).height(cardHeight) else Modifier)
             .clip(RoundedCornerShape(Dimens.radiusLg))
             .clickable(onClick = onClick)
     ) {

@@ -65,6 +65,14 @@
     <string name="dark_theme">暗夜黑</string>
     <string name="light_theme">流光白</string>
     <string name="manage_media_libraries">管理你的媒体资源库</string>
+    <string name="privacy_mode">隐私模式</string>
+    <string name="privacy_mode_desc">隐藏视频中的成人内容</string>
+    <string name="home_layout">首页布局</string>
+    <string name="carousel_enabled">显示轮播图</string>
+    <string name="carousel_source">轮播图来源</string>
+    <string name="home_section_order_desc">调整首页各分区的显示顺序</string>
+    <string name="move_up">上移</string>
+    <string name="move_down">下移</string>
 
     <!-- Media Libraries -->
     <string name="media_libraries">媒体资源库</string>

@@ -29,6 +29,12 @@ object Dimens {
     val cardWideHeight = 150.dp
     val cardWideHeightTablet = 180.dp
 
+    // Carousel
+    val carouselHeight = 320.dp
+    val carouselHeightTablet = 380.dp
+    val indicatorSize = 8.dp
+    val indicatorSpacing = 4.dp
+
     // Page Padding
     val pageHorizontalPadding = 16.dp
     val pageVerticalPadding = 8.dp
