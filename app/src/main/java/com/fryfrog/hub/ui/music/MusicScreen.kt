@@ -2,6 +2,11 @@
 
 package com.fryfrog.hub.ui.music
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -134,23 +139,23 @@ fun MusicScreen(
                 }
             }
 
-            // 底部播放器 - 在内容区域内
-            if (playbackState.currentTrack != null) {
-                BottomPlayer(
-                    track = playbackState.currentTrack!!,
-                    isPlaying = playbackState.isPlaying,
-                    position = playbackState.currentPosition,
-                    duration = playbackState.duration,
-                    onPlayPause = { viewModel.togglePlayPause() },
-                    onSeek = { viewModel.seekTo(it) },
-                    onPrevious = { viewModel.playPrevious() },
-                    onNext = { viewModel.playNext() },
-                    onCoverClick = {
+            // 底部播放器 - 始终显示
+            BottomPlayer(
+                track = playbackState.currentTrack,
+                isPlaying = playbackState.isPlaying,
+                position = playbackState.currentPosition,
+                duration = playbackState.duration,
+                onPlayPause = { viewModel.togglePlayPause() },
+                onSeek = { viewModel.seekTo(it) },
+                onPrevious = { viewModel.playPrevious() },
+                onNext = { viewModel.playNext() },
+                onCoverClick = {
+                    playbackState.currentTrack?.let { track ->
                         showLyrics = true
-                        viewModel.loadLyrics(playbackState.currentTrack!!.id)
+                        viewModel.loadLyrics(track.id)
                     }
-                )
-            }
+                }
+            )
         }
     }
 
@@ -163,20 +168,32 @@ fun MusicScreen(
         }
     }
 
-    // 歌词页面
-    if (showLyrics && playbackState.currentTrack != null) {
-        LyricsScreen(
-            track = playbackState.currentTrack!!,
-            isPlaying = playbackState.isPlaying,
-            position = playbackState.currentPosition,
-            duration = playbackState.duration,
-            lyricsState = lyricsState,
-            onDismiss = { showLyrics = false },
-            onPlayPause = { viewModel.togglePlayPause() },
-            onPrevious = { viewModel.playPrevious() },
-            onNext = { viewModel.playNext() },
-            onSeek = { viewModel.seekTo(it) }
-        )
+    // 歌词页面 - 带滑入滑出动画
+    AnimatedVisibility(
+        visible = showLyrics && playbackState.currentTrack != null,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = tween(durationMillis = 300)
+        ) + fadeIn(animationSpec = tween(durationMillis = 300)),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(durationMillis = 300)
+        ) + fadeOut(animationSpec = tween(durationMillis = 300))
+    ) {
+        playbackState.currentTrack?.let { track ->
+            LyricsScreen(
+                track = track,
+                isPlaying = playbackState.isPlaying,
+                position = playbackState.currentPosition,
+                duration = playbackState.duration,
+                lyricsState = lyricsState,
+                onDismiss = { showLyrics = false },
+                onPlayPause = { viewModel.togglePlayPause() },
+                onPrevious = { viewModel.playPrevious() },
+                onNext = { viewModel.playNext() },
+                onSeek = { viewModel.seekTo(it) }
+            )
+        }
     }
 }
 
@@ -204,7 +221,7 @@ private fun TrackListItem(
         // 封面
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(40.dp)
                 .clip(RoundedCornerShape(Dimens.radiusSm))
                 .background(
                     Brush.linearGradient(
@@ -226,7 +243,7 @@ private fun TrackListItem(
                         imageVector = Icons.Default.MusicNote,
                         contentDescription = null,
                         tint = Primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 } else {
                     Text(
@@ -311,7 +328,7 @@ private fun PlayingIndicator() {
 
 @Composable
 private fun BottomPlayer(
-    track: MusicTrack,
+    track: MusicTrack?,
     isPlaying: Boolean,
     position: Long,
     duration: Long,
@@ -354,17 +371,17 @@ private fun BottomPlayer(
                 // 封面 - 点击显示歌词
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(40.dp)
                         .clip(RoundedCornerShape(Dimens.radiusSm))
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(Primary.copy(alpha = 0.3f), Primary.copy(alpha = 0.1f))
                             )
                         )
-                        .clickable(onClick = onCoverClick),
+                        .clickable(enabled = track != null, onClick = onCoverClick),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (track.coverUrl != null) {
+                    if (track?.coverUrl != null) {
                         AsyncImage(
                             model = track.coverUrl,
                             contentDescription = null,
@@ -376,10 +393,10 @@ private fun BottomPlayer(
                         Icon(
                             imageVector = Icons.Default.MusicNote,
                             contentDescription = null,
-                            tint = Primary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier
                                 .size(24.dp)
-                                .rotate(if (isPlaying) rotation else 0f)
+                                .rotate(if (isPlaying && track != null) rotation else 0f)
                         )
                     }
                 }
@@ -389,14 +406,16 @@ private fun BottomPlayer(
                 // 曲目信息
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = track.title,
+                        text = track?.title ?: stringResource(R.string.section_music),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (track != null) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = track.artist ?: stringResource(R.string.unknown),
+                        text = track?.artist ?: stringResource(R.string.unknown),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -410,20 +429,20 @@ private fun BottomPlayer(
                 // 上一曲
                 IconButton(
                     onClick = onPrevious,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipPrevious,
                         contentDescription = stringResource(R.string.previous),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
                 // 播放/暂停
                 FilledIconButton(
                     onClick = onPlayPause,
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(34.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = Primary
                     )
@@ -432,93 +451,73 @@ private fun BottomPlayer(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = if (isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
                         tint = Color.White,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
                 // 下一曲
                 IconButton(
                     onClick = onNext,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(30.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = stringResource(R.string.next),
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            // 进度条
-            if (duration > 0) {
-                Spacer(modifier = Modifier.height(Dimens.spacingSm))
-                Column {
-                    // 自定义进度条
+            // 进度条 - 始终显示
+            Spacer(modifier = Modifier.height(Dimens.spacingSm))
+            Column {
+                // 自定义进度条
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(20.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures { offset ->
+                                val progress = offset.x / size.width
+                                onSeek((progress * duration).toLong())
+                            }
+                        }
+                ) {
+                    // 背景轨道
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(20.dp)
-                            .pointerInput(Unit) {
-                                detectTapGestures { offset ->
-                                    val progress = offset.x / size.width
-                                    onSeek((progress * duration).toLong())
-                                }
-                            }
-                    ) {
-                        // 背景轨道
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .align(Alignment.Center)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
-                        )
-                        // 已播放轨道 + 拖动指示器
-                        val progress = if (duration > 0) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(fraction = progress)
-                                .height(4.dp)
-                                .align(Alignment.CenterStart)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(Primary)
-                        )
-                        // 小圆点指示器
-                        if (progress > 0f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(fraction = progress)
-                                    .height(4.dp)
-                                    .align(Alignment.CenterStart)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .align(Alignment.CenterEnd)
-                                        .offset(x = 5.dp)
-                                        .clip(CircleShape)
-                                        .background(Primary)
-                                )
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = formatDuration(position),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = formatDuration(duration),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                            .height(4.dp)
+                            .align(Alignment.Center)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                    )
+                    // 已播放轨道
+                    val progress = if (duration > 0) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress)
+                            .height(4.dp)
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Primary)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = formatDuration(position),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatDuration(duration),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -542,7 +541,7 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
         Icon(
             imageVector = Icons.Default.MusicNote,
             contentDescription = null,
-            modifier = Modifier.size(64.dp),
+            modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
         Spacer(modifier = Modifier.height(Dimens.spacingMd))
@@ -720,7 +719,7 @@ private fun LyricsPortraitLayout(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = "返回",
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -729,7 +728,7 @@ private fun LyricsPortraitLayout(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.size(36.dp))
             }
 
             // 封面区域
@@ -743,7 +742,7 @@ private fun LyricsPortraitLayout(
                     track = track,
                     isPlaying = isPlaying,
                     rotation = rotation,
-                    size = 280.dp
+                    size = 220.dp
                 )
             }
 
@@ -881,7 +880,7 @@ private fun LyricsLandscapeLayout(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = "返回",
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -890,7 +889,7 @@ private fun LyricsLandscapeLayout(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.size(36.dp))
             }
 
             // 横屏布局：左侧封面+控件，右侧歌词
@@ -912,7 +911,7 @@ private fun LyricsLandscapeLayout(
                         track = track,
                         isPlaying = isPlaying,
                         rotation = rotation,
-                        size = 200.dp
+                        size = 160.dp
                     )
 
                     Spacer(modifier = Modifier.height(Dimens.spacingLg))
@@ -1047,7 +1046,7 @@ private fun LyricsContent(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(
                         color = Primary,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                     Spacer(modifier = Modifier.height(Dimens.spacingMd))
                     Text(
@@ -1085,7 +1084,7 @@ private fun LyricsContent(
                 contentPadding = PaddingValues(vertical = Dimens.spacingXxl)
             ) {
                 // 顶部留白，用于滚动到居中
-                item { Spacer(modifier = Modifier.height(200.dp)) }
+                item { Spacer(modifier = Modifier.height(150.dp)) }
 
                 items(lyricsState.parsedLyrics.size) { index ->
                     val lyricLine = lyricsState.parsedLyrics[index]
@@ -1121,7 +1120,7 @@ private fun LyricsContent(
                 }
 
                 // 底部留白，用于滚动到居中
-                item { Spacer(modifier = Modifier.height(200.dp)) }
+                item { Spacer(modifier = Modifier.height(150.dp)) }
             }
         }
     }
@@ -1211,13 +1210,13 @@ private fun PlayerControls(
                     imageVector = Icons.Default.SkipPrevious,
                     contentDescription = stringResource(R.string.previous),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
 
             FilledIconButton(
                 onClick = onPlayPause,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(44.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = Primary
                 )
@@ -1226,7 +1225,7 @@ private fun PlayerControls(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
@@ -1235,7 +1234,7 @@ private fun PlayerControls(
                     imageVector = Icons.Default.SkipNext,
                     contentDescription = stringResource(R.string.next),
                     tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }

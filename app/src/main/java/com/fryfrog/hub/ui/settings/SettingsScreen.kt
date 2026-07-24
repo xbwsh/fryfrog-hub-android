@@ -130,7 +130,7 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(Dimens.avatarSize)
                                 .clip(CircleShape)
                                 .background(iconBackground),
                             contentAlignment = Alignment.Center
@@ -139,7 +139,7 @@ fun SettingsScreen(
                                 imageVector = if (isDarkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
                                 contentDescription = null,
                                 tint = iconTint,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Dimens.avatarIconSize)
                             )
                         }
                         Spacer(Modifier.width(Dimens.spacingMd))
@@ -159,7 +159,7 @@ fun SettingsScreen(
                             imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(Dimens.iconSize)
                         )
                     }
                 }
@@ -186,7 +186,7 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(Dimens.avatarSize)
                                 .clip(CircleShape)
                                 .background(Primary.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center
@@ -195,7 +195,7 @@ fun SettingsScreen(
                                 imageVector = Icons.Default.ViewCarousel,
                                 contentDescription = null,
                                 tint = Primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Dimens.avatarIconSize)
                             )
                         }
                         Spacer(Modifier.width(Dimens.spacingMd))
@@ -224,7 +224,7 @@ fun SettingsScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
+                                        .size(Dimens.avatarSize)
                                         .clip(CircleShape)
                                         .background(Primary.copy(alpha = 0.1f)),
                                     contentAlignment = Alignment.Center
@@ -233,7 +233,7 @@ fun SettingsScreen(
                                         imageVector = Icons.Default.Source,
                                         contentDescription = null,
                                         tint = Primary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(Dimens.avatarIconSize)
                                     )
                                 }
                                 Spacer(Modifier.width(Dimens.spacingMd))
@@ -307,7 +307,7 @@ fun SettingsScreen(
                                     imageVector = sectionIcon,
                                     contentDescription = null,
                                     tint = if (isVisible) Primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Dimens.alphaDisabled),
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(Dimens.avatarIconSize)
                                 )
                                 Spacer(Modifier.width(Dimens.spacingMd))
                                 Text(
@@ -328,12 +328,12 @@ fun SettingsScreen(
                                         }
                                     },
                                     enabled = index > 0,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(Dimens.smallButtonSize)
                                 ) {
                                     Icon(
                                         Icons.Default.KeyboardArrowUp,
                                         contentDescription = stringResource(R.string.move_up),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(Dimens.smallIconSize)
                                     )
                                 }
 
@@ -348,12 +348,12 @@ fun SettingsScreen(
                                         }
                                     },
                                     enabled = index < sectionOrder.size - 1,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(Dimens.smallButtonSize)
                                 ) {
                                     Icon(
                                         Icons.Default.KeyboardArrowDown,
                                         contentDescription = stringResource(R.string.move_down),
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(Dimens.smallIconSize)
                                     )
                                 }
 
@@ -395,7 +395,7 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(Dimens.avatarSize)
                                 .clip(CircleShape)
                                 .background(Primary.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center
@@ -404,7 +404,7 @@ fun SettingsScreen(
                                 imageVector = Icons.Default.VideoLibrary,
                                 contentDescription = null,
                                 tint = Primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Dimens.avatarIconSize)
                             )
                         }
                         Spacer(Modifier.width(Dimens.spacingMd))
@@ -440,7 +440,7 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(Dimens.avatarSize)
                                 .clip(CircleShape)
                                 .background(Primary.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center
@@ -449,7 +449,7 @@ fun SettingsScreen(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = null,
                                 tint = Primary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Dimens.avatarIconSize)
                             )
                         }
                         Spacer(Modifier.width(Dimens.spacingMd))
@@ -493,7 +493,7 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(Dimens.avatarSize)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.errorContainer),
                             contentAlignment = Alignment.Center
@@ -502,7 +502,7 @@ fun SettingsScreen(
                                 imageVector = Icons.Default.Logout,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(Dimens.avatarIconSize)
                             )
                         }
                         Spacer(Modifier.width(Dimens.spacingMd))
@@ -555,7 +555,7 @@ fun SettingsScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(Dimens.dialogAvatarSize)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.errorContainer),
                         contentAlignment = Alignment.Center
@@ -564,7 +564,7 @@ fun SettingsScreen(
                             imageVector = Icons.Default.Logout,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(Dimens.dialogIconSize)
                         )
                     }
 
@@ -636,7 +636,7 @@ private fun SectionHeader(
             imageVector = icon,
             contentDescription = null,
             tint = Primary,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(Dimens.iconSize)
         )
         Spacer(Modifier.width(Dimens.spacingSm))
         Text(
@@ -670,10 +670,10 @@ private fun UniformSwitch(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val thumbSize = 20.dp
-    val trackWidth = 52.dp
-    val trackHeight = 28.dp
-    val thumbPadding = 4.dp
+    val thumbSize = Dimens.switchThumbSize
+    val trackWidth = Dimens.switchWidth
+    val trackHeight = Dimens.switchHeight
+    val thumbPadding = Dimens.spacingXs
 
     val thumbPosition by animateFloatAsState(
         targetValue = if (checked) 1f else 0f,

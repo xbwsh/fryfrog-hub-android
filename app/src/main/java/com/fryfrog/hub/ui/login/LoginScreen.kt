@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -286,27 +288,27 @@ fun LoginScreen(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(Dimens.spacingXl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(60.dp))
 
-                Text(
-                    text = stringResource(R.string.welcome),
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(bottom = Dimens.spacingXxl)
-                )
+            Text(
+                text = stringResource(R.string.welcome),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = Dimens.spacingXxl)
+            )
 
-                // Saved servers chips
-                if (uiState.savedServers.isNotEmpty()) {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-                    ) {
-                        items(uiState.savedServers, key = { it.url }) { server ->
-                            val isSelected = uiState.selectedServerUrl == server.url
+            // Saved servers chips
+            if (uiState.savedServers.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                ) {
+                    items(uiState.savedServers, key = { it.url }) { server ->
+                        val isSelected = uiState.selectedServerUrl == server.url
                         InputChip(
                             selected = isSelected,
                             onClick = { viewModel.selectServer(server) },
@@ -346,9 +348,9 @@ fun LoginScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(Dimens.spacingLg))
             }
+
+            Spacer(modifier = Modifier.height(Dimens.spacingLg))
 
             // 服务器地址卡片
             Card(
@@ -368,7 +370,7 @@ fun LoginScreen(
                         modifier = Modifier.padding(bottom = Dimens.spacingMd)
                     )
 
-                    // 协议选择 - 使用自定义样式
+                    // 协议选择
                     Text(
                         text = "协议",
                         style = MaterialTheme.typography.bodySmall,
@@ -464,11 +466,11 @@ fun LoginScreen(
             }
 
             if (errorText != null) {
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
                 Text(
                     text = errorText,
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = Dimens.spacingSm)
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
 
@@ -489,7 +491,7 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(60.dp))
         }
         }
     }

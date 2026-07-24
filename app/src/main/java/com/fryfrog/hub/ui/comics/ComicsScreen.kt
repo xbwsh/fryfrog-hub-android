@@ -65,7 +65,7 @@ fun ComicsScreen(
             )
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 110.dp),
+                columns = GridCells.Adaptive(minSize = Dimens.gridMinCardWidth),
                 contentPadding = PaddingValues(Dimens.spacingLg),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd),
                 verticalArrangement = Arrangement.spacedBy(Dimens.spacingLg),

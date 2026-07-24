@@ -10,22 +10,22 @@ val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 13.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.5.sp
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.sp
     ),
     labelSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
         letterSpacing = 0.5.sp
     )
 )

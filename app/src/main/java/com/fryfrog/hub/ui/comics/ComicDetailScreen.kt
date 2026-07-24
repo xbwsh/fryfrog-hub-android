@@ -162,9 +162,9 @@ fun ComicDetailScreen(
             }
         }
     } else {
-        // 竖屏布局：使用 LazyVerticalGrid 实现固定5列
+        // 竖屏布局：使用 LazyVerticalGrid 实现固定4列
         LazyVerticalGrid(
-            columns = GridCells.Fixed(5),
+            columns = GridCells.Fixed(3),
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
@@ -173,7 +173,7 @@ fun ComicDetailScreen(
             verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
         ) {
             // 系列封面卡片 - 占满整行
-            item(span = { GridItemSpan(5) }) {
+            item(span = { GridItemSpan(3) }) {
                 ModernSeriesCard(
                     coverUrl = series.coverUrl,
                     title = series.name ?: "",
@@ -184,31 +184,24 @@ fun ComicDetailScreen(
 
             // 角色信息 - 占满整行
             if (characters.isNotEmpty()) {
-                item(span = { GridItemSpan(5) }) {
-                    Spacer(modifier = Modifier.height(Dimens.spacingLg))
-                }
-                item(span = { GridItemSpan(5) }) {
+                item(span = { GridItemSpan(3) }) {
                     SectionTitle(title = stringResource(R.string.characters))
                 }
-                item(span = { GridItemSpan(5) }) {
+                item(span = { GridItemSpan(3) }) {
                     CharactersRow(characters = characters)
-                }
-                item(span = { GridItemSpan(5) }) {
-                    Spacer(modifier = Modifier.height(Dimens.spacingLg))
                 }
             }
 
             // 卷数标题 - 占满整行
             if (!series.comics.isNullOrEmpty()) {
-                item(span = { GridItemSpan(5) }) {
+                item(span = { GridItemSpan(3) }) {
                     val title = buildString {
                         append(stringResource(R.string.comic_volumes))
                         series.volumeCount?.let { append(" ($it)") }
                     }
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = Dimens.spacingMd),
+                            .fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {

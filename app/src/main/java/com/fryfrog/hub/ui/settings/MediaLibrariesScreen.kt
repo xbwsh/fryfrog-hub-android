@@ -100,7 +100,7 @@ fun MediaLibrariesScreen(
                     Icon(
                         Icons.Default.FolderOpen,
                         contentDescription = null,
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(Dimens.emptyStateIconSize),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                     Spacer(Modifier.height(Dimens.spacingMd))
@@ -217,7 +217,7 @@ private fun MediaLibraryItem(
             // 类型图标
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(Dimens.avatarSize)
                     .clip(CircleShape)
                     .background(
                         when (library.type) {
@@ -246,7 +246,7 @@ private fun MediaLibraryItem(
                         "EBOOK" -> Info
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(Dimens.avatarIconSize)
                 )
             }
 
@@ -300,23 +300,23 @@ private fun MediaLibraryItem(
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
                     IconButton(
                         onClick = onScan,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(Dimens.smallButtonSize),
                         colors = IconButtonDefaults.iconButtonColors(
                             containerColor = Primary.copy(alpha = 0.1f),
                             contentColor = Primary
                         )
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(Dimens.smallIconSize))
                     }
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(Dimens.smallButtonSize),
                         colors = IconButtonDefaults.iconButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), modifier = Modifier.size(Dimens.smallIconSize))
                     }
                 }
             }
@@ -529,14 +529,14 @@ private fun DirectoryPickerDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp),
+                            .height(Dimens.listMaxHeight),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator()
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.heightIn(max = 300.dp)
+                        modifier = Modifier.heightIn(max = Dimens.listMaxHeight)
                     ) {
                         items(uiState.directories.filter { it.isDirectory }) { dir ->
                             ListItem(

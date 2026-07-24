@@ -57,7 +57,7 @@ fun ModernSeriesCard(
             // 左侧封面
             Box(
                 modifier = Modifier
-                    .width(140.dp)
+                    .width(110.dp)
                     .aspectRatio(0.7f)
                     .clip(RoundedCornerShape(topStart = Dimens.radiusLg, bottomStart = Dimens.radiusLg))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -75,7 +75,7 @@ fun ModernSeriesCard(
                         imageVector = Icons.Default.Book,
                         contentDescription = null,
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(36.dp)
                             .align(Alignment.Center),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
@@ -168,7 +168,7 @@ fun SectionTitle(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.padding(vertical = Dimens.spacingMd),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -196,7 +196,7 @@ fun CharactersRow(
     modifier: Modifier = Modifier
 ) {
     LazyRow(
-        modifier = modifier,
+        modifier = modifier.height(120.dp),
         contentPadding = PaddingValues(start = 0.dp, end = Dimens.spacingLg),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
     ) {
@@ -217,7 +217,7 @@ fun CharacterAvatar(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.width(80.dp)
+        modifier = modifier.width(80.dp).height(110.dp)
     ) {
         Box(
             modifier = Modifier
