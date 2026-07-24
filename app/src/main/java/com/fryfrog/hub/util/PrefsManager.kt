@@ -22,6 +22,8 @@ class PrefsManager(context: Context) {
         private const val KEY_CAROUSEL_SOURCE = "carousel_source"
         private const val KEY_CAROUSEL_ENABLED = "carousel_enabled"
         private const val KEY_SAVED_SERVERS = "saved_servers"
+        private const val KEY_COMIC_READING_MODE = "comic_reading_mode"
+        private const val KEY_EBOOK_FONT_SIZE = "ebook_font_size"
 
         private val DEFAULT_SECTION_ORDER = listOf("videos", "music", "comics", "ebooks")
         private val DEFAULT_SECTION_VISIBLE = mapOf(
@@ -82,6 +84,14 @@ class PrefsManager(context: Context) {
     var isCarouselEnabled: Boolean
         get() = prefs.getBoolean(KEY_CAROUSEL_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_CAROUSEL_ENABLED, value).apply()
+
+    var comicReadingMode: String
+        get() = prefs.getString(KEY_COMIC_READING_MODE, "HORIZONTAL_LTR") ?: "HORIZONTAL_LTR"
+        set(value) = prefs.edit().putString(KEY_COMIC_READING_MODE, value).apply()
+
+    var ebookFontSize: Float
+        get() = prefs.getFloat(KEY_EBOOK_FONT_SIZE, 16f)
+        set(value) = prefs.edit().putFloat(KEY_EBOOK_FONT_SIZE, value).apply()
 
     data class SavedServer(
         val name: String,

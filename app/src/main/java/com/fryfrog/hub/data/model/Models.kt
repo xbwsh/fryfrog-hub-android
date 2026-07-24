@@ -210,3 +210,34 @@ data class MediaLibrary(
     val createdAt: String?,
     val updatedAt: String?
 )
+
+// Comic Reading - API returns data as direct array
+typealias ComicPagesResponse = List<ComicPageInfo>
+
+data class ComicPageInfo(
+    val pageNum: Int,
+    val fileName: String
+)
+
+// Ebook Reading - API returns data as direct array
+typealias EbookChaptersResponse = List<EbookChapterInfo>
+
+data class EbookChapterInfo(
+    val chapterNum: Int,
+    val title: String
+)
+
+// Reading Progress
+data class ReadingProgress(
+    val id: Long,
+    val currentPage: Int,
+    val totalPages: Int,
+    val completed: Boolean,
+    val progressPercent: Double,
+    val updatedAt: String?
+)
+
+data class ReadingProgressRequest(
+    val currentPage: Int,
+    val totalPages: Int
+)

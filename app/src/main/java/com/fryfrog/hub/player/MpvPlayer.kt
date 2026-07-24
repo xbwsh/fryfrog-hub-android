@@ -6,6 +6,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import `is`.xyz.mpv.MPVLib
+import kotlin.concurrent.Volatile
 
 class MpvPlayer(private val context: Context) {
 
@@ -196,34 +197,65 @@ class MpvPlayer(private val context: Context) {
     }
 
     fun getPosition(): Long {
-        return try {
-            if (!initialized) return 0L
-            ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong()
-        } catch (e: Exception) {
-            Log.e(TAG, "getPosition() failed", e)
-            0L
+        return runOnMainThreadSync {
+            try {
+                if (!initialized) return@runOnMainThreadSync 0L
+                ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong()
+            } catch (e: Exception) {
+                Log.e(TAG, "getPosition() failed", e)
+                0L
+            }
         }
     }
 
     fun getDuration(): Long {
-        return try {
-            if (!initialized) return 0L
-            ((MPVLib.getPropertyDouble("duration") ?: 0.0) * 1000).toLong()
-        } catch (e: Exception) {
-            Log.e(TAG, "getDuration() failed", e)
-            0L
+        return runOnMainThreadSync {
+            try {
+                if (!initialized) return@runOnMainThreadSync 0L
+                ((MPVLib.getPropertyDouble("duration") ?: 0.0) * 1000).toLong()
+            } catch (e: Exception) {
+                Log.e(TAG, "getDuration() failed", e)
+                0L
+            }
         }
     }
 
     fun isPlaying(): Boolean {
-        return try {
-            if (!initialized) return false
-            val paused = MPVLib.getPropertyBoolean("pause") ?: true
-            !paused
-        } catch (e: Exception) {
-            Log.e(TAG, "isPlaying() failed", e)
-            false
+        return runOnMainThreadSync {
+            try {
+                if (!initialized) return@runOnMainThreadSync false
+                val paused = MPVLib.getPropertyBoolean("pause") ?: true
+                !paused
+            } catch (e: Exception) {
+                Log.e(TAG, "isPlaying() failed", e)
+                false
+            }
         }
+    }
+
+    /**
+     * 在主线程同步执行代码，确保 MPVLib 调用线程安全
+     */
+    private fun <T> runOnMainThreadSync(block: () -> T): T {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return block()
+        }
+        var result: T? = null
+        var error: Throwable? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        handler.post {
+            try {
+                result = block()
+            } catch (e: Throwable) {
+                error = e
+            } finally {
+                latch.countDown()
+            }
+        }
+        latch.await()
+        error?.let { throw it }
+        @Suppress("UNCHECKED_CAST")
+        return result as T
     }
 
     fun setVolume(percent: Int) {

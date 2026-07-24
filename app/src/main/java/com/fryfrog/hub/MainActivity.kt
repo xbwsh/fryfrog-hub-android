@@ -38,9 +38,17 @@ import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.ui.components.PlaceholderScreen
 import com.fryfrog.hub.ui.comics.ComicDetailScreen
 import com.fryfrog.hub.ui.comics.ComicDetailViewModel
+import com.fryfrog.hub.ui.comics.ComicReaderScreen
+import com.fryfrog.hub.ui.comics.ComicVolumeScreen
+import com.fryfrog.hub.ui.comics.ComicVolumeViewModel
+import com.fryfrog.hub.ui.comics.ComicVolumeViewModelFactory
 import com.fryfrog.hub.ui.comics.ComicsScreen
 import com.fryfrog.hub.ui.ebooks.EbookDetailScreen
 import com.fryfrog.hub.ui.ebooks.EbookDetailViewModel
+import com.fryfrog.hub.ui.ebooks.EbookReaderScreen
+import com.fryfrog.hub.ui.ebooks.EbookVolumeScreen
+import com.fryfrog.hub.ui.ebooks.EbookVolumeViewModel
+import com.fryfrog.hub.ui.ebooks.EbookVolumeViewModelFactory
 import com.fryfrog.hub.ui.ebooks.EbooksScreen
 import com.fryfrog.hub.ui.home.HomeScreen
 import com.fryfrog.hub.ui.login.LoginScreen
@@ -280,8 +288,75 @@ private fun MainContent(
                     characters = uiState.value.characters,
                     onBackClick = { navController.popBackStack() },
                     onComicClick = { comicId ->
-                        // TODO: Navigate to comic reader
+                        navController.navigate("comic_volume/$comicId")
                     }
+                )
+            }
+
+            composable(
+                route = "comic_volume/{comicId}",
+                arguments = listOf(navArgument("comicId") { type = NavType.LongType }),
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it / 3 },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it / 3 },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val comicId = backStackEntry.arguments?.getLong("comicId") ?: 0L
+                val viewModel: ComicVolumeViewModel = viewModel(
+                    factory = ComicVolumeViewModelFactory(comicId)
+                )
+                ComicVolumeScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onReadClick = { id, title ->
+                        val encodedTitle = android.net.Uri.encode(title)
+                        navController.navigate("comic_reader/$id/$encodedTitle")
+                    }
+                )
+            }
+
+            composable(
+                route = "comic_reader/{comicId}/{title}?startPage={startPage}",
+                arguments = listOf(
+                    navArgument("comicId") { type = NavType.LongType },
+                    navArgument("title") { type = NavType.StringType },
+                    navArgument("startPage") { type = NavType.IntType; defaultValue = 0 }
+                ),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val comicId = backStackEntry.arguments?.getLong("comicId") ?: 0L
+                val title = backStackEntry.arguments?.getString("title") ?: ""
+                val startPage = backStackEntry.arguments?.getInt("startPage") ?: 0
+                ComicReaderScreen(
+                    comicId = comicId,
+                    comicTitle = title,
+                    startPage = startPage,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 
@@ -360,8 +435,75 @@ private fun MainContent(
                     characters = uiState.value.characters,
                     onBackClick = { navController.popBackStack() },
                     onEbookClick = { ebookId ->
-                        // TODO: Navigate to ebook reader
+                        navController.navigate("ebook_volume/$ebookId")
                     }
+                )
+            }
+
+            composable(
+                route = "ebook_volume/{ebookId}",
+                arguments = listOf(navArgument("ebookId") { type = NavType.LongType }),
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it / 3 },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it / 3 },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val ebookId = backStackEntry.arguments?.getLong("ebookId") ?: 0L
+                val viewModel: EbookVolumeViewModel = viewModel(
+                    factory = EbookVolumeViewModelFactory(ebookId)
+                )
+                EbookVolumeScreen(
+                    viewModel = viewModel,
+                    onBackClick = { navController.popBackStack() },
+                    onReadClick = { id, title ->
+                        val encodedTitle = android.net.Uri.encode(title)
+                        navController.navigate("ebook_reader/$id/$encodedTitle")
+                    }
+                )
+            }
+
+            composable(
+                route = "ebook_reader/{ebookId}/{title}?startChapter={startChapter}",
+                arguments = listOf(
+                    navArgument("ebookId") { type = NavType.LongType },
+                    navArgument("title") { type = NavType.StringType },
+                    navArgument("startChapter") { type = NavType.IntType; defaultValue = 0 }
+                ),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val ebookId = backStackEntry.arguments?.getLong("ebookId") ?: 0L
+                val title = backStackEntry.arguments?.getString("title") ?: ""
+                val startChapter = backStackEntry.arguments?.getInt("startChapter") ?: 0
+                EbookReaderScreen(
+                    ebookId = ebookId,
+                    ebookTitle = title,
+                    startChapter = startChapter,
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 

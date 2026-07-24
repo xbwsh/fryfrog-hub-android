@@ -80,6 +80,24 @@ interface FryfrogApi {
     @GET("/api/v1/comic/{id}/characters")
     suspend fun getComicCharacters(@Path("id") id: Long): ApiResponse<List<MediaCharacter>>
 
+    @GET("/api/v1/comic/{id}/pages")
+    suspend fun getComicPages(@Path("id") id: Long): ApiResponse<ComicPagesResponse>
+
+    @GET("/api/v1/comic/{id}/pages/{pageNum}")
+    suspend fun getComicPageImage(
+        @Path("id") id: Long,
+        @Path("pageNum") pageNum: Int
+    ): retrofit2.Response<okhttp3.ResponseBody>
+
+    @GET("/api/v1/comic/{id}/progress")
+    suspend fun getComicProgress(@Path("id") id: Long): ApiResponse<ReadingProgress>
+
+    @PUT("/api/v1/comic/{id}/progress")
+    suspend fun saveComicProgress(
+        @Path("id") id: Long,
+        @Body request: ReadingProgressRequest
+    ): ApiResponse<ReadingProgress>
+
     // ========== Ebook ==========
     @GET("/api/v1/ebook/series")
     suspend fun getEbookSeries(): ApiResponse<PageResponse<EbookSeries>>
@@ -104,6 +122,24 @@ interface FryfrogApi {
 
     @GET("/api/v1/ebook/stats")
     suspend fun getEbookStats(): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/ebook/{id}/chapters")
+    suspend fun getEbookChapters(@Path("id") id: Long): ApiResponse<EbookChaptersResponse>
+
+    @GET("/api/v1/ebook/{id}/read")
+    suspend fun getEbookContent(
+        @Path("id") id: Long,
+        @Query("chapter") chapter: Int? = null
+    ): retrofit2.Response<okhttp3.ResponseBody>
+
+    @GET("/api/v1/ebook/{id}/progress")
+    suspend fun getEbookProgress(@Path("id") id: Long): ApiResponse<ReadingProgress>
+
+    @PUT("/api/v1/ebook/{id}/progress")
+    suspend fun saveEbookProgress(
+        @Path("id") id: Long,
+        @Body request: ReadingProgressRequest
+    ): ApiResponse<ReadingProgress>
 
     // ========== Auth ==========
     @POST("/api/v1/auth/login")
