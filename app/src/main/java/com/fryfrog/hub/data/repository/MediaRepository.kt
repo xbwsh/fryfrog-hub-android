@@ -38,7 +38,13 @@ class MediaRepository {
     }
 
     suspend fun getVideoActors(videoId: Long): Result<List<VideoActor>> = safeApiCall {
-        api.getVideoActors(videoId).data?.map { it.copy(
+        android.util.Log.d("MediaRepository", "getVideoActors: videoId=$videoId, url=GET /api/v1/video/$videoId/actors")
+        val response = api.getVideoActors(videoId)
+        android.util.Log.d("MediaRepository", "getVideoActors response: success=${response.success}, data count=${response.data?.size}")
+        response.data?.forEach { actor ->
+            android.util.Log.d("MediaRepository", "Actor raw: id=${actor.id}, name=${actor.name}, imageUrl=${actor.imageUrl}")
+        }
+        response.data?.map { it.copy(
             imageUrl = fixUrl(it.imageUrl)
         ) } ?: emptyList()
     }
@@ -114,6 +120,27 @@ class MediaRepository {
 
     suspend fun getEbookCharacters(ebookId: Long): Result<List<MediaCharacter>> = safeApiCall {
         api.getEbookCharacters(ebookId).data?.map { it.copy(imageUrl = fixUrl(it.imageUrl)) } ?: emptyList()
+    }
+
+    // TMDB Scraping
+    suspend fun searchTmdb(query: String): Result<List<TmdbSearchResult>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "searchTmdb: query=$query")
+        api.searchTmdb(query).data ?: emptyList()
+    }
+
+    suspend fun bindTmdb(videoId: Long, tmdbId: Long, mediaType: String): Result<Map<String, Any>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "bindTmdb: videoId=$videoId, tmdbId=$tmdbId, mediaType=$mediaType, url=/api/v1/video/$videoId/tmdb/bind")
+        api.bindTmdb(videoId, TmdbBindRequest(tmdbId, mediaType)).data ?: emptyMap()
+    }
+
+    suspend fun unbindTmdb(videoId: Long): Result<Map<String, Any>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "unbindTmdb: videoId=$videoId, url=POST /api/v1/video/$videoId/tmdb/unbind")
+        api.unbindTmdb(videoId).data ?: emptyMap()
+    }
+
+    suspend fun refreshTmdb(videoId: Long): Result<Map<String, Any>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshTmdb: videoId=$videoId, url=POST /api/v1/video/$videoId/tmdb/refresh")
+        api.refreshTmdb(videoId).data ?: emptyMap()
     }
 
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {

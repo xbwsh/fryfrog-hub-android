@@ -120,4 +120,29 @@
     <string name="ebook_count">Books</string>
     <string name="start_date">Start Date</string>
     <string name="characters">Characters</string>
+
+    <!-- TMDB Scraping -->
+    <string name="tmdb_scrape">TMDB Scraping</string>
+    <string name="tmdb_search">Search TMDB</string>
+    <string name="tmdb_search_hint">Enter title to search…</string>
+    <string name="tmdb_search_results">Found %d results</string>
+    <string name="tmdb_current_binding">Current Binding</string>
+    <string name="tmdb_not_bound">Not bound</string>
+    <string name="tmdb_unbind">Unbind</string>
+    <string name="tmdb_refresh">Refresh</string>
+    <string name="more">More</string>
+
+    <!-- Sort -->
+    <string name="sort">Sort</string>
+    <string name="sort_default">Default</string>
+    <string name="sort_rating_desc">Rating: High to Low</string>
+    <string name="sort_rating_asc">Rating: Low to High</string>
+    <string name="sort_year_desc">Year: New to Old</string>
+    <string name="sort_year_asc">Year: Old to New</string>
+    <string name="sort_title_asc">Title: A-Z</string>
+    <string name="sort_title_desc">Title: Z-A</string>
+
+    <!-- Unbind confirm -->
+    <string name="unbind_confirm_title">Unbind TMDB</string>
+    <string name="unbind_confirm_message">Are you sure you want to unbind this TMDB metadata? This action cannot be undone.</string>
 </resources>

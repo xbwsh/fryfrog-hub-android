@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -11,17 +12,31 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -30,12 +45,17 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.SeriesDTO
+import com.fryfrog.hub.data.model.TmdbSearchResult
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Primary
+import com.fryfrog.hub.ui.theme.Success
+import com.fryfrog.hub.ui.theme.Warning
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 
 @Composable
 fun VideoDetailScreen(
@@ -44,34 +64,116 @@ fun VideoDetailScreen(
     onPlayClick: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showScrapeSheet by remember { mutableStateOf(false) }
+    var showUnbindConfirm by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    if (uiState.isLoading) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
+    // Snackbar auto-dismiss
+    LaunchedEffect(uiState.snackbarMessage) {
+        uiState.snackbarMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearSnackbarMessage()
         }
-    } else if (uiState.error != null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = uiState.error ?: stringResource(R.string.unknown_error),
-                color = MaterialTheme.colorScheme.error
-            )
+    }
+
+    // Bind/unbind/refresh 后自动返回列表
+    LaunchedEffect(uiState.shouldNavigateBack) {
+        if (uiState.shouldNavigateBack) {
+            viewModel.clearNavigateBack()
+            onBackClick()
         }
-    } else {
-        uiState.series?.let { series ->
-            VideoDetailContent(
-                series = series,
-                actors = uiState.actors,
-                progress = uiState.progress,
-                onBackClick = onBackClick,
-                onPlayClick = { series.episodes?.firstOrNull()?.let { onPlayClick(it.id) } }
-            )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (uiState.error != null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = uiState.error ?: stringResource(R.string.unknown_error),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        } else {
+            uiState.series?.let { series ->
+                VideoDetailContent(
+                    series = series,
+                    actors = uiState.actors,
+                    progress = uiState.progress,
+                    onBackClick = onBackClick,
+                    onPlayEpisode = onPlayClick,
+                    onSearchTmdb = { showScrapeSheet = true },
+                    onRefreshTmdb = { viewModel.refreshTmdb() },
+                    onUnbindTmdb = { showUnbindConfirm = true }
+                )
+            }
         }
+
+        // Snackbar at bottom
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(Dimens.spacingLg)
+        )
+    }
+
+    if (showScrapeSheet) {
+        TmdbScrapeSheet(
+            uiState = uiState,
+            onDismiss = {
+                showScrapeSheet = false
+                viewModel.clearTmdbSearchResults()
+            },
+            onSearch = viewModel::searchTmdb,
+            onBind = { tmdbId, mediaType ->
+                viewModel.bindTmdb(tmdbId, mediaType)
+                showScrapeSheet = false
+            },
+            onUnbind = {
+                showScrapeSheet = false
+                showUnbindConfirm = true
+            },
+            onRefresh = {
+                viewModel.refreshTmdb()
+                showScrapeSheet = false
+            }
+        )
+    }
+
+    // 解绑确认弹窗
+    if (showUnbindConfirm) {
+        AlertDialog(
+            onDismissRequest = { showUnbindConfirm = false },
+            title = { Text(stringResource(R.string.unbind_confirm_title)) },
+            text = { Text(stringResource(R.string.unbind_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUnbindConfirm = false
+                        viewModel.unbindTmdb()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnbindConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
@@ -81,8 +183,15 @@ private fun VideoDetailContent(
     actors: List<VideoActor>,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
     onBackClick: () -> Unit,
-    onPlayClick: () -> Unit
+    onPlayEpisode: (Long) -> Unit,
+    onSearchTmdb: () -> Unit,
+    onRefreshTmdb: () -> Unit,
+    onUnbindTmdb: () -> Unit
 ) {
+    // 选集状态：-1 表示未选中（使用系列封面），>=0 表示选中的剧集索引
+    var selectedEpisodeIndex by remember { mutableIntStateOf(-1) }
+    val selectedEpisode = selectedEpisodeIndex.takeIf { it >= 0 }?.let { series.episodes?.getOrNull(it) }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize()
@@ -91,14 +200,24 @@ private fun VideoDetailContent(
             item {
                 HeroSection(
                     series = series,
+                    selectedEpisode = selectedEpisode,
                     progress = progress,
-                    onPlayClick = onPlayClick
+                    onPlayClick = {
+                        val ep = selectedEpisode ?: series.episodes?.firstOrNull()
+                        ep?.let { onPlayEpisode(it.id) }
+                    },
+                    onSearchTmdb = onSearchTmdb,
+                    onRefreshTmdb = onRefreshTmdb,
+                    onUnbindTmdb = onUnbindTmdb
                 )
             }
 
             // Video Info
             item {
-                VideoInfoSection(series = series)
+                VideoInfoSection(
+                    series = series,
+                    selectedEpisode = selectedEpisode
+                )
             }
 
             // Actors Section
@@ -112,7 +231,7 @@ private fun VideoDetailContent(
                 }
             }
 
-            // Episodes Section - 数字选集块
+            // Episodes Section
             if (!series.episodes.isNullOrEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
@@ -121,7 +240,16 @@ private fun VideoDetailContent(
                 item {
                     EpisodeGrid(
                         episodes = series.episodes,
-                        onEpisodeClick = { index -> onPlayClick() }
+                        selectedIndex = selectedEpisodeIndex,
+                        onEpisodeClick = { index ->
+                            if (selectedEpisodeIndex == index) {
+                                // 第二次点击同一集 → 播放
+                                onPlayEpisode(series.episodes[index].id)
+                            } else {
+                                // 第一次点击或切换集数 → 选中
+                                selectedEpisodeIndex = index
+                            }
+                        }
                     )
                 }
             }
@@ -136,24 +264,28 @@ private fun VideoDetailContent(
 @Composable
 private fun HeroSection(
     series: SeriesDTO,
+    selectedEpisode: VideoDTO? = null,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
-    onPlayClick: () -> Unit
+    onPlayClick: () -> Unit,
+    onSearchTmdb: () -> Unit,
+    onRefreshTmdb: () -> Unit,
+    onUnbindTmdb: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    val bannerUrl = selectedEpisode?.fanartUrl ?: selectedEpisode?.coverUrl
+        ?: series.fanartUrl ?: series.coverUrl
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    val heroHeight = if (isTablet) 400.dp else 320.dp
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(320.dp)
+            .height(heroHeight)
     ) {
-        if (series.fanartUrl != null) {
+        if (bannerUrl != null) {
             AsyncImage(
-                model = series.fanartUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        } else if (series.coverUrl != null) {
-            AsyncImage(
-                model = series.coverUrl,
+                model = bannerUrl,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -174,6 +306,59 @@ private fun HeroSection(
                     )
                 )
         )
+
+        // Top-right menu
+        Box(modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(Dimens.spacingMd)) {
+            IconButton(
+                onClick = { showMenu = true },
+                modifier = Modifier.background(
+                    Color.Black.copy(alpha = Dimens.alphaOverlay),
+                    CircleShape
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = stringResource(R.string.more),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                modifier = Modifier
+                    .width(180.dp)
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
+            ) {
+                TmdbMenuItem(
+                    icon = Icons.Default.Search,
+                    label = stringResource(R.string.tmdb_search),
+                    onClick = { showMenu = false; onSearchTmdb() }
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                TmdbMenuItem(
+                    icon = Icons.Default.Refresh,
+                    label = stringResource(R.string.tmdb_refresh),
+                    onClick = { showMenu = false; onRefreshTmdb() }
+                )
+                if (series.tmdbId != null) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    TmdbMenuItem(
+                        icon = Icons.Default.LinkOff,
+                        label = stringResource(R.string.tmdb_unbind),
+                        tint = MaterialTheme.colorScheme.error,
+                        onClick = { showMenu = false; onUnbindTmdb() }
+                    )
+                }
+            }
+        }
 
         // Title and tags
         Column(
@@ -313,7 +498,12 @@ private fun HeroSection(
 }
 
 @Composable
-private fun VideoInfoSection(series: SeriesDTO) {
+private fun VideoInfoSection(
+    series: SeriesDTO,
+    selectedEpisode: VideoDTO? = null
+) {
+    val episode = selectedEpisode ?: series.episodes?.firstOrNull()
+
     Column(
         modifier = Modifier.padding(Dimens.spacingLg)
     ) {
@@ -322,7 +512,7 @@ private fun VideoInfoSection(series: SeriesDTO) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Dimens.spacingLg)
         ) {
-            series.year?.let { year ->
+            (selectedEpisode?.year ?: series.year)?.let { year ->
                 Text(
                     text = year.toString(),
                     style = MaterialTheme.typography.bodyMedium,
@@ -338,7 +528,7 @@ private fun VideoInfoSection(series: SeriesDTO) {
                 )
             }
 
-            series.episodes?.firstOrNull()?.durationMinutes?.let { duration ->
+            episode?.durationMinutes?.let { duration ->
                 Text(
                     text = "${duration} ${stringResource(R.string.minutes)}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -348,7 +538,7 @@ private fun VideoInfoSection(series: SeriesDTO) {
         }
 
         // Genre
-        series.episodes?.firstOrNull()?.genre?.let { genre ->
+        episode?.genre?.let { genre ->
             Spacer(modifier = Modifier.height(Dimens.spacingSm))
             Text(
                 text = genre,
@@ -358,7 +548,7 @@ private fun VideoInfoSection(series: SeriesDTO) {
         }
 
         // Director
-        series.episodes?.firstOrNull()?.director?.let { director ->
+        episode?.director?.let { director ->
             Spacer(modifier = Modifier.height(Dimens.spacingXs))
             Text(
                 text = "${stringResource(R.string.director)}: $director",
@@ -367,14 +557,19 @@ private fun VideoInfoSection(series: SeriesDTO) {
             )
         }
 
-        // Overview
-        series.overview?.let { overview ->
+        // Overview - 固定高度，避免切换剧集时下方内容位移
+        val overview = selectedEpisode?.overview ?: series.overview
+        overview?.let {
             Spacer(modifier = Modifier.height(Dimens.spacingLg))
-            Text(
-                text = overview,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Box(modifier = Modifier.height(110.dp)) {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -410,7 +605,8 @@ private fun ActorCard(actor: VideoActor) {
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
         ) {
             if (actor.imageUrl != null) {
                 AsyncImage(
@@ -418,6 +614,13 @@ private fun ActorCard(actor: VideoActor) {
                     contentDescription = actor.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = actor.name,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -514,6 +717,7 @@ private fun EpisodeCard(
 @Composable
 private fun EpisodeGrid(
     episodes: List<VideoDTO>,
+    selectedIndex: Int = -1,
     onEpisodeClick: (Int) -> Unit
 ) {
     val columns = 6
@@ -533,6 +737,7 @@ private fun EpisodeGrid(
                         val episode = episodes[index]
                         EpisodeNumberBlock(
                             number = episode.episodeNumber ?: (index + 1),
+                            isSelected = index == selectedIndex,
                             onClick = { onEpisodeClick(index) },
                             modifier = Modifier.weight(1f)
                         )
@@ -549,8 +754,37 @@ private fun EpisodeGrid(
 }
 
 @Composable
+private fun TmdbMenuItem(
+    icon: ImageVector,
+    label: String,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = tint
+            )
+        },
+        onClick = onClick,
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = tint
+            )
+        },
+        contentPadding = PaddingValues(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm)
+    )
+}
+
+@Composable
 private fun EpisodeNumberBlock(
     number: Int,
+    isSelected: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -558,14 +792,377 @@ private fun EpisodeNumberBlock(
         modifier = modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(Dimens.radiusSm))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .background(
+                if (isSelected) Primary
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "$number",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TmdbScrapeSheet(
+    uiState: VideoDetailUiState,
+    onDismiss: () -> Unit,
+    onSearch: (String) -> Unit,
+    onBind: (Long, String) -> Unit,
+    onUnbind: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf(uiState.series?.title ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Primary)
+                )
+                Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                Text(
+                    text = stringResource(R.string.tmdb_scrape),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Current binding card
+                uiState.series?.let { series ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Dimens.spacingMd),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (series.tmdbId != null) Success.copy(alpha = 0.1f)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (series.tmdbId != null) Icons.Default.Check else Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = if (series.tmdbId != null) Success else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(Dimens.spacingMd))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.tmdb_current_binding),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(Dimens.spacingXxs))
+                                if (series.tmdbId != null) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "TMDB #${series.tmdbId}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                                        Surface(
+                                            color = Primary.copy(alpha = 0.1f),
+                                            shape = RoundedCornerShape(Dimens.radiusSm)
+                                        ) {
+                                            Text(
+                                                text = (series.mediaType ?: "tv").uppercase(),
+                                                modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Primary
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        text = stringResource(R.string.tmdb_not_bound),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacingLg))
+
+                // Search section
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .height(16.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Primary)
+                    )
+                    Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                    Text(
+                        text = stringResource(R.string.tmdb_search),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacingMd))
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.tmdb_search_hint)) },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (uiState.isSearchingTmdb) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Primary
+                            )
+                        } else {
+                            IconButton(
+                                onClick = { onSearch(searchQuery) },
+                                enabled = searchQuery.isNotBlank()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = stringResource(R.string.tmdb_search),
+                                    tint = if (searchQuery.isNotBlank()) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                )
+
+                // Search results
+                if (uiState.tmdbSearchResults.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(Dimens.spacingMd))
+
+                    Surface(
+                        color = Primary.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.tmdb_search_results, uiState.tmdbSearchResults.size),
+                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(Dimens.spacingSm))
+
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                    ) {
+                        items(uiState.tmdbSearchResults) { result ->
+                            TmdbSearchResultItem(
+                                result = result,
+                                isBinding = uiState.isBindingTmdb,
+                                onBind = { onBind(result.id, result.mediaType ?: "tv") }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (uiState.series?.tmdbId != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
+                    TextButton(
+                        onClick = onRefresh,
+                        enabled = !uiState.isRefreshingTmdb
+                    ) {
+                        if (uiState.isRefreshingTmdb) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(Dimens.spacingXs))
+                            Text(stringResource(R.string.tmdb_refresh))
+                        }
+                    }
+                    TextButton(
+                        onClick = onUnbind,
+                        enabled = !uiState.isUnbindingTmdb,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        if (uiState.isUnbindingTmdb) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(Dimens.spacingXs))
+                            Text(stringResource(R.string.tmdb_unbind))
+                        }
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun TmdbSearchResultItem(
+    result: TmdbSearchResult,
+    isBinding: Boolean,
+    onBind: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(Dimens.radiusMd),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = { if (!isBinding) onBind() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Dimens.spacingMd),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Poster thumbnail - consistent with VolumeCard pattern
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(Dimens.radiusSm))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                result.posterPath?.let { path ->
+                    val imageUrl = if (path.startsWith("http")) path else "https://image.tmdb.org/t/p/w200$path"
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(Dimens.spacingMd))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = result.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                result.originalTitle?.let { originalTitle ->
+                    if (originalTitle != result.title) {
+                        Text(
+                            text = originalTitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(Dimens.spacingXxs))
+
+                // Info chips row - matching InfoChip pattern
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    result.releaseDate?.let { date ->
+                        if (date.length >= 4) {
+                            Text(
+                                text = date.substring(0, 4),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    result.voteAverage?.let { rating ->
+                        Surface(
+                            color = Warning.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(Dimens.radiusSm)
+                        ) {
+                            Text(
+                                text = String.format("%.1f", rating),
+                                modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Warning
+                            )
+                        }
+                    }
+                    result.mediaType?.let { type ->
+                        Surface(
+                            color = Primary.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(Dimens.radiusSm)
+                        ) {
+                            Text(
+                                text = type.uppercase(),
+                                modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Bind indicator
+            if (isBinding) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = Primary
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }

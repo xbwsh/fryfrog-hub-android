@@ -241,3 +241,22 @@ data class ReadingProgressRequest(
     val currentPage: Int,
     val totalPages: Int
 )
+
+// TMDB Scraping
+data class TmdbSearchResult(
+    val id: Long,
+    val title: String,
+    @SerializedName("original_title") val originalTitle: String?,
+    val overview: String?,
+    @SerializedName("release_date") val releaseDate: String?,
+    @SerializedName("poster_path") val posterPath: String?,
+    @SerializedName("backdrop_path") val backdropPath: String?,
+    @SerializedName("vote_average") val voteAverage: Double?,
+    @SerializedName("media_type") val mediaType: String?,
+    @SerializedName("genre_ids") val genreIds: List<Int>?
+)
+
+data class TmdbBindRequest(
+    val tmdbId: Long,
+    val mediaType: String
+)

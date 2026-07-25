@@ -120,4 +120,29 @@
     <string name="ebook_count">书目</string>
     <string name="start_date">连载日期</string>
     <string name="characters">角色</string>
+
+    <!-- TMDB Scraping -->
+    <string name="tmdb_scrape">TMDB 刮削</string>
+    <string name="tmdb_search">搜索 TMDB</string>
+    <string name="tmdb_search_hint">输入名称搜索…</string>
+    <string name="tmdb_search_results">找到 %d 个结果</string>
+    <string name="tmdb_current_binding">当前绑定</string>
+    <string name="tmdb_not_bound">未绑定</string>
+    <string name="tmdb_unbind">解绑</string>
+    <string name="tmdb_refresh">刷新</string>
+    <string name="more">更多</string>
+
+    <!-- Sort -->
+    <string name="sort">排序</string>
+    <string name="sort_default">默认</string>
+    <string name="sort_rating_desc">评分从高到低</string>
+    <string name="sort_rating_asc">评分从低到高</string>
+    <string name="sort_year_desc">年份从新到旧</string>
+    <string name="sort_year_asc">年份从旧到新</string>
+    <string name="sort_title_asc">名称 A-Z</string>
+    <string name="sort_title_desc">名称 Z-A</string>
+
+    <!-- Unbind confirm -->
+    <string name="unbind_confirm_title">解绑 TMDB</string>
+    <string name="unbind_confirm_message">确定要解绑 TMDB 元数据吗？此操作不可撤销。</string>
 </resources>

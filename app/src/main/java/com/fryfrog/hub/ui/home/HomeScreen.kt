@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -300,6 +301,9 @@ private data class CarouselItem(
 private fun CarouselSection(items: List<CarouselItem>) {
     val pagerState = rememberPagerState(pageCount = { items.size })
     val scope = rememberCoroutineScope()
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    val carouselHeight = if (isTablet) Dimens.carouselHeightTablet else Dimens.carouselHeight
 
     // Auto-scroll
     LaunchedEffect(pagerState) {
@@ -315,7 +319,7 @@ private fun CarouselSection(items: List<CarouselItem>) {
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(Dimens.carouselHeight),
+                .height(carouselHeight),
             contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
             pageSpacing = Dimens.spacingMd
         ) { page ->

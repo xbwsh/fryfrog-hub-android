@@ -36,7 +36,7 @@ data class AppDimens(
 
     // Carousel
     val carouselHeight: Dp = 150.dp,
-    val carouselHeightTablet: Dp = 320.dp,
+    val carouselHeightTablet: Dp = 380.dp,
     val indicatorSize: Dp = 6.dp,
     val indicatorSpacing: Dp = 3.dp,
 

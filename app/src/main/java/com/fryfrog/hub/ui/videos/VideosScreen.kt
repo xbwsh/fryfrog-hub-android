@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -19,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,6 +29,7 @@ import coil.compose.AsyncImage
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +39,7 @@ fun VideosScreen(
     onVideoClick: (Long, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showSortMenu by remember { mutableStateOf(false) }
 
     val filteredSeries by remember(uiState.series, isAdultContentHidden) {
         derivedStateOf {
@@ -53,6 +58,43 @@ fun VideosScreen(
                 title = { Text(stringResource(R.string.section_videos)) },
                 modifier = Modifier.statusBarsPadding(),
                 actions = {
+                    // Sort menu
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.SortByAlpha,
+                                contentDescription = stringResource(R.string.sort),
+                                tint = if (uiState.sortOption != SortOption.DEFAULT) Primary
+                                else MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                            modifier = Modifier
+                                .width(200.dp)
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
+                        ) {
+                            SortOption.entries.forEachIndexed { index, option ->
+                                if (index > 0 && index % 2 == 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                }
+                                SortMenuItem(
+                                    label = stringResource(option.labelResId),
+                                    isSelected = option == uiState.sortOption,
+                                    onClick = {
+                                        viewModel.setSortOption(option)
+                                        showSortMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     IconButton(onClick = { viewModel.loadVideos() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -221,6 +263,38 @@ private fun VideoCard(
             }
         }
     }
+}
+
+@Composable
+private fun SortMenuItem(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface
+            )
+        },
+        onClick = onClick,
+        leadingIcon = {
+            if (isSelected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.size(20.dp))
+            }
+        },
+        contentPadding = PaddingValues(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm)
+    )
 }
 
 @Composable

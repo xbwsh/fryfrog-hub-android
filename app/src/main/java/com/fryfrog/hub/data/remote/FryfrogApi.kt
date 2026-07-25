@@ -30,6 +30,22 @@ interface FryfrogApi {
     @PUT("/api/v1/video/{id}/progress")
     suspend fun saveVideoProgress(@Path("id") id: Long, @Body request: WatchProgressRequest): ApiResponse<WatchProgressDTO>
 
+    // ========== TMDB Scraping ==========
+    @GET("/api/v1/video/tmdb/search")
+    suspend fun searchTmdb(@Query("q") query: String): ApiResponse<List<TmdbSearchResult>>
+
+    @POST("/api/v1/video/{id}/tmdb/bind")
+    suspend fun bindTmdb(@Path("id") id: Long, @Body request: TmdbBindRequest): ApiResponse<Map<String, Any>>
+
+    @POST("/api/v1/video/{id}/tmdb/unbind")
+    suspend fun unbindTmdb(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @POST("/api/v1/video/{id}/tmdb/refresh")
+    suspend fun refreshTmdb(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/video/scrape/progress")
+    suspend fun getScrapeProgress(): ApiResponse<Map<String, Any>>
+
     // ========== Music ==========
     @GET("/api/v1/music")
     suspend fun getMusicByAlbum(): ApiResponse<PageResponse<AlbumGroup>>
