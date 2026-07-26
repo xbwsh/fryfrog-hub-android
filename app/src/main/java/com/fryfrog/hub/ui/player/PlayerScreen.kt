@@ -48,6 +48,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.util.Log
+import com.fryfrog.hub.data.model.SubtitleDTO
 import com.fryfrog.hub.data.model.WatchProgressRequest
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.player.MpvPlayer
@@ -446,6 +447,59 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
         _showSpeedMenu.value = false
     }
 
+    // Subtitles
+    private val _subtitleList = mutableStateOf<List<SubtitleDTO>>(emptyList())
+    val subtitleList: List<SubtitleDTO> by _subtitleList
+    private val _selectedSubtitleIndex = mutableIntStateOf(-1)
+    val selectedSubtitleIndex: Int by _selectedSubtitleIndex
+    private val _showSubtitleMenu = mutableStateOf(false)
+    val showSubtitleMenu: Boolean by _showSubtitleMenu
+    private val _isLoadingSubtitles = mutableStateOf(false)
+    val isLoadingSubtitles: Boolean by _isLoadingSubtitles
+
+    fun toggleSubtitleMenu() {
+        if (!_showSubtitleMenu.value && _subtitleList.value.isEmpty()) {
+            loadSubtitles()
+        }
+        _showSubtitleMenu.value = !_showSubtitleMenu.value
+    }
+
+    fun changeSubtitle(index: Int) {
+        if (index == -1) {
+            player?.disableSubtitles()
+            _selectedSubtitleIndex.intValue = -1
+        } else {
+            player?.selectSubtitle(index)
+            _selectedSubtitleIndex.intValue = index
+        }
+        _showSubtitleMenu.value = false
+    }
+
+    fun loadExternalSubtitle(subtitle: SubtitleDTO) {
+        val fullUrl = subtitle.url?.let { url ->
+            if (url.startsWith("http")) url else "${ApiClient.getBaseUrl()}$url"
+        } ?: return
+        player?.addSubtitle(fullUrl)
+        _showSubtitleMenu.value = false
+    }
+
+    private fun loadSubtitles() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isLoadingSubtitles.value = true
+            try {
+                val api = ApiClient.getApi()
+                val response = api.getVideoSubtitles(videoId)
+                if (response.success && response.data != null) {
+                    _subtitleList.value = response.data
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load subtitles", e)
+            } finally {
+                _isLoadingSubtitles.value = false
+            }
+        }
+    }
+
     fun changeQuality(quality: String) {
         if (quality == _currentQuality.value) {
             _showQualityMenu.value = false
@@ -566,8 +620,8 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu, vm.showSpeedMenu, isSeeking) {
-        if (showControls && vm.isPlaying && !vm.showQualityMenu && !vm.showSpeedMenu && !isSeeking) {
+    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu, vm.showSpeedMenu, vm.showSubtitleMenu, isSeeking) {
+        if (showControls && vm.isPlaying && !vm.showQualityMenu && !vm.showSpeedMenu && !vm.showSubtitleMenu && !isSeeking) {
             delay(4000)
             showControls = false
         }
@@ -968,6 +1022,31 @@ fun PlayerScreen(
 
                             Spacer(modifier = Modifier.weight(1f))
 
+                            // Subtitle selector
+                            Surface(
+                                onClick = { vm.toggleSubtitleMenu() },
+                                color = if (vm.selectedSubtitleIndex >= 0) Primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Subtitles,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Icon(
+                                        Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+
                             // Speed selector
                             Surface(
                                 onClick = { vm.toggleSpeedMenu() },
@@ -1267,6 +1346,122 @@ fun PlayerScreen(
                                         modifier = Modifier.size(14.dp),
                                         tint = Color(0xFF409EFF)
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Subtitle menu
+        if (vm.showSubtitleMenu) {
+            val density = LocalDensity.current
+            val offsetX = with(density) { (-16).dp.roundToPx() }
+
+            androidx.compose.ui.window.Popup(
+                alignment = Alignment.CenterEnd,
+                offset = IntOffset(offsetX, 0),
+                onDismissRequest = { vm.toggleSubtitleMenu() }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(180.dp)
+                        .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column {
+                        // Off option
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { vm.changeSubtitle(-1) }
+                                .background(
+                                    if (vm.selectedSubtitleIndex == -1) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                    else Color.Transparent,
+                                    RoundedCornerShape(Dimens.radiusSm)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "关闭字幕",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (vm.selectedSubtitleIndex == -1) Color(0xFF409EFF) else Color.White
+                            )
+                            if (vm.selectedSubtitleIndex == -1) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFF409EFF)
+                                )
+                            }
+                        }
+
+                        // Built-in subtitle tracks from mpv
+                        if (vm.subtitleList.isEmpty() && vm.isLoadingSubtitles) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "加载中...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+
+                        if (vm.subtitleList.isEmpty() && !vm.isLoadingSubtitles) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    text = "无外挂字幕",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+
+                        // External subtitle files from API
+                        vm.subtitleList.forEach { subtitle ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { vm.loadExternalSubtitle(subtitle) }
+                                    .background(Color.Transparent, RoundedCornerShape(Dimens.radiusSm))
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = subtitle.filename,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (subtitle.language != null) {
+                                        Text(
+                                            text = subtitle.language,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    }
                                 }
                             }
                         }

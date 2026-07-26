@@ -1,4 +1,4 @@
-﻿package com.fryfrog.hub.ui.videos
+package com.fryfrog.hub.ui.videos
 
 import android.app.Activity
 import androidx.compose.foundation.background
@@ -792,7 +792,7 @@ private fun EpisodeGrid(
                 }
             }
             if (row < rows - 1) {
-                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                Spacer(modifier = Modifier.height(Dimens.spacingXs))
             }
         }
     }
@@ -837,18 +837,18 @@ private fun EpisodeNumberBlock(
 ) {
     Box(
         modifier = modifier
-            .aspectRatio(1f)
             .clip(RoundedCornerShape(Dimens.radiusSm))
             .background(
                 if (isSelected) Primary
                 else MaterialTheme.colorScheme.surfaceVariant
             )
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .padding(vertical = Dimens.spacingSm),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "$number",
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.bodyMedium,
             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
         )
         if (progressPercent > 0f) {
@@ -856,7 +856,7 @@ private fun EpisodeNumberBlock(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(3.dp)
+                    .height(2.dp)
                     .background(Color.Black.copy(alpha = 0.3f))
             ) {
                 Box(

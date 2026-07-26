@@ -1,4 +1,4 @@
-﻿package com.fryfrog.hub.data.model
+package com.fryfrog.hub.data.model
 
 import com.google.gson.annotations.SerializedName
 
@@ -180,6 +180,13 @@ data class MediaCharacter(
     val sourceCharacterId: Long?,
     val source: String?,
     val imageUrl: String?
+)
+
+// Subtitle
+data class SubtitleDTO(
+    val filename: String,
+    val language: String?,
+    val url: String?
 )
 
 // Watch Progress

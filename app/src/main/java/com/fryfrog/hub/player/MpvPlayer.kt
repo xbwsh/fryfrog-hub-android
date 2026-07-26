@@ -1,4 +1,4 @@
-﻿package com.fryfrog.hub.player
+package com.fryfrog.hub.player
 
 import android.content.Context
 import android.os.Handler
@@ -341,6 +341,33 @@ class MpvPlayer(private val context: Context) {
             MPVLib.getPropertyString("sub-text")
         } catch (e: Exception) {
             null
+        }
+    }
+
+    fun addSubtitle(url: String) {
+        Log.d(TAG, "addSubtitle($url)")
+        try {
+            MPVLib.command(arrayOf("sub-add", url, "select"))
+        } catch (e: Exception) {
+            Log.e(TAG, "addSubtitle() failed", e)
+        }
+    }
+
+    fun selectSubtitle(index: Int) {
+        Log.d(TAG, "selectSubtitle($index)")
+        try {
+            MPVLib.setPropertyInt("sid", index)
+        } catch (e: Exception) {
+            Log.e(TAG, "selectSubtitle() failed", e)
+        }
+    }
+
+    fun disableSubtitles() {
+        Log.d(TAG, "disableSubtitles()")
+        try {
+            MPVLib.setPropertyInt("sid", 0)
+        } catch (e: Exception) {
+            Log.e(TAG, "disableSubtitles() failed", e)
         }
     }
 

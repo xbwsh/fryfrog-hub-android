@@ -1,4 +1,4 @@
-﻿package com.fryfrog.hub.data.remote
+package com.fryfrog.hub.data.remote
 
 import com.fryfrog.hub.data.model.*
 import retrofit2.http.*
@@ -23,6 +23,15 @@ interface FryfrogApi {
 
     @GET("/api/v1/video/favorites")
     suspend fun getVideoFavorites(): ApiResponse<List<SeriesDTO>>
+
+    @GET("/api/v1/video/{id}/subtitles")
+    suspend fun getVideoSubtitles(@Path("id") id: Long): ApiResponse<List<SubtitleDTO>>
+
+    @GET("/api/v1/video/{id}/subtitles/{filename}")
+    suspend fun getVideoSubtitleContent(
+        @Path("id") id: Long,
+        @Path("filename") filename: String
+    ): ApiResponse<String>
 
     @GET("/api/v1/video/{id}/progress")
     suspend fun getVideoProgress(@Path("id") id: Long): ApiResponse<WatchProgressDTO>
