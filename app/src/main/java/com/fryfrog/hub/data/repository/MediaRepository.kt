@@ -15,11 +15,13 @@ class MediaRepository {
     }
 
     // Video
-    suspend fun getVideoSeries(): Result<List<SeriesDTO>> = safeApiCall {
-        api.getVideoSeries().data?.content?.map { it.copy(
+    suspend fun getVideoSeries(page: Int = 0, size: Int = 20): Result<PageResponse<SeriesDTO>> = safeApiCall {
+        val response = api.getVideoSeries(page, size)
+        val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
+        data.copy(content = data.content.map { it.copy(
             coverUrl = fixUrl(it.coverUrl),
             fanartUrl = fixUrl(it.fanartUrl)
-        ) } ?: emptyList()
+        ) })
     }
 
     suspend fun getVideoSeriesDetail(id: Long, type: String? = null): Result<SeriesDTO> = safeApiCall {
@@ -83,13 +85,15 @@ class MediaRepository {
     }
 
     // Comic
-    suspend fun getComicSeries(): Result<List<ComicSeries>> = safeApiCall {
-        api.getComicSeries().data?.content?.map { series ->
+    suspend fun getComicSeries(page: Int = 0, size: Int = 20): Result<PageResponse<ComicSeries>> = safeApiCall {
+        val response = api.getComicSeries(page, size)
+        val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
+        data.copy(content = data.content.map { series ->
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
                 comics = series.comics?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
             )
-        } ?: emptyList()
+        })
     }
 
     suspend fun getComicFavorites(): Result<List<ComicDTO>> = safeApiCall {
@@ -101,13 +105,15 @@ class MediaRepository {
     }
 
     // Ebook
-    suspend fun getEbookSeries(): Result<List<EbookSeries>> = safeApiCall {
-        api.getEbookSeries().data?.content?.map { series ->
+    suspend fun getEbookSeries(page: Int = 0, size: Int = 20): Result<PageResponse<EbookSeries>> = safeApiCall {
+        val response = api.getEbookSeries(page, size)
+        val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
+        data.copy(content = data.content.map { series ->
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
                 books = series.books?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
             )
-        } ?: emptyList()
+        })
     }
 
     suspend fun getRecentlyAddedEbooks(): Result<List<EbookDTO>> = safeApiCall {

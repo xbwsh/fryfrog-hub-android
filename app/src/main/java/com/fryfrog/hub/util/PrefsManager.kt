@@ -30,7 +30,7 @@ class PrefsManager(context: Context) {
             "videos" to true, "music" to true, "comics" to true, "ebooks" to true
         )
 
-        private const val DEFAULT_SERVER_URL = "http://192.168.31.127:20058"
+        private const val DEFAULT_SERVER_URL = ""
     }
 
     var serverUrl: String

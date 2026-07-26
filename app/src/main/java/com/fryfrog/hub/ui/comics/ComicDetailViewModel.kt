@@ -32,7 +32,7 @@ class ComicDetailViewModel(private val seriesId: Long) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val seriesResult = repository.getComicSeries()
-            val allSeries = seriesResult.getOrElse { emptyList() }
+            val allSeries = seriesResult.getOrNull()?.content ?: emptyList()
 
             // 调试日志
             android.util.Log.d("ComicDetailVM", "Looking for seriesId=$seriesId")

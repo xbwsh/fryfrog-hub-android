@@ -32,7 +32,7 @@ class EbookDetailViewModel(private val seriesId: Long) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val seriesResult = repository.getEbookSeries()
-            val series = seriesResult.getOrElse { emptyList() }.find { it.seriesId == seriesId }
+            val series = seriesResult.getOrNull()?.content?.find { it.seriesId == seriesId }
 
             val characters = if (series != null) {
                 val firstBookId = series.books?.firstOrNull()?.id

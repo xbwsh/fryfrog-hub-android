@@ -3,9 +3,11 @@ package com.fryfrog.hub.ui.videos
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -15,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -126,6 +129,9 @@ fun VideosScreen(
         } else {
             VideosGrid(
                 series = filteredSeries,
+                isLoadingMore = uiState.isLoadingMore,
+                hasMore = uiState.currentPage < uiState.totalPages - 1,
+                onLoadMore = { viewModel.loadNextPage() },
                 onVideoClick = onVideoClick,
                 modifier = Modifier.padding(paddingValues)
             )
@@ -136,10 +142,28 @@ fun VideosScreen(
 @Composable
 private fun VideosGrid(
     series: List<SeriesDTO>,
+    isLoadingMore: Boolean,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit,
     onVideoClick: (Long, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val gridState = rememberLazyGridState()
+
+    LaunchedEffect(gridState) {
+        snapshotFlow {
+            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = gridState.layoutInfo.totalItemsCount
+            lastVisible >= totalItems - 5
+        }.collect { shouldLoadMore ->
+            if (shouldLoadMore && hasMore && !isLoadingMore) {
+                onLoadMore()
+            }
+        }
+    }
+
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Adaptive(minSize = Dimens.gridMinCardWidth),
         contentPadding = PaddingValues(Dimens.spacingLg),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd),
@@ -151,6 +175,19 @@ private fun VideosGrid(
                 series = item,
                 onClick = { onVideoClick(item.id, item.type ?: "series") }
             )
+        }
+
+        if (isLoadingMore) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(Dimens.spacingLg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                }
+            }
         }
     }
 }

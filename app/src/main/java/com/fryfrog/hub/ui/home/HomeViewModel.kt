@@ -40,10 +40,10 @@ class HomeViewModel : ViewModel() {
 
             _uiState.value = HomeUiState(
                 isLoading = false,
-                videoSeries = videoResult.getOrElse { emptyList() },
+                videoSeries = videoResult.getOrNull()?.content ?: emptyList(),
                 musicAlbums = musicResult.getOrElse { emptyList() },
-                comicSeries = comicResult.getOrElse { emptyList() },
-                ebookSeries = ebookResult.getOrElse { emptyList() },
+                comicSeries = comicResult.getOrNull()?.content ?: emptyList(),
+                ebookSeries = ebookResult.getOrNull()?.content ?: emptyList(),
                 error = videoResult.exceptionOrNull()?.message
                     ?: musicResult.exceptionOrNull()?.message
                     ?: comicResult.exceptionOrNull()?.message

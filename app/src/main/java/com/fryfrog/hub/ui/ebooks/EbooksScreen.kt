@@ -5,14 +5,17 @@ package com.fryfrog.hub.ui.ebooks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +67,22 @@ fun EbooksScreen(
                 modifier = Modifier.padding(paddingValues)
             )
         } else {
+            val gridState = rememberLazyGridState()
+
+            LaunchedEffect(gridState) {
+                snapshotFlow {
+                    val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    val totalItems = gridState.layoutInfo.totalItemsCount
+                    lastVisible >= totalItems - 5
+                }.collect { shouldLoadMore ->
+                    if (shouldLoadMore && uiState.currentPage < uiState.totalPages - 1 && !uiState.isLoadingMore) {
+                        viewModel.loadNextPage()
+                    }
+                }
+            }
+
             LazyVerticalGrid(
+                state = gridState,
                 columns = GridCells.Adaptive(minSize = Dimens.gridMinCardWidth),
                 contentPadding = PaddingValues(Dimens.spacingLg),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd),
@@ -78,6 +96,19 @@ fun EbooksScreen(
                         ebook = ebook,
                         onClick = { ebook.seriesId?.let { onEbookClick(it) } }
                     )
+                }
+
+                if (uiState.isLoadingMore) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(Dimens.spacingLg),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        }
+                    }
                 }
             }
         }

@@ -21,10 +21,13 @@ enum class SortOption(val labelResId: Int) {
 
 data class VideosUiState(
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
     val series: List<SeriesDTO> = emptyList(),
     val allSeries: List<SeriesDTO> = emptyList(),
     val error: String? = null,
-    val sortOption: SortOption = SortOption.DEFAULT
+    val sortOption: SortOption = SortOption.DEFAULT,
+    val currentPage: Int = 0,
+    val totalPages: Int = 1
 )
 
 class VideosViewModel : ViewModel() {
@@ -40,17 +43,53 @@ class VideosViewModel : ViewModel() {
 
     fun loadVideos() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null,
+                currentPage = 0,
+                totalPages = 1,
+                allSeries = emptyList()
+            )
 
-            val result = repository.getVideoSeries()
-            val series = result.getOrElse { emptyList() }
+            val result = repository.getVideoSeries(page = 0)
+            val pageData = result.getOrNull()
 
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                allSeries = series,
+                allSeries = pageData?.content ?: emptyList(),
+                currentPage = pageData?.page ?: 0,
+                totalPages = pageData?.totalPages ?: 1,
                 error = result.exceptionOrNull()?.message
             )
             applySort()
+        }
+    }
+
+    fun loadNextPage() {
+        val state = _uiState.value
+        if (state.isLoadingMore || state.currentPage >= state.totalPages - 1) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+
+            val nextPage = state.currentPage + 1
+            val result = repository.getVideoSeries(page = nextPage)
+            val pageData = result.getOrNull()
+
+            if (pageData != null) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false,
+                    allSeries = _uiState.value.allSeries + pageData.content,
+                    currentPage = pageData.page,
+                    totalPages = pageData.totalPages
+                )
+                applySort()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false,
+                    error = result.exceptionOrNull()?.message
+                )
+            }
         }
     }
 
