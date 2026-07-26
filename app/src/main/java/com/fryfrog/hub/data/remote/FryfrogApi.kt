@@ -25,7 +25,7 @@ interface FryfrogApi {
     suspend fun getVideoFavorites(): ApiResponse<List<SeriesDTO>>
 
     @GET("/api/v1/video/{id}/subtitles")
-    suspend fun getVideoSubtitles(@Path("id") id: Long): ApiResponse<List<SubtitleDTO>>
+    suspend fun getVideoSubtitles(@Path("id") id: Long): List<SubtitleDTO>
 
     @GET("/api/v1/video/{id}/subtitles/{filename}")
     suspend fun getVideoSubtitleContent(

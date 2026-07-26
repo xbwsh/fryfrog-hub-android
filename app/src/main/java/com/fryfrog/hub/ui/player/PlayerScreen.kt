@@ -489,9 +489,7 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
             try {
                 val api = ApiClient.getApi()
                 val response = api.getVideoSubtitles(videoId)
-                if (response.success && response.data != null) {
-                    _subtitleList.value = response.data
-                }
+                _subtitleList.value = response
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load subtitles", e)
             } finally {
