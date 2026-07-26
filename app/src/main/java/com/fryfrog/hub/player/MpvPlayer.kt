@@ -1,4 +1,4 @@
-package com.fryfrog.hub.player
+﻿package com.fryfrog.hub.player
 
 import android.content.Context
 import android.os.Handler
@@ -256,6 +256,21 @@ class MpvPlayer(private val context: Context) {
         error?.let { throw it }
         @Suppress("UNCHECKED_CAST")
         return result as T
+    }
+
+    fun setSpeed(speed: Float) {
+        MPVLib.setPropertyDouble("speed", speed.toDouble())
+    }
+
+    fun getSpeed(): Float {
+        return runOnMainThreadSync {
+            try {
+                if (!initialized) return@runOnMainThreadSync 1.0f
+                (MPVLib.getPropertyDouble("speed") ?: 1.0).toFloat()
+            } catch (e: Exception) {
+                1.0f
+            }
+        }
     }
 
     fun setVolume(percent: Int) {

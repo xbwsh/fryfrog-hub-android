@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -51,10 +52,13 @@ import com.fryfrog.hub.data.model.WatchProgressRequest
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.player.MpvPlayer
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Primary
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.math.roundToInt
 
 class PlayerViewModel(private val videoId: Long) : ViewModel() {
@@ -120,15 +124,33 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
                             _isLoading.value = false
                             _isBuffering.value = false
                             // Seek to saved position when playback starts
-                            seekToSavedPosition()
+                            if (savedProgressPosition > 0) {
+                                val target = savedProgressPosition
+                                savedProgressPosition = 0L
+                                _resumePosition.value = target
+                                _showResumeHint.value = true
+                                handler.postDelayed({
+                                    player?.let { p ->
+                                        p.seekTo(target)
+                                        _currentPos.value = target
+                                        Log.d(TAG, "Seek executed in EVENT_PLAYING:  ms")
+                                    } ?: Log.e(TAG, "Seek failed: player is null")
+                                }, 500)
+                                handler.postDelayed({
+                                    _showResumeHint.value = false
+                                }, 2500)
+                            }
                         }
-                        MpvPlayer.EVENT_PAUSED -> _isPlaying.value = false
+                        MpvPlayer.EVENT_PAUSED -> {
+                            _isPlaying.value = false
+                            saveProgress()
+                        }
                         MpvPlayer.EVENT_END_REACHED -> {
                             _isPlaying.value = false
                             _isLoading.value = false
                             _isBuffering.value = false
-                            // Mark as completed
                             saveProgress()
+                            _shouldAutoExit.value = true
                         }
                         MpvPlayer.EVENT_BUFFERING -> _isBuffering.value = true
                         MpvPlayer.EVENT_ERROR -> {
@@ -220,14 +242,18 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
         player?.attachSurface(surface, width, height)
     }
 
-    fun startPlaybackIfNeeded() {
-        Log.d(TAG, "startPlaybackIfNeeded() hasStarted=$hasStartedPlayback")
+    fun startPlaybackIfNeeded(forceRestart: Boolean = false) {
+        Log.d(TAG, "startPlaybackIfNeeded() hasStarted=$hasStartedPlayback forceRestart=$forceRestart")
         if (!hasStartedPlayback) {
             hasStartedPlayback = true
-            // Load progress first
             viewModelScope.launch {
-                loadProgress()
-                // Start playback
+                if (!forceRestart) {
+                    loadProgress()
+                } else {
+                    savedProgressPosition = 0L
+                    Log.d(TAG, "Force restart: skipping progress load")
+                }
+                Log.d(TAG, "Progress loaded, savedProgressPosition=$savedProgressPosition")
                 val url = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
                 Log.d(TAG, "Opening: $url")
                 player?.open(url)
@@ -295,7 +321,9 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
     }
 
     fun seekTo(ms: Long) {
+        Log.d(TAG, "seekTo called:  ms, isPlaying=, duration=")
         player?.seekTo(ms)
+        saveProgress()
     }
 
     fun seekForward(seconds: Int = 10) {
@@ -303,6 +331,7 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
             val newPos = minOf(it.getPosition() + seconds * 1000, it.getDuration())
             it.seekTo(newPos)
         }
+        saveProgress()
     }
 
     fun seekBackward(seconds: Int = 10) {
@@ -310,6 +339,7 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
             val newPos = maxOf(it.getPosition() - seconds * 1000, 0L)
             it.seekTo(newPos)
         }
+        saveProgress()
     }
 
     fun seekRelative(deltaMs: Long) {
@@ -320,16 +350,26 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
             it.seekTo(newPos)
             _currentPos.value = newPos
         }
+        saveProgress()
     }
 
     private val _seekDelta = mutableLongStateOf(0L)
     val seekDelta: Long by _seekDelta
+
+    // Speed
+    private val _currentSpeed = mutableFloatStateOf(1.0f)
+    val currentSpeed: Float by _currentSpeed
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val _shouldAutoExit = mutableStateOf(false)
+    val shouldAutoExit: Boolean by _shouldAutoExit
 
     fun showSeekIndicator(deltaMs: Long) {
         _seekDelta.longValue = deltaMs
         _showSeekIndicator.value = true
         _indicatorType.value = IndicatorType.SEEK
     }
+
+
 
     private val _showSeekIndicator = mutableStateOf(false)
     val showSeekIndicator: Boolean by _showSeekIndicator
@@ -354,6 +394,9 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
         }
     }
 
+    private var tickCount = 0
+    private val saveMutex = Mutex()
+
     fun tick() {
         player?.let {
             val pos = it.getPosition()
@@ -362,6 +405,12 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
             _totalDuration.value = dur
             if (pos > 0 && dur > 0 && it.isPlaying()) {
                 _isBuffering.value = false
+            }
+            // Save progress every ~5 seconds (20 ticks * 250ms)
+            tickCount++
+            if (tickCount >= 20) {
+                tickCount = 0
+                saveProgress()
             }
         }
     }
@@ -376,6 +425,25 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
 
     fun toggleQualityMenu() {
         _showQualityMenu.value = !_showQualityMenu.value
+    }
+
+    // Speed menu
+    private val _showSpeedMenu = mutableStateOf(false)
+    val showSpeedMenu: Boolean by _showSpeedMenu
+    val speedOptions = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f)
+
+    fun toggleSpeedMenu() {
+        _showSpeedMenu.value = !_showSpeedMenu.value
+    }
+
+    fun setSpeed(speed: Float) {
+        player?.setSpeed(speed)
+        _currentSpeed.floatValue = speed
+    }
+
+    fun changeSpeed(speed: Float) {
+        setSpeed(speed)
+        _showSpeedMenu.value = false
     }
 
     fun changeQuality(quality: String) {
@@ -406,9 +474,30 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
     }
 
     fun release() {
-        // Save progress before releasing
-        viewModelScope.launch(Dispatchers.IO) {
-            saveProgress()
+        handler.removeCallbacksAndMessages(null)
+        try {
+            val pos = player?.getPosition() ?: 0L
+            val dur = player?.getDuration() ?: 0L
+            if (pos > 0 && dur > 0) {
+                val api = ApiClient.getApi()
+                val request = WatchProgressRequest(
+                    position = pos / 1000.0,
+                    duration = dur / 1000.0,
+                    completed = pos >= dur * 0.95
+                )
+                kotlinx.coroutines.runBlocking {
+                    saveMutex.withLock {
+                        try {
+                            api.saveVideoProgress(videoId, request)
+                            Log.d(TAG, "Progress saved on release: s / s")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to save progress on release", e)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save progress on release", e)
         }
         player?.release()
         player = null
@@ -430,7 +519,9 @@ class PlayerVMFactory(private val videoId: Long) : ViewModelProvider.Factory {
 fun PlayerScreen(
     videoId: Long,
     title: String,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onProgressSaved: () -> Unit = {},
+    forceRestart: Boolean = false
 ) {
     val vm: PlayerViewModel = viewModel(factory = PlayerVMFactory(videoId))
     val activity = LocalContext.current as Activity
@@ -438,6 +529,8 @@ fun PlayerScreen(
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableStateOf(0f) }
     var lastTapTime by remember { mutableLongStateOf(0L) }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     DisposableEffect(Unit) {
         val orig = activity.requestedOrientation
@@ -449,11 +542,20 @@ fun PlayerScreen(
         ctrl.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         vm.init(activity)
 
+        val lifecycleObserver = object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onPause(owner: androidx.lifecycle.LifecycleOwner) {
+                vm.saveProgress()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
             ctrl.show(WindowInsetsCompat.Type.systemBars())
             WindowCompat.setDecorFitsSystemWindows(window, true)
             activity.requestedOrientation = orig
             vm.release()
+            onProgressSaved()
         }
     }
 
@@ -464,10 +566,17 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu) {
-        if (showControls && vm.isPlaying && !vm.showQualityMenu) {
+    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu, vm.showSpeedMenu, isSeeking) {
+        if (showControls && vm.isPlaying && !vm.showQualityMenu && !vm.showSpeedMenu && !isSeeking) {
             delay(4000)
             showControls = false
+        }
+    }
+
+    LaunchedEffect(vm.shouldAutoExit) {
+        if (vm.shouldAutoExit) {
+            delay(2000)
+            onBackClick()
         }
     }
 
@@ -477,19 +586,73 @@ fun PlayerScreen(
             .background(Color.Black)
             .pointerInput(vm.showPlaybackInfo) {
                 if (vm.showPlaybackInfo) return@pointerInput
-                detectTapGestures(
-                    onTap = {
-                        showControls = !showControls
-                    },
-                    onDoubleTap = { offset ->
-                        val width = size.width
-                        when {
-                            offset.x < width / 3f -> vm.seekBackward(10)
-                            offset.x > width * 2 / 3f -> vm.seekForward(10)
-                            else -> vm.togglePlayPause()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    vm.resetAccumulators()
+                    var swipeAccumulator = 0f
+                    var isSwiping = false
+                    var tapConsumed = false
+                    val downTime = System.currentTimeMillis()
+                    val downX = down.position.x
+                    val downY = down.position.y
+
+                    do {
+                        val event = awaitPointerEvent()
+                        val dragChange = event.changes.firstOrNull()
+                        if (dragChange != null && dragChange.pressed) {
+                            val pos = dragChange.position
+                            val prevPos = dragChange.previousPosition
+                            val deltaX = pos.x - prevPos.x
+                            val deltaY = pos.y - prevPos.y
+
+                            if (!isSwiping && (kotlin.math.abs(deltaX) > 5f || kotlin.math.abs(deltaY) > 5f)) {
+                                isSwiping = kotlin.math.abs(deltaX) > kotlin.math.abs(deltaY)
+                            }
+
+                            if (isSwiping) {
+                                swipeAccumulator += deltaX
+                                val seekDelta = (swipeAccumulator / 100f * 5000f).toLong()
+                                vm.showSeekIndicator(seekDelta)
+                            } else if (deltaY != 0f) {
+                                val width = size.width
+                                val x = pos.x
+                                if (x < width / 3f) {
+                                    vm.adjustBrightness(deltaY)
+                                } else if (x > width * 2 / 3f) {
+                                    vm.adjustVolume(deltaY)
+                                }
+                            }
+                        }
+                    } while (event.changes.any { it.pressed })
+
+                    if (isSwiping) {
+                        val seekDelta = (swipeAccumulator / 100f * 5000f).toLong()
+                        if (kotlin.math.abs(seekDelta) >= 500L) {
+                            vm.seekRelative(seekDelta)
+                        }
+                    } else {
+                        // Not a swipe and not a long press: it's a tap
+                        val duration = System.currentTimeMillis() - downTime
+                        if (duration < 300) {
+                            // Detect double tap by checking time since last tap
+                            val now = System.currentTimeMillis()
+                            if (now - lastTapTime < 300) {
+                                // Double tap
+                                val width = size.width
+                                when {
+                                    downX < width / 3f -> vm.seekBackward(10)
+                                    downX > width * 2 / 3f -> vm.seekForward(10)
+                                    else -> vm.togglePlayPause()
+                                }
+                                lastTapTime = 0L
+                            } else {
+                                lastTapTime = now
+                                showControls = !showControls
+                            }
                         }
                     }
-                )
+                    vm.hideAllIndicators()
+                }
             }
             .pointerInput(vm.showPlaybackInfo) {
                 if (vm.showPlaybackInfo) return@pointerInput
@@ -546,7 +709,7 @@ fun PlayerScreen(
                             vm.initPlayer(ctx)
                             val androidSurface = android.view.Surface(surface)
                             vm.attachSurface(androidSurface, width, height)
-                            vm.startPlaybackIfNeeded()
+                            vm.startPlaybackIfNeeded(forceRestart)
                         }
                         override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, width: Int, height: Int) {
                             val androidSurface = android.view.Surface(surface)
@@ -670,6 +833,20 @@ fun PlayerScreen(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
+                        if (vm.currentSpeed != 1.0f) {
+                            Surface(
+                                color = Primary.copy(alpha = 0.8f),
+                                shape = RoundedCornerShape(Dimens.radiusSm)
+                            ) {
+                                Text(
+                                    text = "${vm.currentSpeed}x",
+                                    modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                        }
                         IconButton(onClick = { vm.togglePlaybackInfo() }, modifier = Modifier.size(40.dp)) {
                             Icon(
                                 Icons.Default.Info,
@@ -790,6 +967,30 @@ fun PlayerScreen(
                             )
 
                             Spacer(modifier = Modifier.weight(1f))
+
+                            // Speed selector
+                            Surface(
+                                onClick = { vm.toggleSpeedMenu() },
+                                color = if (vm.currentSpeed != 1.0f) Primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${vm.currentSpeed}x",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Icon(
+                                        Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
 
                             // Quality selector
                             Surface(
@@ -964,6 +1165,58 @@ fun PlayerScreen(
                             color = Color.White,
                             style = MaterialTheme.typography.bodyMedium
                         )
+                    }
+                }
+            }
+        }
+
+        // Speed menu - 屏幕右侧中间
+        // Speed menu
+        if (vm.showSpeedMenu) {
+            val density = LocalDensity.current
+            val offsetX = with(density) { (-16).dp.roundToPx() }
+
+            androidx.compose.ui.window.Popup(
+                alignment = Alignment.CenterEnd,
+                offset = IntOffset(offsetX, 0),
+                onDismissRequest = { vm.toggleSpeedMenu() }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(140.dp)
+                        .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column {
+                        vm.speedOptions.forEach { speed ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { vm.changeSpeed(speed) }
+                                    .background(
+                                        if (speed == vm.currentSpeed) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                        else Color.Transparent,
+                                        RoundedCornerShape(Dimens.radiusSm)
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${speed}x",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (speed == vm.currentSpeed) Color(0xFF409EFF) else Color.White
+                                )
+                                if (speed == vm.currentSpeed) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF409EFF)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

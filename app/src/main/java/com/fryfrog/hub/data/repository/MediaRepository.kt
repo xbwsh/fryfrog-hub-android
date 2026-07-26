@@ -2,6 +2,7 @@ package com.fryfrog.hub.data.repository
 
 import com.fryfrog.hub.data.model.*
 import com.fryfrog.hub.data.remote.ApiClient
+import kotlinx.coroutines.CancellationException
 
 class MediaRepository {
 
@@ -152,6 +153,8 @@ class MediaRepository {
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {
         return try {
             Result.success(call())
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("MediaRepository", "API call failed", e)
             Result.failure(e)

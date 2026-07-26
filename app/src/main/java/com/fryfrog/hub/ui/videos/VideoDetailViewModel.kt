@@ -1,4 +1,4 @@
-package com.fryfrog.hub.ui.videos
+﻿package com.fryfrog.hub.ui.videos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +11,7 @@ import com.fryfrog.hub.data.repository.MediaRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 data class VideoDetailUiState(
@@ -25,7 +26,8 @@ data class VideoDetailUiState(
     val isUnbindingTmdb: Boolean = false,
     val isRefreshingTmdb: Boolean = false,
     val snackbarMessage: String? = null,
-    val shouldNavigateBack: Boolean = false
+    val shouldNavigateBack: Boolean = false,
+    val selectedEpisodeIndex: Int = 0
 )
 
 class VideoDetailViewModel(
@@ -37,6 +39,7 @@ class VideoDetailViewModel(
 
     private val _uiState = MutableStateFlow(VideoDetailUiState())
     val uiState: StateFlow<VideoDetailUiState> = _uiState.asStateFlow()
+    private var tmdbSearchJob: Job? = null
 
     init {
         android.util.Log.d("VideoDetailVM", "Loading series ID: $seriesId type: $type")
@@ -76,14 +79,40 @@ class VideoDetailViewModel(
         }
     }
 
+    private val _episodeProgressMap = androidx.compose.runtime.mutableStateMapOf<Long, com.fryfrog.hub.data.model.WatchProgressDTO>()
+    val episodeProgress: Map<Long, com.fryfrog.hub.data.model.WatchProgressDTO> get() = _episodeProgressMap
+
     private fun loadProgress() {
         viewModelScope.launch {
             try {
-                val firstEpisodeId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return@launch
+                val episodes = _uiState.value.series?.episodes ?: return@launch
+                if (episodes.isEmpty()) return@launch
                 val api = ApiClient.getApi()
-                val response = api.getVideoProgress(firstEpisodeId)
-                if (response.success) {
+
+                // Load progress for first episode to determine initial state
+                val firstEp = episodes.first()
+                val response = api.getVideoProgress(firstEp.id)
+                if (response.success && response.data != null) {
+                    _episodeProgressMap[firstEp.id] = response.data
                     _uiState.value = _uiState.value.copy(progress = response.data)
+                }
+
+                // Auto-select: find first unwatched episode, default to first
+                val firstUnwatched = episodes.indexOfFirst { ep ->
+                    val prog = _episodeProgressMap[ep.id]
+                    prog == null || !prog.completed
+                }
+                val selectedIndex = if (firstUnwatched >= 0) firstUnwatched else 0
+                _uiState.value = _uiState.value.copy(selectedEpisodeIndex = selectedIndex)
+
+                // Load progress for selected episode if different from first
+                if (selectedIndex > 0) {
+                    val selectedEp = episodes[selectedIndex]
+                    val selectedResponse = api.getVideoProgress(selectedEp.id)
+                    if (selectedResponse.success && selectedResponse.data != null) {
+                        _episodeProgressMap[selectedEp.id] = selectedResponse.data
+                        _uiState.value = _uiState.value.copy(progress = selectedResponse.data)
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("VideoDetailVM", "Failed to load progress", e)
@@ -91,9 +120,25 @@ class VideoDetailViewModel(
         }
     }
 
+    fun loadEpisodeProgress(episodeId: Long) {
+        viewModelScope.launch {
+            try {
+                val api = ApiClient.getApi()
+                val response = api.getVideoProgress(episodeId)
+                if (response.success && response.data != null) {
+                    _episodeProgressMap[episodeId] = response.data
+                    _uiState.value = _uiState.value.copy(progress = response.data)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VideoDetailVM", "Failed to load episode progress", e)
+            }
+        }
+    }
+
     fun searchTmdb(query: String) {
         if (query.isBlank()) return
-        viewModelScope.launch {
+        tmdbSearchJob?.cancel()
+        tmdbSearchJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSearchingTmdb = true)
             val result = repository.searchTmdb(query)
             result.fold(
@@ -190,11 +235,38 @@ class VideoDetailViewModel(
         _uiState.value = _uiState.value.copy(snackbarMessage = null)
     }
 
+    fun refreshProgress() {
+        loadProgress()
+    }
+
+    fun toggleWatched(onComplete: (() -> Unit)? = null) {
+        val currentProgress = _uiState.value.progress ?: run { onComplete?.invoke(); return }
+        viewModelScope.launch {
+            try {
+                val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return@launch
+                val api = ApiClient.getApi()
+                val newPos = if (currentProgress.completed) 0.0 else currentProgress.positionSeconds
+                val request = com.fryfrog.hub.data.model.WatchProgressRequest(position = newPos)
+                val response = api.saveVideoProgress(videoId, request)
+                if (response.success) {
+                    _uiState.value = _uiState.value.copy(progress = response.data)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("VideoDetailVM", "Failed to toggle watched", e)
+            }
+            onComplete?.invoke()
+        }
+    }
+
     fun clearNavigateBack() {
         _uiState.value = _uiState.value.copy(shouldNavigateBack = false)
     }
 
     fun clearTmdbSearchResults() {
-        _uiState.value = _uiState.value.copy(tmdbSearchResults = emptyList())
+        tmdbSearchJob?.cancel()
+        _uiState.value = _uiState.value.copy(
+            tmdbSearchResults = emptyList(),
+            isSearchingTmdb = false
+        )
     }
 }

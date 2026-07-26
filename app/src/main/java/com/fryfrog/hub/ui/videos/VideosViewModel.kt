@@ -7,6 +7,10 @@ import com.fryfrog.hub.data.repository.MediaRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 
 enum class SortOption(val labelResId: Int) {
@@ -26,6 +30,7 @@ data class VideosUiState(
     val allSeries: List<SeriesDTO> = emptyList(),
     val error: String? = null,
     val sortOption: SortOption = SortOption.DEFAULT,
+    val searchQuery: String = "",
     val currentPage: Int = 0,
     val totalPages: Int = 1
 )
@@ -36,13 +41,21 @@ class VideosViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(VideosUiState())
     val uiState: StateFlow<VideosUiState> = _uiState.asStateFlow()
+    private val paginationMutex = Mutex()
+    private var loadJob: Job? = null
+    private var loadMoreJob: Job? = null
+    private var searchLoadJob: Job? = null
 
     init {
         loadVideos()
     }
 
     fun loadVideos() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadMoreJob?.cancel()
+        searchLoadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            paginationMutex.withLock {
             _uiState.value = _uiState.value.copy(
                 isLoading = true,
                 error = null,
@@ -58,37 +71,42 @@ class VideosViewModel : ViewModel() {
                 isLoading = false,
                 allSeries = pageData?.content ?: emptyList(),
                 currentPage = pageData?.page ?: 0,
-                totalPages = pageData?.totalPages ?: 1,
+                totalPages = pageData?.totalPages?.coerceAtLeast(1) ?: 1,
                 error = result.exceptionOrNull()?.message
             )
             applySort()
+            }
         }
     }
 
     fun loadNextPage() {
-        val state = _uiState.value
-        if (state.isLoadingMore || state.currentPage >= state.totalPages - 1) return
+        if (loadMoreJob?.isActive == true) return
 
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingMore = true)
+        loadMoreJob = viewModelScope.launch {
+            paginationMutex.withLock {
+                val state = _uiState.value
+                if (state.isLoading || state.isLoadingMore || state.currentPage >= state.totalPages - 1) return@withLock
 
-            val nextPage = state.currentPage + 1
-            val result = repository.getVideoSeries(page = nextPage)
-            val pageData = result.getOrNull()
+                _uiState.value = state.copy(isLoadingMore = true, error = null)
+                val result = repository.getVideoSeries(page = state.currentPage + 1)
+                val pageData = result.getOrNull()
 
-            if (pageData != null) {
-                _uiState.value = _uiState.value.copy(
-                    isLoadingMore = false,
-                    allSeries = _uiState.value.allSeries + pageData.content,
-                    currentPage = pageData.page,
-                    totalPages = pageData.totalPages
-                )
-                applySort()
-            } else {
-                _uiState.value = _uiState.value.copy(
-                    isLoadingMore = false,
-                    error = result.exceptionOrNull()?.message
-                )
+                if (pageData != null) {
+                    val merged = (_uiState.value.allSeries + pageData.content)
+                        .distinctBy { "${it.id}_${it.type}" }
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingMore = false,
+                        allSeries = merged,
+                        currentPage = pageData.page,
+                        totalPages = pageData.totalPages.coerceAtLeast(1)
+                    )
+                    applySort()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingMore = false,
+                        error = result.exceptionOrNull()?.message
+                    )
+                }
             }
         }
     }
@@ -98,16 +116,74 @@ class VideosViewModel : ViewModel() {
         applySort()
     }
 
+    fun setSearchQuery(query: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = query)
+        applySortAndFilter()
+
+        searchLoadJob?.cancel()
+        if (query.isNotBlank()) {
+            searchLoadJob = viewModelScope.launch {
+                delay(300)
+                while (true) {
+                    val state = _uiState.value
+                    if (state.error != null || state.currentPage >= state.totalPages - 1) break
+                    loadNextPageAndWait()
+                }
+            }
+        }
+    }
+
+    private suspend fun loadNextPageAndWait() {
+        paginationMutex.withLock {
+            val state = _uiState.value
+            if (state.isLoading || state.currentPage >= state.totalPages - 1) return@withLock
+
+            _uiState.value = state.copy(isLoadingMore = true, error = null)
+            val result = repository.getVideoSeries(page = state.currentPage + 1)
+            val pageData = result.getOrNull()
+
+            if (pageData != null) {
+                val merged = (_uiState.value.allSeries + pageData.content)
+                    .distinctBy { "${it.id}_${it.type}" }
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false,
+                    allSeries = merged,
+                    currentPage = pageData.page,
+                    totalPages = pageData.totalPages.coerceAtLeast(1)
+                )
+                applySortAndFilter()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingMore = false,
+                    error = result.exceptionOrNull()?.message
+                )
+            }
+        }
+    }
+
     private fun applySort() {
+        applySortAndFilter()
+    }
+
+    private fun applySortAndFilter() {
         val state = _uiState.value
+        val query = state.searchQuery.trim()
+        val filtered = if (query.isEmpty()) {
+            state.allSeries
+        } else {
+            state.allSeries.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                    it.originalTitle?.contains(query, ignoreCase = true) == true
+            }
+        }
         val sorted = when (state.sortOption) {
-            SortOption.DEFAULT -> state.allSeries
-            SortOption.RATING_DESC -> state.allSeries.sortedByDescending { it.rating ?: 0.0 }
-            SortOption.RATING_ASC -> state.allSeries.sortedBy { it.rating ?: 0.0 }
-            SortOption.YEAR_DESC -> state.allSeries.sortedByDescending { it.year ?: 0 }
-            SortOption.YEAR_ASC -> state.allSeries.sortedBy { it.year ?: 0 }
-            SortOption.TITLE_ASC -> state.allSeries.sortedBy { it.title.lowercase() }
-            SortOption.TITLE_DESC -> state.allSeries.sortedByDescending { it.title.lowercase() }
+            SortOption.DEFAULT -> filtered
+            SortOption.RATING_DESC -> filtered.sortedByDescending { it.rating ?: 0.0 }
+            SortOption.RATING_ASC -> filtered.sortedBy { it.rating ?: 0.0 }
+            SortOption.YEAR_DESC -> filtered.sortedByDescending { it.year ?: 0 }
+            SortOption.YEAR_ASC -> filtered.sortedBy { it.year ?: 0 }
+            SortOption.TITLE_ASC -> filtered.sortedBy { it.title.lowercase() }
+            SortOption.TITLE_DESC -> filtered.sortedByDescending { it.title.lowercase() }
         }
         _uiState.value = _uiState.value.copy(series = sorted)
     }

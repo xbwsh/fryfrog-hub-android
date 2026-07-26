@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">Fryfrog Hub</string>
 
     <!-- Common -->
@@ -8,6 +8,7 @@
     <string name="unknown_error">未知错误</string>
     <string name="failed_to_load">加载数据失败</string>
     <string name="refresh">刷新</string>
+    <string name="no_videos">暂无视频</string>
 
     <!-- Login -->
     <string name="welcome">欢迎</string>
@@ -55,7 +56,7 @@
     <string name="bitrate">码率</string>
     <string name="file_size">文件大小</string>
     <string name="format">格式</string>
-    <string name="file_name">文件名</string>
+    <string name="file_name">文件名</string>`n    <string name="original_file_name">原始片名</string>
 
     <!-- Settings -->
     <string name="appearance">外观</string>
@@ -89,7 +90,7 @@
     <string name="logout_confirm">确定要退出登录吗？</string>
     <string name="confirm">确定</string>
     <string name="resume_play">继续播放</string>
-    <string name="watched">已看完</string>
+    <string name="watched">已看完</string>`n    <string name="watched_percent">已看%1$s%%</string>`n    <string name="play_from_start">从头播放</string>
     <string name="disabled">已禁用</string>
     <string name="create_library">新建资源库</string>
     <string name="library_name">名称</string>
@@ -125,6 +126,10 @@
     <string name="tmdb_scrape">TMDB 刮削</string>
     <string name="tmdb_search">搜索 TMDB</string>
     <string name="tmdb_search_hint">输入名称搜索…</string>
+    <string name="clear_search">清空搜索</string>
+    <string name="search_videos">搜索视频</string>
+    <string name="close_search">关闭搜索</string>
+    <string name="no_search_results">未找到匹配的视频</string>
     <string name="tmdb_search_results">找到 %d 个结果</string>
     <string name="tmdb_current_binding">当前绑定</string>
     <string name="tmdb_not_bound">未绑定</string>

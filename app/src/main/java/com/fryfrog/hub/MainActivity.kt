@@ -546,18 +546,20 @@ private fun MainContent(
                 VideoDetailScreen(
                     viewModel = viewModel,
                     onBackClick = { navController.popBackStack() },
-                    onPlayClick = { videoId ->
+                    onPlayClick = { videoId, forceRestart ->
                         val encodedTitle = android.net.Uri.encode(viewModel.uiState.value.series?.title ?: "")
-                        navController.navigate("player/$videoId/$encodedTitle")
+                        val route = if (forceRestart) "player/$videoId/$encodedTitle?forceRestart=true" else "player/$videoId/$encodedTitle"
+                        navController.navigate(route)
                     }
                 )
             }
 
             composable(
-                route = "player/{videoId}/{title}",
+                route = "player/{videoId}/{title}?forceRestart={forceRestart}",
                 arguments = listOf(
                     navArgument("videoId") { type = NavType.LongType },
-                    navArgument("title") { type = NavType.StringType }
+                    navArgument("title") { type = NavType.StringType },
+                    navArgument("forceRestart") { type = NavType.BoolType; defaultValue = false }
                 ),
                 enterTransition = {
                     slideInVertically(
@@ -586,10 +588,17 @@ private fun MainContent(
             ) { backStackEntry ->
                 val videoId = backStackEntry.arguments?.getLong("videoId") ?: 0L
                 val title = backStackEntry.arguments?.getString("title") ?: ""
+                val forceRestart = backStackEntry.arguments?.getBoolean("forceRestart") ?: false
+                val parentEntry = remember {
+                    navController.getBackStackEntry("video_detail/{seriesId}?type={type}")
+                }
+                val detailViewModel: com.fryfrog.hub.ui.videos.VideoDetailViewModel = viewModel(parentEntry)
                 PlayerScreen(
                     videoId = videoId,
                     title = title,
-                    onBackClick = { navController.popBackStack() }
+                    onBackClick = { navController.popBackStack() },
+                    onProgressSaved = { detailViewModel.refreshProgress() },
+                    forceRestart = forceRestart
                 )
             }
         }

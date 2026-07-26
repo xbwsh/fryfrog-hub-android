@@ -1,4 +1,4 @@
-package com.fryfrog.hub.data.model
+﻿package com.fryfrog.hub.data.model
 
 import com.google.gson.annotations.SerializedName
 
@@ -40,6 +40,7 @@ data class SeriesDTO(
     val totalEpisodes: Int?,
     val status: String?,
     val isAdult: Boolean?,
+    val originalFileName: String?,
     val episodeCount: Int?,
     val episodes: List<VideoDTO>?
 )
@@ -184,8 +185,8 @@ data class MediaCharacter(
 // Watch Progress
 data class WatchProgressRequest(
     val position: Double,
-    val duration: Double,
-    val completed: Boolean = false
+    val duration: Double? = null,
+    val completed: Boolean? = null
 )
 
 data class WatchProgressDTO(

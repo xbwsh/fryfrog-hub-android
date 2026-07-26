@@ -1,4 +1,4 @@
-package com.fryfrog.hub.data.remote
+﻿package com.fryfrog.hub.data.remote
 
 import com.fryfrog.hub.data.model.*
 import retrofit2.http.*
@@ -29,6 +29,8 @@ interface FryfrogApi {
 
     @PUT("/api/v1/video/{id}/progress")
     suspend fun saveVideoProgress(@Path("id") id: Long, @Body request: WatchProgressRequest): ApiResponse<WatchProgressDTO>
+
+
 
     // ========== TMDB Scraping ==========
     @GET("/api/v1/video/tmdb/search")

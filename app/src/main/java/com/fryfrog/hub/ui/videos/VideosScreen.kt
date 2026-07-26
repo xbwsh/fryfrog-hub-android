@@ -1,4 +1,4 @@
-package com.fryfrog.hub.ui.videos
+﻿package com.fryfrog.hub.ui.videos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,8 +11,11 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SortByAlpha
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -47,7 +50,10 @@ fun VideosScreen(
     val filteredSeries by remember(uiState.series, isAdultContentHidden) {
         derivedStateOf {
             if (isAdultContentHidden) {
-                uiState.series.filter { it.isAdult != true }
+                uiState.series.filter { series ->
+                    series.isAdult != true &&
+                        series.episodes?.any { it.isAdult == true } != true
+                }
             } else {
                 uiState.series
             }
@@ -57,58 +63,116 @@ fun VideosScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.section_videos)) },
-                modifier = Modifier.statusBarsPadding(),
-                actions = {
-                    // Sort menu
-                    Box {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Default.SortByAlpha,
-                                contentDescription = stringResource(R.string.sort),
-                                tint = if (uiState.sortOption != SortOption.DEFAULT) Primary
-                                else MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false },
-                            modifier = Modifier
-                                .width(200.dp)
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
-                        ) {
-                            SortOption.entries.forEachIndexed { index, option ->
-                                if (index > 0 && index % 2 == 0) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
-                                        color = MaterialTheme.colorScheme.outlineVariant
-                                    )
-                                }
-                                SortMenuItem(
-                                    label = stringResource(option.labelResId),
-                                    isSelected = option == uiState.sortOption,
-                                    onClick = {
-                                        viewModel.setSortOption(option)
-                                        showSortMenu = false
-                                    }
-                                )
+            Column(modifier = Modifier.statusBarsPadding()) {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.section_videos))
+                            if (isAdultContentHidden) {
+                                Spacer(modifier = Modifier.width(Dimens.spacingMd))
+                                PrivacyModeBadge()
                             }
                         }
-                    }
+                    },
+                    actions = {
+                        // Sort menu
+                        Box {
+                            IconButton(onClick = { showSortMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.SortByAlpha,
+                                    contentDescription = stringResource(R.string.sort),
+                                    tint = if (uiState.sortOption != SortOption.DEFAULT) Primary
+                                    else MaterialTheme.colorScheme.onBackground
+                                )
+                            }
 
-                    IconButton(onClick = { viewModel.loadVideos() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.refresh)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                            DropdownMenu(
+                                expanded = showSortMenu,
+                                onDismissRequest = { showSortMenu = false },
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
+                            ) {
+                                SortOption.entries.forEachIndexed { index, option ->
+                                    if (index > 0 && index % 2 == 0) {
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                                            color = MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                    }
+                                    SortMenuItem(
+                                        label = stringResource(option.labelResId),
+                                        isSelected = option == uiState.sortOption,
+                                        onClick = {
+                                            viewModel.setSortOption(option)
+                                            showSortMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        IconButton(onClick = { viewModel.loadVideos() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.refresh)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
                 )
-            )
+
+                // Search bar
+                TextField(
+                    value = uiState.searchQuery,
+                    onValueChange = viewModel::setSearchQuery,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingSm),
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.search_videos),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(Dimens.smallIconSize)
+                        )
+                    },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.clear_search),
+                                modifier = Modifier
+                                    .size(Dimens.smallIconSize)
+                                    .clickable { viewModel.setSearchQuery("") }
+                            )
+                        }
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = Primary,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    shape = RoundedCornerShape(Dimens.radiusSm),
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     ) { paddingValues ->
         if (uiState.isLoading) {
@@ -126,6 +190,22 @@ fun VideosScreen(
                 onRetry = { viewModel.loadVideos() },
                 modifier = Modifier.padding(paddingValues)
             )
+        } else if (filteredSeries.isEmpty() && uiState.isLoadingMore) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (filteredSeries.isEmpty() && uiState.currentPage >= uiState.totalPages - 1) {
+            EmptyVideosContent(
+                message = if (uiState.searchQuery.isBlank()) {
+                    stringResource(R.string.no_videos)
+                } else {
+                    stringResource(R.string.no_search_results)
+                },
+                modifier = Modifier.padding(paddingValues)
+            )
         } else {
             VideosGrid(
                 series = filteredSeries,
@@ -134,6 +214,37 @@ fun VideosScreen(
                 onLoadMore = { viewModel.loadNextPage() },
                 onVideoClick = onVideoClick,
                 modifier = Modifier.padding(paddingValues)
+            )
+        }
+    }
+}
+
+
+
+@Composable
+private fun PrivacyModeBadge() {
+    Surface(
+        shape = RoundedCornerShape(Dimens.radiusFull),
+        color = Primary.copy(alpha = 0.14f),
+        contentColor = Primary
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = Dimens.spacingSm,
+                vertical = Dimens.spacingXxs
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+        ) {
+            Icon(
+                imageVector = Icons.Default.VisibilityOff,
+                contentDescription = null,
+                modifier = Modifier.size(Dimens.chipIconSize)
+            )
+            Text(
+                text = stringResource(R.string.privacy_mode),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1
             )
         }
     }
@@ -150,7 +261,7 @@ private fun VideosGrid(
 ) {
     val gridState = rememberLazyGridState()
 
-    LaunchedEffect(gridState) {
+    LaunchedEffect(gridState, hasMore, isLoadingMore) {
         snapshotFlow {
             val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             val totalItems = gridState.layoutInfo.totalItemsCount
@@ -189,6 +300,23 @@ private fun VideosGrid(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyVideosContent(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

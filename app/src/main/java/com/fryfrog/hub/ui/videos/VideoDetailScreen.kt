@@ -1,4 +1,4 @@
-package com.fryfrog.hub.ui.videos
+﻿package com.fryfrog.hub.ui.videos
 
 import android.app.Activity
 import androidx.compose.foundation.background
@@ -61,7 +61,7 @@ import kotlinx.coroutines.delay
 fun VideoDetailScreen(
     viewModel: VideoDetailViewModel,
     onBackClick: () -> Unit,
-    onPlayClick: (Long) -> Unit
+    onPlayClick: (Long, Boolean) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showScrapeSheet by remember { mutableStateOf(false) }
@@ -108,6 +108,7 @@ fun VideoDetailScreen(
                     series = series,
                     actors = uiState.actors,
                     progress = uiState.progress,
+                    viewModel = viewModel,
                     onBackClick = onBackClick,
                     onPlayEpisode = onPlayClick,
                     onSearchTmdb = { showScrapeSheet = true },
@@ -134,6 +135,7 @@ fun VideoDetailScreen(
                 viewModel.clearTmdbSearchResults()
             },
             onSearch = viewModel::searchTmdb,
+            onClearSearch = viewModel::clearTmdbSearchResults,
             onBind = { tmdbId, mediaType ->
                 viewModel.bindTmdb(tmdbId, mediaType)
                 showScrapeSheet = false
@@ -182,15 +184,25 @@ private fun VideoDetailContent(
     series: SeriesDTO,
     actors: List<VideoActor>,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
+    viewModel: VideoDetailViewModel,
     onBackClick: () -> Unit,
-    onPlayEpisode: (Long) -> Unit,
+    onPlayEpisode: (Long, Boolean) -> Unit = { _, _ -> },
+    onToggleWatched: () -> Unit = {},
     onSearchTmdb: () -> Unit,
     onRefreshTmdb: () -> Unit,
     onUnbindTmdb: () -> Unit
 ) {
-    // 选集状态：-1 表示未选中（使用系列封面），>=0 表示选中的剧集索引
-    var selectedEpisodeIndex by remember { mutableIntStateOf(-1) }
+    // 选集状态：从 ViewModel 同步，初始 -1 表示未选中
+    var selectedEpisodeIndex by remember { mutableIntStateOf(viewModel.uiState.value.selectedEpisodeIndex) }
     val selectedEpisode = selectedEpisodeIndex.takeIf { it >= 0 }?.let { series.episodes?.getOrNull(it) }
+
+    // 同步 ViewModel 的选集状态
+    LaunchedEffect(viewModel.uiState.value.selectedEpisodeIndex) {
+        val vmIndex = viewModel.uiState.value.selectedEpisodeIndex
+        if (vmIndex >= 0 && vmIndex != selectedEpisodeIndex) {
+            selectedEpisodeIndex = vmIndex
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -204,8 +216,19 @@ private fun VideoDetailContent(
                     progress = progress,
                     onPlayClick = {
                         val ep = selectedEpisode ?: series.episodes?.firstOrNull()
-                        ep?.let { onPlayEpisode(it.id) }
+                        ep?.let {
+                            val epProgress = viewModel.episodeProgress[it.id]
+                            val isCompleted = epProgress?.completed == true
+                            if (isCompleted) {
+                                viewModel.toggleWatched {
+                                    onPlayEpisode(it.id, true)
+                                }
+                            } else {
+                                onPlayEpisode(it.id, false)
+                            }
+                        }
                     },
+                    onToggleWatched = onToggleWatched,
                     onSearchTmdb = onSearchTmdb,
                     onRefreshTmdb = onRefreshTmdb,
                     onUnbindTmdb = onUnbindTmdb
@@ -244,10 +267,11 @@ private fun VideoDetailContent(
                         onEpisodeClick = { index ->
                             if (selectedEpisodeIndex == index) {
                                 // 第二次点击同一集 → 播放
-                                onPlayEpisode(series.episodes[index].id)
+                                onPlayEpisode(series.episodes[index].id, false)
                             } else {
-                                // 第一次点击或切换集数 → 选中
+                                // 第一次点击或切换集数 → 选中并加载该集进度
                                 selectedEpisodeIndex = index
+                                viewModel.loadEpisodeProgress(series.episodes[index].id)
                             }
                         }
                     )
@@ -267,6 +291,7 @@ private fun HeroSection(
     selectedEpisode: VideoDTO? = null,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
     onPlayClick: () -> Unit,
+    onToggleWatched: () -> Unit = {},
     onSearchTmdb: () -> Unit,
     onRefreshTmdb: () -> Unit,
     onUnbindTmdb: () -> Unit
@@ -448,10 +473,37 @@ private fun HeroSection(
                     Text(
                         when {
                             progress == null || progress.progressPercent == 0.0 -> stringResource(R.string.play)
-                            progress.completed -> stringResource(R.string.watched)
+                            progress.completed -> stringResource(R.string.play_from_start)
                             else -> stringResource(R.string.resume_play)
                         }
                     )
+                }
+
+                // Watched toggle
+                if (progress != null && progress.progressPercent > 0) {
+                    Surface(
+                        onClick = onToggleWatched,
+                        color = if (progress.completed) MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+                        ) {
+                            Icon(
+                                imageVector = if (progress.completed) Icons.Default.Check else Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (progress.completed) MaterialTheme.colorScheme.tertiary else Color.White.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                text = if (progress.completed) stringResource(R.string.watched) else stringResource(R.string.watched_percent, String.format("%.0f", progress.progressPercent)),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (progress.completed) MaterialTheme.colorScheme.tertiary else Color.White.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
                 }
 
                 // Rating badge
@@ -470,29 +522,6 @@ private fun HeroSection(
                 }
             }
 
-            // Progress indicator
-            if (progress != null && progress.progressPercent > 0) {
-                Spacer(modifier = Modifier.height(Dimens.spacingSm))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-                ) {
-                    LinearProgressIndicator(
-                        progress = { (progress.progressPercent / 100).toFloat() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = if (progress.completed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-                        trackColor = Color.White.copy(alpha = 0.3f)
-                    )
-                    Text(
-                        text = if (progress.completed) stringResource(R.string.watched) else "${String.format("%.0f", progress.progressPercent)}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
-                }
-            }
         }
     }
 }
@@ -532,6 +561,18 @@ private fun VideoInfoSection(
                 Text(
                     text = "${duration} ${stringResource(R.string.minutes)}",
                     style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // Original File Name
+        series.originalFileName?.let { fileName ->
+            if (fileName.isNotBlank()) {
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                Text(
+                    text = fileName,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -718,6 +759,7 @@ private fun EpisodeCard(
 private fun EpisodeGrid(
     episodes: List<VideoDTO>,
     selectedIndex: Int = -1,
+    episodeProgress: Map<Long, com.fryfrog.hub.data.model.WatchProgressDTO> = emptyMap(),
     onEpisodeClick: (Int) -> Unit
 ) {
     val columns = 6
@@ -735,9 +777,12 @@ private fun EpisodeGrid(
                     val index = row * columns + col
                     if (index < episodes.size) {
                         val episode = episodes[index]
+                        val epProgress = episodeProgress[episode.id]
                         EpisodeNumberBlock(
                             number = episode.episodeNumber ?: (index + 1),
                             isSelected = index == selectedIndex,
+                            progressPercent = epProgress?.progressPercent?.toFloat() ?: 0f,
+                            isCompleted = epProgress?.completed == true,
                             onClick = { onEpisodeClick(index) },
                             modifier = Modifier.weight(1f)
                         )
@@ -785,6 +830,8 @@ private fun TmdbMenuItem(
 private fun EpisodeNumberBlock(
     number: Int,
     isSelected: Boolean = false,
+    progressPercent: Float = 0f,
+    isCompleted: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -804,20 +851,38 @@ private fun EpisodeNumberBlock(
             style = MaterialTheme.typography.titleMedium,
             color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
         )
+        if (progressPercent > 0f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(Color.Black.copy(alpha = 0.3f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction = (progressPercent / 100f).coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .background(
+                            if (isCompleted) com.fryfrog.hub.ui.theme.Success
+                            else com.fryfrog.hub.ui.theme.Primary
+                        )
+                )
+            }
+        }
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TmdbScrapeSheet(
     uiState: VideoDetailUiState,
     onDismiss: () -> Unit,
     onSearch: (String) -> Unit,
+    onClearSearch: () -> Unit,
     onBind: (Long, String) -> Unit,
     onUnbind: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf(uiState.series?.title ?: "") }
+    var searchQuery by remember { mutableStateOf(uiState.series?.originalFileName ?: uiState.series?.title ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -945,22 +1010,39 @@ private fun TmdbScrapeSheet(
                     placeholder = { Text(stringResource(R.string.tmdb_search_hint)) },
                     singleLine = true,
                     trailingIcon = {
-                        if (uiState.isSearchingTmdb) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = Primary
-                            )
-                        } else {
-                            IconButton(
-                                onClick = { onSearch(searchQuery) },
-                                enabled = searchQuery.isNotBlank()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = stringResource(R.string.tmdb_search),
-                                    tint = if (searchQuery.isNotBlank()) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = {
+                                        searchQuery = ""
+                                        onClearSearch()
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.clear_search)
+                                    )
+                                }
+                            }
+                            if (uiState.isSearchingTmdb) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .padding(horizontal = Dimens.spacingMd)
+                                        .size(Dimens.iconSize),
+                                    strokeWidth = 2.dp,
+                                    color = Primary
                                 )
+                            } else {
+                                IconButton(
+                                    onClick = { onSearch(searchQuery) },
+                                    enabled = searchQuery.isNotBlank()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = stringResource(R.string.tmdb_search),
+                                        tint = if (searchQuery.isNotBlank()) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
