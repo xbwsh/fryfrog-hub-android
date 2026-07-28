@@ -113,7 +113,12 @@ fun MediaLibrariesScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(Dimens.spacingLg),
+                    contentPadding = PaddingValues(
+                        start = Dimens.spacingLg,
+                        top = Dimens.spacingLg,
+                        end = Dimens.spacingLg,
+                        bottom = 88.dp
+                    ),
                     verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                 ) {
                     items(uiState.libraries, key = { it.id }) { library ->
@@ -186,8 +191,8 @@ fun MediaLibrariesScreen(
         CreateLibraryDialog(
             viewModel = viewModel,
             onDismiss = { showCreateDialog = false },
-            onCreate = { name, path, type, subType, desc ->
-                viewModel.createLibrary(name, path, type, subType, desc)
+            onCreate = { name, path, type, subType, desc, enableScraping ->
+                viewModel.createLibrary(name, path, type, subType, desc, enableScraping)
                 showCreateDialog = false
             }
         )
@@ -369,7 +374,7 @@ private fun MediaLibraryItem(
 private fun CreateLibraryDialog(
     viewModel: MediaLibrariesViewModel,
     onDismiss: () -> Unit,
-    onCreate: (name: String, path: String, type: String, subType: String?, description: String?) -> Unit
+    onCreate: (name: String, path: String, type: String, subType: String?, description: String?, enableScraping: Boolean) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var name by remember { mutableStateOf("") }
@@ -377,6 +382,7 @@ private fun CreateLibraryDialog(
     var type by remember { mutableStateOf("VIDEO") }
     var subType by remember { mutableStateOf("MOVIE") }
     var description by remember { mutableStateOf("") }
+    var enableScraping by remember { mutableStateOf(true) }
     var typeExpanded by remember { mutableStateOf(false) }
     var subTypeExpanded by remember { mutableStateOf(false) }
     var showDirectoryPicker by remember { mutableStateOf(false) }
@@ -496,11 +502,33 @@ private fun CreateLibraryDialog(
                     maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(Dimens.spacingSm))
+                    Text(
+                        text = stringResource(R.string.enable_scraping),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = enableScraping,
+                        onCheckedChange = { enableScraping = it }
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }) },
+                onClick = { onCreate(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping) },
                 enabled = name.isNotBlank() && selectedPath.isNotBlank()
             ) {
                 Text(stringResource(R.string.create))

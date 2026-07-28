@@ -218,7 +218,8 @@ class MediaLibrariesViewModel : ViewModel() {
         path: String,
         type: String,
         subType: String? = null,
-        description: String? = null
+        description: String? = null,
+        enableScraping: Boolean = true
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -231,6 +232,7 @@ class MediaLibrariesViewModel : ViewModel() {
                     type = type,
                     subType = subType,
                     enabled = true,
+                    enableScraping = enableScraping,
                     sortOrder = null,
                     description = description,
                     createdAt = null,
