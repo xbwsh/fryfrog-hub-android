@@ -1,4 +1,4 @@
-﻿<resources>
+<resources>
     <string name="app_name">Fryfrog Hub</string>
 
     <!-- Common -->
@@ -150,4 +150,9 @@
     <!-- Unbind confirm -->
     <string name="unbind_confirm_title">解绑 TMDB</string>
     <string name="unbind_confirm_message">确定要解绑 TMDB 元数据吗？此操作不可撤销。</string>
+
+    <!-- Scraping -->
+    <string name="enable_scraping">启用刮削</string>
+    <string name="scraping_on">已启用刮削</string>
+    <string name="scraping_off">已关闭刮削</string>
 </resources>

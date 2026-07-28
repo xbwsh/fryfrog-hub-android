@@ -121,7 +121,8 @@ fun MediaLibrariesScreen(
                             library = library,
                             onToggle = { viewModel.toggleLibrary(library) },
                             onScan = { viewModel.scanLibrary(library) },
-                            onDelete = { showDeleteDialog = library }
+                            onDelete = { showDeleteDialog = library },
+                            onScrapingToggle = { viewModel.updateLibraryScraping(library, it) }
                         )
                     }
                 }
@@ -198,7 +199,8 @@ private fun MediaLibraryItem(
     library: MediaLibrary,
     onToggle: () -> Unit,
     onScan: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onScrapingToggle: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -207,118 +209,156 @@ private fun MediaLibraryItem(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onToggle() }
-                .padding(Dimens.spacingMd),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 类型图标
-            Box(
+        Column {
+            // 第一行：图标 + 信息 + 启用开关 + 操作按钮
+            Row(
                 modifier = Modifier
-                    .size(Dimens.avatarSize)
-                    .clip(CircleShape)
-                    .background(
-                        when (library.type) {
-                            "VIDEO" -> Primary.copy(alpha = 0.1f)
-                            "MUSIC" -> Success.copy(alpha = 0.1f)
-                            "COMIC" -> Warning.copy(alpha = 0.1f)
-                            "EBOOK" -> Info.copy(alpha = 0.1f)
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    ),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .clickable { onToggle() }
+                    .padding(Dimens.spacingMd),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = when (library.type) {
-                        "VIDEO" -> Icons.Default.VideoLibrary
-                        "MUSIC" -> Icons.Default.LibraryMusic
-                        "COMIC" -> Icons.Default.Book
-                        "EBOOK" -> Icons.Default.ChromeReaderMode
-                        else -> Icons.Default.Folder
-                    },
-                    contentDescription = null,
-                    tint = when (library.type) {
-                        "VIDEO" -> Primary
-                        "MUSIC" -> Success
-                        "COMIC" -> Warning
-                        "EBOOK" -> Info
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(Dimens.avatarIconSize)
-                )
-            }
+                // 类型图标
+                Box(
+                    modifier = Modifier
+                        .size(Dimens.avatarSize)
+                        .clip(CircleShape)
+                        .background(
+                            when (library.type) {
+                                "VIDEO" -> Primary.copy(alpha = 0.1f)
+                                "MUSIC" -> Success.copy(alpha = 0.1f)
+                                "COMIC" -> Warning.copy(alpha = 0.1f)
+                                "EBOOK" -> Info.copy(alpha = 0.1f)
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = when (library.type) {
+                            "VIDEO" -> Icons.Default.VideoLibrary
+                            "MUSIC" -> Icons.Default.LibraryMusic
+                            "COMIC" -> Icons.Default.Book
+                            "EBOOK" -> Icons.Default.ChromeReaderMode
+                            else -> Icons.Default.Folder
+                        },
+                        contentDescription = null,
+                        tint = when (library.type) {
+                            "VIDEO" -> Primary
+                            "MUSIC" -> Success
+                            "COMIC" -> Warning
+                            "EBOOK" -> Info
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(Dimens.avatarIconSize)
+                    )
+                }
 
-            // 信息
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = Dimens.spacingMd)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // 信息
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = Dimens.spacingMd)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = library.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!library.enabled) {
+                            Spacer(Modifier.width(Dimens.spacingXs))
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(Dimens.radiusSm)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.disabled),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                     Text(
-                        text = library.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium,
+                        text = library.path,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (!library.enabled) {
-                        Spacer(Modifier.width(Dimens.spacingXs))
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(Dimens.radiusSm)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.disabled),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                // 操作
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+                ) {
+                    Switch(
+                        checked = library.enabled,
+                        onCheckedChange = null
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
+                        IconButton(
+                            onClick = onScan,
+                            modifier = Modifier.size(Dimens.smallButtonSize),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = Primary.copy(alpha = 0.1f),
+                                contentColor = Primary
                             )
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(Dimens.smallIconSize))
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(Dimens.smallButtonSize),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), modifier = Modifier.size(Dimens.smallIconSize))
                         }
                     }
                 }
-                Text(
-                    text = library.path,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
 
-            // 操作
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+            // 第二行：刮削开关
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Switch(
-                    checked = library.enabled,
-                    onCheckedChange = null
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
-                    IconButton(
-                        onClick = onScan,
-                        modifier = Modifier.size(Dimens.smallButtonSize),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Primary.copy(alpha = 0.1f),
-                            contentColor = Primary
-                        )
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(Dimens.smallIconSize))
-                    }
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(Dimens.smallButtonSize),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), modifier = Modifier.size(Dimens.smallIconSize))
-                    }
-                }
+                Spacer(Modifier.width(Dimens.spacingSm))
+                Text(
+                    text = stringResource(R.string.enable_scraping),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = if (library.enableScraping != false) stringResource(R.string.scraping_on) else stringResource(R.string.scraping_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (library.enableScraping != false) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(Dimens.spacingSm))
+                Switch(
+                    checked = library.enableScraping != false,
+                    onCheckedChange = onScrapingToggle
+                )
             }
         }
     }

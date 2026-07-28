@@ -192,6 +192,27 @@ class MediaLibrariesViewModel : ViewModel() {
         }
     }
 
+    fun updateLibraryScraping(library: MediaLibrary, enableScraping: Boolean) {
+        viewModelScope.launch {
+            try {
+                val api = ApiClient.getApi()
+                val updated = library.copy(enableScraping = enableScraping)
+                val response = api.updateMediaLibrary(library.id, updated)
+                if (response.success) {
+                    loadLibraries()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = response.message ?: "Failed to update scraping setting"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
     fun createLibrary(
         name: String,
         path: String,

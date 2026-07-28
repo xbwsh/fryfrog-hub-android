@@ -1,4 +1,4 @@
-﻿<resources>
+<resources>
     <string name="app_name">Fryfrog Hub</string>
 
     <!-- Common -->
@@ -150,4 +150,9 @@
     <!-- Unbind confirm -->
     <string name="unbind_confirm_title">Unbind TMDB</string>
     <string name="unbind_confirm_message">Are you sure you want to unbind this TMDB metadata? This action cannot be undone.</string>
+
+    <!-- Scraping -->
+    <string name="enable_scraping">Enable Scraping</string>
+    <string name="scraping_on">Scraping enabled</string>
+    <string name="scraping_off">Scraping disabled</string>
 </resources>
