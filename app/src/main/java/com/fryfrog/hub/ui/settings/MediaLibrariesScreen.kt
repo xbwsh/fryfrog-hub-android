@@ -62,6 +62,26 @@ fun MediaLibrariesScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
+                actions = {
+                    if (uiState.libraries.isNotEmpty() && uiState.scanningLibraryIds.isEmpty()) {
+                        IconButton(onClick = { viewModel.scanAllLibraries() }) {
+                            Icon(
+                                Icons.Default.PlayCircle,
+                                contentDescription = stringResource(R.string.scan_all),
+                                tint = Primary
+                            )
+                        }
+                    }
+                    if (uiState.scanningLibraryIds.isNotEmpty()) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(2.dp),
+                            strokeWidth = 2.dp,
+                            color = Primary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
@@ -124,6 +144,7 @@ fun MediaLibrariesScreen(
                     items(uiState.libraries, key = { it.id }) { library ->
                         MediaLibraryItem(
                             library = library,
+                            isScanning = library.id in uiState.scanningLibraryIds,
                             onToggle = { viewModel.toggleLibrary(library) },
                             onScan = { viewModel.scanLibrary(library) },
                             onDelete = { showDeleteDialog = library },
@@ -202,6 +223,7 @@ fun MediaLibrariesScreen(
 @Composable
 private fun MediaLibraryItem(
     library: MediaLibrary,
+    isScanning: Boolean,
     onToggle: () -> Unit,
     onScan: () -> Unit,
     onDelete: () -> Unit,
@@ -309,13 +331,24 @@ private fun MediaLibraryItem(
                     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
                         IconButton(
                             onClick = onScan,
+                            enabled = !isScanning,
                             modifier = Modifier.size(Dimens.smallButtonSize),
                             colors = IconButtonDefaults.iconButtonColors(
                                 containerColor = Primary.copy(alpha = 0.1f),
-                                contentColor = Primary
+                                contentColor = Primary,
+                                disabledContainerColor = Primary.copy(alpha = 0.05f),
+                                disabledContentColor = Primary.copy(alpha = 0.5f)
                             )
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(Dimens.smallIconSize))
+                            if (isScanning) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(Dimens.smallIconSize),
+                                    strokeWidth = 2.dp,
+                                    color = Primary
+                                )
+                            } else {
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(Dimens.smallIconSize))
+                            }
                         }
                         IconButton(
                             onClick = onDelete,

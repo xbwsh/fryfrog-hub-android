@@ -20,6 +20,7 @@ data class MediaLibrariesUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val scanMessage: String? = null,
+    val scanningLibraryIds: Set<Long> = emptySet(),
     val createSuccess: Boolean = false,
     val directories: List<DirectoryItem> = emptyList(),
     val currentPath: String? = null,
@@ -82,7 +83,8 @@ class MediaLibrariesViewModel : ViewModel() {
 
     fun scanLibrary(library: MediaLibrary) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(scanMessage = "Scanning ${library.name}...")
+            val newIds = _uiState.value.scanningLibraryIds + library.id
+            _uiState.value = _uiState.value.copy(scanningLibraryIds = newIds)
             try {
                 val api = ApiClient.getApi()
                 val response = api.scanMediaLibrary(library.id)
@@ -99,13 +101,20 @@ class MediaLibrariesViewModel : ViewModel() {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Unknown error"
                 )
+            } finally {
+                val clearedIds = _uiState.value.scanningLibraryIds - library.id
+                _uiState.value = _uiState.value.copy(scanningLibraryIds = clearedIds)
             }
         }
     }
 
     fun scanAllLibraries() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(scanMessage = "Scanning all libraries...")
+            val allIds = _uiState.value.libraries.map { it.id }.toSet()
+            _uiState.value = _uiState.value.copy(
+                scanningLibraryIds = allIds,
+                scanMessage = "Scanning all libraries..."
+            )
             try {
                 val api = ApiClient.getApi()
                 val response = api.scanAllMediaLibraries()
@@ -122,6 +131,8 @@ class MediaLibrariesViewModel : ViewModel() {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Unknown error"
                 )
+            } finally {
+                _uiState.value = _uiState.value.copy(scanningLibraryIds = emptySet())
             }
         }
     }
