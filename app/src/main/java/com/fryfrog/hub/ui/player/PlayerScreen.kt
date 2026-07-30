@@ -393,6 +393,12 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
         _showPlaybackInfo.value = !_showPlaybackInfo.value
         if (_showPlaybackInfo.value) {
             _playbackInfo.value = player?.getPlaybackInfo()
+            // Update selected audio index from playback info
+            _playbackInfo.value?.audioTracks?.forEach { track ->
+                if (track.selected) {
+                    _selectedAudioIndex.intValue = track.index
+                }
+            }
         }
     }
 
@@ -413,6 +419,10 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
             if (tickCount >= 20) {
                 tickCount = 0
                 saveProgress()
+                // 定期更新 playbackInfo 以获取最新的音轨信息
+                if (_showAudioMenu.value || _showSubtitleMenu.value) {
+                    _playbackInfo.value = player?.getPlaybackInfo()
+                }
             }
         }
     }
@@ -446,6 +456,32 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
     fun changeSpeed(speed: Float) {
         setSpeed(speed)
         _showSpeedMenu.value = false
+    }
+
+    // Audio tracks
+    private val _showAudioMenu = mutableStateOf(false)
+    val showAudioMenu: Boolean by _showAudioMenu
+    private val _selectedAudioIndex = mutableIntStateOf(0)
+    val selectedAudioIndex: Int by _selectedAudioIndex
+
+    fun toggleAudioMenu() {
+        _showAudioMenu.value = !_showAudioMenu.value
+    }
+
+    fun changeAudio(index: Int) {
+        player?.selectAudio(index)
+        _selectedAudioIndex.intValue = index
+        _showAudioMenu.value = false
+    }
+
+    fun updatePlaybackInfo() {
+        _playbackInfo.value = player?.getPlaybackInfo()
+        // 更新选中的音轨索引
+        _playbackInfo.value?.audioTracks?.forEach { track ->
+            if (track.selected) {
+                _selectedAudioIndex.intValue = track.index
+            }
+        }
     }
 
     // Subtitles
@@ -509,6 +545,8 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
                     withContext(Dispatchers.Main) {
                         Log.d(TAG, "Calling addSubtitle with local path")
                         player?.addSubtitle(localFile.absolutePath)
+                        // 更新选中的字幕索引为非 -1（表示有字幕选中）
+                        _selectedSubtitleIndex.intValue = 0
                     }
                 } else {
                     Log.e(TAG, "Failed to download subtitle: ${response.code}")
@@ -658,8 +696,16 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu, vm.showSpeedMenu, vm.showSubtitleMenu, isSeeking) {
-        if (showControls && vm.isPlaying && !vm.showQualityMenu && !vm.showSpeedMenu && !vm.showSubtitleMenu && !isSeeking) {
+    // 播放开始后获取 playbackInfo
+    LaunchedEffect(vm.isPlaying) {
+        if (vm.isPlaying) {
+            delay(1000) // 等待播放器稳定
+            vm.updatePlaybackInfo()
+        }
+    }
+
+    LaunchedEffect(showControls, vm.isPlaying, vm.showQualityMenu, vm.showSpeedMenu, vm.showSubtitleMenu, vm.showAudioMenu, isSeeking) {
+        if (showControls && vm.isPlaying && !vm.showQualityMenu && !vm.showSpeedMenu && !vm.showSubtitleMenu && !vm.showAudioMenu && !isSeeking) {
             delay(4000)
             showControls = false
         }
@@ -707,11 +753,16 @@ fun PlayerScreen(
                                 vm.showSeekIndicator(seekDelta)
                             } else if (deltaY != 0f) {
                                 val width = size.width
+                                val height = size.height
                                 val x = pos.x
-                                if (x < width / 3f) {
-                                    vm.adjustBrightness(deltaY)
-                                } else if (x > width * 2 / 3f) {
-                                    vm.adjustVolume(deltaY)
+                                val y = pos.y
+                                val inSafeZone = y in height * 0.1f..height * 0.9f
+                                if (inSafeZone) {
+                                    if (x < width / 3f) {
+                                        vm.adjustBrightness(deltaY)
+                                    } else if (x > width * 2 / 3f) {
+                                        vm.adjustVolume(deltaY)
+                                    }
                                 }
                             }
                         }
@@ -773,11 +824,16 @@ fun PlayerScreen(
                                 vm.showSeekIndicator(seekDelta)
                             } else if (deltaY != 0f) {
                                 val width = size.width
+                                val height = size.height
                                 val x = pos.x
-                                if (x < width / 3f) {
-                                    vm.adjustBrightness(deltaY)
-                                } else if (x > width * 2 / 3f) {
-                                    vm.adjustVolume(deltaY)
+                                val y = pos.y
+                                val inSafeZone = y in height * 0.1f..height * 0.9f
+                                if (inSafeZone) {
+                                    if (x < width / 3f) {
+                                        vm.adjustBrightness(deltaY)
+                                    } else if (x > width * 2 / 3f) {
+                                        vm.adjustVolume(deltaY)
+                                    }
                                 }
                             }
                         }
@@ -860,21 +916,25 @@ fun PlayerScreen(
                                 tint = Color.White,
                                 modifier = Modifier.size(28.dp)
                             )
-                            LinearProgressIndicator(
-                                progress = {
-                                    when (vm.indicatorType) {
-                                        IndicatorType.VOLUME -> vm.currentVolume.toFloat() / vm.maxVolume.toFloat()
-                                        IndicatorType.BRIGHTNESS -> vm.currentBrightness
-                                        else -> 0f
-                                    }
-                                },
+                            Box(
                                 modifier = Modifier
                                     .width(120.dp)
                                     .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp)),
-                                color = Color.White,
-                                trackColor = Color.White.copy(alpha = 0.3f)
-                            )
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color.White.copy(alpha = 0.3f))
+                            ) {
+                                val fraction = when (vm.indicatorType) {
+                                    IndicatorType.VOLUME -> vm.currentVolume.toFloat() / vm.maxVolume.toFloat()
+                                    IndicatorType.BRIGHTNESS -> vm.currentBrightness
+                                    else -> 0f
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(fraction = fraction)
+                                        .background(Color.White)
+                                )
+                            }
                             Text(
                                 text = when (vm.indicatorType) {
                                     IndicatorType.VOLUME -> "${(vm.currentVolume * 100 / vm.maxVolume)}%"
@@ -978,7 +1038,12 @@ fun PlayerScreen(
                 ) {
                     // Progress bar
                     if (vm.totalDuration > 0) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(20.dp), // 固定高度
+                            contentAlignment = Alignment.Center
+                        ) {
                             Slider(
                                 value = if (isSeeking) seekPosition else vm.currentPos.toFloat(),
                                 valueRange = 0f..vm.totalDuration.toFloat(),
@@ -990,7 +1055,9 @@ fun PlayerScreen(
                                     vm.seekTo(seekPosition.toLong())
                                     isSeeking = false
                                 },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(20.dp),
                                 colors = SliderDefaults.colors(
                                     thumbColor = Color.White,
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -1000,12 +1067,7 @@ fun PlayerScreen(
                                     disabledInactiveTrackColor = Color.White.copy(alpha = 0.3f)
                                 ),
                                 thumb = {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White)
-                                    )
+                                    // 去掉小圆点
                                 },
                                 track = { sliderState ->
                                     Box(
@@ -1014,18 +1076,18 @@ fun PlayerScreen(
                                             .height(3.dp)
                                             .clip(RoundedCornerShape(2.dp))
                                     ) {
+                                        // 背景轨道
                                         Box(
                                             modifier = Modifier
-                                                .fillMaxHeight()
-                                                .fillMaxWidth(fraction = sliderState.value / sliderState.valueRange.endInclusive)
-                                                .background(MaterialTheme.colorScheme.primary)
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxHeight()
-                                                .fillMaxWidth(fraction = 1f - sliderState.value / sliderState.valueRange.endInclusive)
-                                                .align(Alignment.CenterEnd)
+                                                .fillMaxSize()
                                                 .background(Color.White.copy(alpha = 0.3f))
+                                        )
+                                        // 活动轨道
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(fraction = sliderState.value / sliderState.valueRange.endInclusive)
+                                                .fillMaxHeight()
+                                                .background(MaterialTheme.colorScheme.primary)
                                         )
                                     }
                                 }
@@ -1082,6 +1144,35 @@ fun PlayerScreen(
                                         tint = Color.White,
                                         modifier = Modifier.size(14.dp)
                                     )
+                                }
+                            }
+
+                            // Audio selector
+                            vm.playbackInfo?.let { info ->
+                                if (info.audioTracks.size > 1) {
+                                    Surface(
+                                        onClick = { vm.toggleAudioMenu() },
+                                        color = if (vm.selectedAudioIndex > 0) Primary.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.15f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.VolumeUp,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Icon(
+                                                Icons.Default.ArrowDropDown,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -1475,12 +1566,17 @@ fun PlayerScreen(
                         }
 
                         // External subtitle files from API
-                        vm.subtitleList.forEach { subtitle ->
+                        vm.subtitleList.forEachIndexed { index, subtitle ->
+                            val isSelected = vm.selectedSubtitleIndex >= 0 && index == 0 // 简化逻辑：第一个外挂字幕被选中
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable { vm.loadExternalSubtitle(subtitle) }
-                                    .background(Color.Transparent, RoundedCornerShape(Dimens.radiusSm))
+                                    .background(
+                                        if (isSelected) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                        else Color.Transparent,
+                                        RoundedCornerShape(Dimens.radiusSm)
+                                    )
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -1489,7 +1585,7 @@ fun PlayerScreen(
                                     Text(
                                         text = subtitle.filename,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White,
+                                        color = if (isSelected) Color(0xFF409EFF) else Color.White,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -1497,9 +1593,92 @@ fun PlayerScreen(
                                         Text(
                                             text = subtitle.language,
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White.copy(alpha = 0.5f)
+                                            color = if (isSelected) Color(0xFF409EFF).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.5f)
                                         )
                                     }
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF409EFF)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Audio track menu
+        if (vm.showAudioMenu) {
+            val density = LocalDensity.current
+            val offsetX = with(density) { (-16).dp.roundToPx() }
+
+            androidx.compose.ui.window.Popup(
+                alignment = Alignment.CenterEnd,
+                offset = IntOffset(offsetX, 0),
+                onDismissRequest = { vm.toggleAudioMenu() }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(200.dp)
+                        .background(Color(0xFF2A2A2A), RoundedCornerShape(Dimens.radiusMd))
+                        .padding(vertical = 4.dp)
+                ) {
+                    Column {
+                        vm.playbackInfo?.audioTracks?.forEach { track ->
+                            val displayText = buildString {
+                                // 语言名称
+                                val langName = when (track.lang.lowercase()) {
+                                    "zh", "chi", "chinese" -> "中文"
+                                    "en", "eng", "english" -> "英语"
+                                    "ja", "jpn", "japanese" -> "日语"
+                                    "ko", "kor", "korean" -> "韩语"
+                                    "fr", "fre", "french" -> "法语"
+                                    "de", "ger", "german" -> "德语"
+                                    "es", "spa", "spanish" -> "西班牙语"
+                                    "it", "ita", "italian" -> "意大利语"
+                                    "pt", "por", "portuguese" -> "葡萄牙语"
+                                    "ru", "rus", "russian" -> "俄语"
+                                    "th", "tha", "thai" -> "泰语"
+                                    "vi", "vie", "vietnamese" -> "越南语"
+                                    "und", "unknown" -> "未知语言"
+                                    else -> track.lang
+                                }
+                                append(langName)
+                                // 如果有标题且标题不同于语言，添加标题
+                                if (track.title.isNotEmpty() && !track.title.equals(track.lang, ignoreCase = true)) {
+                                    append(" - ${track.title}")
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { vm.changeAudio(track.index) }
+                                    .background(
+                                        if (vm.selectedAudioIndex == track.index) Color(0xFF409EFF).copy(alpha = 0.2f)
+                                        else Color.Transparent,
+                                        RoundedCornerShape(Dimens.radiusSm)
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = displayText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (vm.selectedAudioIndex == track.index) Color(0xFF409EFF) else Color.White
+                                )
+                                if (vm.selectedAudioIndex == track.index) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF409EFF)
+                                    )
                                 }
                             }
                         }

@@ -30,3 +30,9 @@
 
 # Keep API response models
 -keep class com.fryfrog.hub.data.remote.** { *; }
+
+# Remove debug logs in release builds
+-assumenosideeffects class android.util.Log {
+    public static int d(...);
+    public static int v(...);
+}

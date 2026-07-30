@@ -371,6 +371,15 @@ class MpvPlayer(private val context: Context) {
         }
     }
 
+    fun selectAudio(index: Int) {
+        Log.d(TAG, "selectAudio($index)")
+        try {
+            MPVLib.setPropertyInt("aid", index)
+        } catch (e: Exception) {
+            Log.e(TAG, "selectAudio() failed", e)
+        }
+    }
+
     fun release() {
         Log.d(TAG, "release()")
         if (initialized) {
