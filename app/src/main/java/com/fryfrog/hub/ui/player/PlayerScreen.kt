@@ -60,9 +60,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-class PlayerViewModel(private val videoId: Long) : ViewModel() {
+class PlayerViewModel(private val videoId: Long, private val context: android.content.Context) : ViewModel() {
 
     companion object {
         private const val TAG = "PlayerViewModel"
@@ -476,10 +477,46 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
     }
 
     fun loadExternalSubtitle(subtitle: SubtitleDTO) {
-        val fullUrl = subtitle.url?.let { url ->
-            if (url.startsWith("http")) url else "${ApiClient.getBaseUrl()}$url"
-        } ?: return
-        player?.addSubtitle(fullUrl)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val fullUrl = subtitle.url?.let { url ->
+                    val baseUrl = if (url.startsWith("http")) url else "${ApiClient.getBaseUrl()}$url"
+                    // 后端返回的 URL 中 + 代表空格，需要替换为 %20
+                    baseUrl.replace("+", "%20")
+                } ?: return@launch
+                Log.d(TAG, "loadExternalSubtitle: url=$fullUrl")
+
+                // 下载字幕到本地临时文件
+                val client = okhttp3.OkHttpClient()
+                val request = okhttp3.Request.Builder()
+                    .url(fullUrl)
+                    .addHeader("Authorization", "Bearer ${ApiClient.getToken()}")
+                    .build()
+                val response = client.newCall(request).execute()
+                Log.d(TAG, "Subtitle download response: code=${response.code}, contentType=${response.header("Content-Type")}")
+                
+                if (response.isSuccessful) {
+                    val body = response.body ?: return@launch
+                    val subtitleDir = java.io.File(context.cacheDir, "subtitles")
+                    subtitleDir.mkdirs()
+                    val localFile = java.io.File(subtitleDir, subtitle.filename)
+                    localFile.outputStream().use { output ->
+                        body.byteStream().use { input ->
+                            input.copyTo(output)
+                        }
+                    }
+                    Log.d(TAG, "Subtitle downloaded to: ${localFile.absolutePath}, size=${localFile.length()}")
+                    withContext(Dispatchers.Main) {
+                        Log.d(TAG, "Calling addSubtitle with local path")
+                        player?.addSubtitle(localFile.absolutePath)
+                    }
+                } else {
+                    Log.e(TAG, "Failed to download subtitle: ${response.code}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load external subtitle", e)
+            }
+        }
         _showSubtitleMenu.value = false
     }
 
@@ -489,9 +526,12 @@ class PlayerViewModel(private val videoId: Long) : ViewModel() {
             try {
                 val api = ApiClient.getApi()
                 val response = api.getVideoSubtitles(videoId)
-                _subtitleList.value = response
+                Log.d(TAG, "Subtitles loaded: videoId=$videoId, success=${response.success}, data=${response.data}")
+                if (response.success) {
+                    _subtitleList.value = response.data ?: emptyList()
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load subtitles", e)
+                Log.e(TAG, "Failed to load subtitles: videoId=$videoId", e)
             } finally {
                 _isLoadingSubtitles.value = false
             }
@@ -561,9 +601,9 @@ enum class IndicatorType {
     NONE, VOLUME, BRIGHTNESS, SEEK
 }
 
-class PlayerVMFactory(private val videoId: Long) : ViewModelProvider.Factory {
+class PlayerVMFactory(private val videoId: Long, private val context: android.content.Context) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T = PlayerViewModel(videoId) as T
+    override fun <T : ViewModel> create(modelClass: Class<T>): T = PlayerViewModel(videoId, context) as T
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -575,7 +615,7 @@ fun PlayerScreen(
     onProgressSaved: () -> Unit = {},
     forceRestart: Boolean = false
 ) {
-    val vm: PlayerViewModel = viewModel(factory = PlayerVMFactory(videoId))
+    val vm: PlayerViewModel = viewModel(factory = PlayerVMFactory(videoId, LocalContext.current))
     val activity = LocalContext.current as Activity
     var showControls by remember { mutableStateOf(true) }
     var isSeeking by remember { mutableStateOf(false) }

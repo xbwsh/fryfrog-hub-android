@@ -34,6 +34,8 @@ object ApiClient {
         createRetrofit(serverUrl, token)
     }
 
+    fun getToken(): String? = currentToken
+
     private fun createRetrofit(serverUrl: String, token: String?) {
         if (serverUrl.isBlank()) return
         if (serverUrl == currentServerUrl && token == currentToken && api != null) return
