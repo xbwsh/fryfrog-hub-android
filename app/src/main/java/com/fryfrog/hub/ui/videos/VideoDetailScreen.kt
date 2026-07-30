@@ -549,6 +549,53 @@ private fun HeroSection(
                         )
                     }
                 }
+
+                // Year
+                (selectedEpisode?.year ?: series.year)?.let { year ->
+                    Surface(
+                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = year.toString(),
+                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // Episode count
+                series.episodeCount?.let { count ->
+                    Surface(
+                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = "$count ${stringResource(R.string.episodes)}",
+                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                // Genre tag
+                selectedEpisode?.genre?.let { genre ->
+                    Surface(
+                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = genre,
+                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
 
         }
@@ -565,34 +612,13 @@ private fun VideoInfoSection(
     Column(
         modifier = Modifier.padding(Dimens.spacingLg)
     ) {
-        // Metadata row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingLg)
-        ) {
-            (selectedEpisode?.year ?: series.year)?.let { year ->
-                Text(
-                    text = year.toString(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            series.episodeCount?.let { count ->
-                Text(
-                    text = "$count ${stringResource(R.string.episodes)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            episode?.durationMinutes?.let { duration ->
-                Text(
-                    text = "${duration} ${stringResource(R.string.minutes)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        // Duration
+        episode?.durationMinutes?.let { duration ->
+            Text(
+                text = "${duration} ${stringResource(R.string.minutes)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         // Original File Name
@@ -605,16 +631,6 @@ private fun VideoInfoSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-
-        // Genre
-        episode?.genre?.let { genre ->
-            Spacer(modifier = Modifier.height(Dimens.spacingSm))
-            Text(
-                text = genre,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         // Director
