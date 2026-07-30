@@ -262,10 +262,22 @@ private fun VideoDetailContent(
             if (actors.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
-                    SectionHeader(title = stringResource(R.string.actors))
-                }
-                item {
-                    ActorsRow(actors = actors)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.08f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color.White.copy(alpha = 0.12f)
+                        )
+                    ) {
+                        Column {
+                            SectionHeader(title = stringResource(R.string.actors))
+                            ActorsRow(actors = actors)
+                        }
+                    }
                 }
             }
 
@@ -273,37 +285,45 @@ private fun VideoDetailContent(
             if (currentSeasonEpisodes.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
-                    SectionHeader(title = stringResource(R.string.episodes))
-                }
-
-                // Season Tabs (only show when multiple seasons exist)
-                if (hasMultipleSeasons) {
-                    item {
-                        SeasonTabRow(
-                            seasons = seasons,
-                            selectedSeason = selectedSeason,
-                            onSeasonSelected = { season ->
-                                selectedSeason = season
-                            }
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.08f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color.White.copy(alpha = 0.12f)
                         )
-                    }
-                }
+                    ) {
+                        Column {
+                            SectionHeader(title = stringResource(R.string.episodes))
 
-                item {
-                    EpisodeGrid(
-                        episodes = currentSeasonEpisodes,
-                        selectedIndex = selectedEpisodeIndex,
-                        onEpisodeClick = { index ->
-                            if (selectedEpisodeIndex == index) {
-                                // 第二次点击同一集 → 播放
-                                onPlayEpisode(currentSeasonEpisodes[index].id, false)
-                            } else {
-                                // 第一次点击或切换集数 → 选中并加载该集进度
-                                selectedEpisodeIndex = index
-                                viewModel.loadEpisodeProgress(currentSeasonEpisodes[index].id)
+                            // Season Tabs (only show when multiple seasons exist)
+                            if (hasMultipleSeasons) {
+                                SeasonTabRow(
+                                    seasons = seasons,
+                                    selectedSeason = selectedSeason,
+                                    onSeasonSelected = { season ->
+                                        selectedSeason = season
+                                    }
+                                )
                             }
+
+                            EpisodeGrid(
+                                episodes = currentSeasonEpisodes,
+                                selectedIndex = selectedEpisodeIndex,
+                                onEpisodeClick = { index ->
+                                    if (selectedEpisodeIndex == index) {
+                                        onPlayEpisode(currentSeasonEpisodes[index].id, false)
+                                    } else {
+                                        selectedEpisodeIndex = index
+                                        viewModel.loadEpisodeProgress(currentSeasonEpisodes[index].id)
+                                    }
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
 
