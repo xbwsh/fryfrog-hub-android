@@ -42,6 +42,12 @@ data class SeriesDTO(
     val isAdult: Boolean?,
     val originalFileName: String?,
     val episodeCount: Int?,
+    val seasons: List<SeasonDTO>?,
+    val episodes: List<VideoDTO>?
+)
+
+data class SeasonDTO(
+    val seasonNumber: Int,
     val episodes: List<VideoDTO>?
 )
 

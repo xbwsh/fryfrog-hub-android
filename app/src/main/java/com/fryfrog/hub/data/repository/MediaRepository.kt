@@ -29,10 +29,14 @@ class MediaRepository {
         val url = "$baseUrl/api/v1/video/series/$id"
         android.util.Log.d("MediaRepository", "Fetching: $url type=$type")
         api.getVideoSeriesDetail(id, type).data?.let { series ->
+            // Flatten seasons into episodes for UI compatibility
+            val flatEpisodes = series.seasons?.flatMap { season ->
+                season.episodes.orEmpty()
+            }
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
                 fanartUrl = fixUrl(series.fanartUrl),
-                episodes = series.episodes?.map { it.copy(
+                episodes = (flatEpisodes ?: series.episodes)?.map { it.copy(
                     coverUrl = fixUrl(it.coverUrl),
                     fanartUrl = fixUrl(it.fanartUrl)
                 ) }
