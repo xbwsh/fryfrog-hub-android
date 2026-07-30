@@ -651,7 +651,11 @@ private fun VideoInfoSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(Dimens.radiusMd),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    containerColor = Color.White.copy(alpha = 0.08f)
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    Color.White.copy(alpha = 0.12f)
                 )
             ) {
                 Column(modifier = Modifier.padding(Dimens.spacingMd)) {
