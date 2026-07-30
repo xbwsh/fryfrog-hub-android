@@ -192,8 +192,8 @@ private fun VideoDetailContent(
     onRefreshTmdb: () -> Unit,
     onUnbindTmdb: () -> Unit
 ) {
-    // 选集状态：从 ViewModel 同步，初始 -1 表示未选中
-    var selectedEpisodeIndex by remember { mutableIntStateOf(viewModel.uiState.value.selectedEpisodeIndex) }
+    // 选集状态：初始 0 表示选中第一集
+    var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
 
     // 季选择状态
     val allEpisodes = series.episodes.orEmpty()
@@ -214,17 +214,9 @@ private fun VideoDetailContent(
 
     val selectedEpisode = selectedEpisodeIndex.takeIf { it >= 0 }?.let { currentSeasonEpisodes.getOrNull(it) }
 
-    // 同步 ViewModel 的选集状态
-    LaunchedEffect(viewModel.uiState.value.selectedEpisodeIndex) {
-        val vmIndex = viewModel.uiState.value.selectedEpisodeIndex
-        if (vmIndex >= 0 && vmIndex != selectedEpisodeIndex) {
-            selectedEpisodeIndex = vmIndex
-        }
-    }
-
     // 切换季时重置选集索引
     LaunchedEffect(selectedSeason) {
-        selectedEpisodeIndex = -1
+        selectedEpisodeIndex = 0
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

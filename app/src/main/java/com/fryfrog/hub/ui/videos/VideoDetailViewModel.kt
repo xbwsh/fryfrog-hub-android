@@ -1,4 +1,4 @@
-﻿package com.fryfrog.hub.ui.videos
+package com.fryfrog.hub.ui.videos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,8 +26,7 @@ data class VideoDetailUiState(
     val isUnbindingTmdb: Boolean = false,
     val isRefreshingTmdb: Boolean = false,
     val snackbarMessage: String? = null,
-    val shouldNavigateBack: Boolean = false,
-    val selectedEpisodeIndex: Int = 0
+    val shouldNavigateBack: Boolean = false
 )
 
 class VideoDetailViewModel(
@@ -97,21 +96,11 @@ class VideoDetailViewModel(
                     _uiState.value = _uiState.value.copy(progress = response.data)
                 }
 
-                // Auto-select: find first unwatched episode, default to first
-                val firstUnwatched = episodes.indexOfFirst { ep ->
-                    val prog = _episodeProgressMap[ep.id]
-                    prog == null || !prog.completed
-                }
-                val selectedIndex = if (firstUnwatched >= 0) firstUnwatched else 0
-                _uiState.value = _uiState.value.copy(selectedEpisodeIndex = selectedIndex)
-
-                // Load progress for selected episode if different from first
-                if (selectedIndex > 0) {
-                    val selectedEp = episodes[selectedIndex]
-                    val selectedResponse = api.getVideoProgress(selectedEp.id)
-                    if (selectedResponse.success && selectedResponse.data != null) {
-                        _episodeProgressMap[selectedEp.id] = selectedResponse.data
-                        _uiState.value = _uiState.value.copy(progress = selectedResponse.data)
+                // Load progress for remaining episodes (background)
+                for (ep in episodes.drop(1)) {
+                    val epResponse = api.getVideoProgress(ep.id)
+                    if (epResponse.success && epResponse.data != null) {
+                        _episodeProgressMap[ep.id] = epResponse.data
                     }
                 }
             } catch (e: Exception) {
