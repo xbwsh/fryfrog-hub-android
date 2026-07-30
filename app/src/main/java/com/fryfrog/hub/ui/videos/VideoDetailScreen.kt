@@ -683,11 +683,7 @@ private fun VideoInfoSection(
                 )
             ) {
                 Column(modifier = Modifier.padding(Dimens.spacingMd)) {
-                    Text(
-                        text = stringResource(R.string.description),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    SectionHeader(title = stringResource(R.string.overview))
                     Spacer(modifier = Modifier.height(Dimens.spacingXs))
                     Text(
                         text = it,

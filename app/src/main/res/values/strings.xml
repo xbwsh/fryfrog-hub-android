@@ -36,6 +36,7 @@
     <string name="play">Play</string>
     <string name="actors">Actors</string>
     <string name="episodes">Episodes</string>
+    <string name="overview">Overview</string>
     <string name="season_label">Season %d</string>
     <string name="director">Director</string>
     <string name="minutes">min</string>
