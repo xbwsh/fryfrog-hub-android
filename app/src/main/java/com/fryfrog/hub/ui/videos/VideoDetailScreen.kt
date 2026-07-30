@@ -610,7 +610,7 @@ private fun VideoInfoSection(
     val episode = selectedEpisode ?: series.episodes?.firstOrNull()
 
     Column(
-        modifier = Modifier.padding(Dimens.spacingLg)
+        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
     ) {
         // Duration
         episode?.durationMinutes?.let { duration ->
