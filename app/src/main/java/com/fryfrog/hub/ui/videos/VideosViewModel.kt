@@ -32,7 +32,8 @@ data class VideosUiState(
     val sortOption: SortOption = SortOption.DEFAULT,
     val searchQuery: String = "",
     val currentPage: Int = 0,
-    val totalPages: Int = 1
+    val totalPages: Int = 1,
+    val scrapeMessage: String? = null
 )
 
 class VideosViewModel : ViewModel() {
@@ -186,5 +187,33 @@ class VideosViewModel : ViewModel() {
             SortOption.TITLE_DESC -> filtered.sortedByDescending { it.title.lowercase() }
         }
         _uiState.value = _uiState.value.copy(series = sorted)
+    }
+
+    fun scrapeAdultOnly() {
+        viewModelScope.launch {
+            try {
+                val api = com.fryfrog.hub.data.remote.ApiClient.getApi()
+                val response = api.scrapeAdultOnly()
+                if (response.success) {
+                    val updated = response.data?.get("updated") as? Number ?: 0
+                    _uiState.value = _uiState.value.copy(
+                        scrapeMessage = "Updated $updated items"
+                    )
+                    loadVideos()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = response.message ?: "Failed to scrape adult"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
+    fun clearScrapeMessage() {
+        _uiState.value = _uiState.value.copy(scrapeMessage = null)
     }
 }

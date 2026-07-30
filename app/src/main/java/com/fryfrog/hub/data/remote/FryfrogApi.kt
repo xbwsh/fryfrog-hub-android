@@ -57,6 +57,9 @@ interface FryfrogApi {
     @GET("/api/v1/video/scrape/progress")
     suspend fun getScrapeProgress(): ApiResponse<Map<String, Any>>
 
+    @POST("/api/v1/video/scrape/adult-only")
+    suspend fun scrapeAdultOnly(@Query("libraryId") libraryId: Long? = null): ApiResponse<Map<String, Any>>
+
     // ========== Music ==========
     @GET("/api/v1/music")
     suspend fun getMusicByAlbum(): ApiResponse<PageResponse<AlbumGroup>>

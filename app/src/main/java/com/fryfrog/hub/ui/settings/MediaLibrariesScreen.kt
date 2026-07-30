@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -148,7 +149,8 @@ fun MediaLibrariesScreen(
                             onToggle = { viewModel.toggleLibrary(library) },
                             onScan = { viewModel.scanLibrary(library) },
                             onDelete = { showDeleteDialog = library },
-                            onScrapingToggle = { viewModel.updateLibraryScraping(library, it) }
+                            onScrapingToggle = { viewModel.updateLibraryScraping(library, it) },
+                            onIsAdultToggle = { viewModel.updateLibraryIsAdult(library, it) }
                         )
                     }
                 }
@@ -212,8 +214,8 @@ fun MediaLibrariesScreen(
         CreateLibraryDialog(
             viewModel = viewModel,
             onDismiss = { showCreateDialog = false },
-            onCreate = { name, path, type, subType, desc, enableScraping ->
-                viewModel.createLibrary(name, path, type, subType, desc, enableScraping)
+            onCreate = { name, path, type, subType, desc, enableScraping, isAdult ->
+                viewModel.createLibrary(name, path, type, subType, desc, enableScraping, isAdult)
                 showCreateDialog = false
             }
         )
@@ -227,7 +229,8 @@ private fun MediaLibraryItem(
     onToggle: () -> Unit,
     onScan: () -> Unit,
     onDelete: () -> Unit,
-    onScrapingToggle: (Boolean) -> Unit
+    onScrapingToggle: (Boolean) -> Unit,
+    onIsAdultToggle: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -295,6 +298,20 @@ private fun MediaLibraryItem(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (library.isAdult == true) {
+                            Spacer(Modifier.width(Dimens.spacingXs))
+                            Surface(
+                                color = Color(0xFFFF4D4F),
+                                shape = RoundedCornerShape(Dimens.radiusSm)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.adult_library_badge),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
+                            }
+                        }
                         if (!library.enabled) {
                             Spacer(Modifier.width(Dimens.spacingXs))
                             Surface(
@@ -398,6 +415,38 @@ private fun MediaLibraryItem(
                     onCheckedChange = onScrapingToggle
                 )
             }
+
+            // 第三行：成人内容开关
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(Dimens.spacingSm))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.adult_library),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = stringResource(R.string.adult_library_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.width(Dimens.spacingSm))
+                Switch(
+                    checked = library.isAdult == true,
+                    onCheckedChange = onIsAdultToggle
+                )
+            }
         }
     }
 }
@@ -407,7 +456,7 @@ private fun MediaLibraryItem(
 private fun CreateLibraryDialog(
     viewModel: MediaLibrariesViewModel,
     onDismiss: () -> Unit,
-    onCreate: (name: String, path: String, type: String, subType: String?, description: String?, enableScraping: Boolean) -> Unit
+    onCreate: (name: String, path: String, type: String, subType: String?, description: String?, enableScraping: Boolean, isAdult: Boolean) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var name by remember { mutableStateOf("") }
@@ -416,6 +465,7 @@ private fun CreateLibraryDialog(
     var subType by remember { mutableStateOf("MOVIE") }
     var description by remember { mutableStateOf("") }
     var enableScraping by remember { mutableStateOf(true) }
+    var isAdult by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
     var subTypeExpanded by remember { mutableStateOf(false) }
     var showDirectoryPicker by remember { mutableStateOf(false) }
@@ -557,11 +607,39 @@ private fun CreateLibraryDialog(
                         onCheckedChange = { enableScraping = it }
                     )
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(Dimens.spacingSm))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.adult_library),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = stringResource(R.string.adult_library_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isAdult,
+                        onCheckedChange = { isAdult = it }
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping) },
+                onClick = { onCreate(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping, isAdult) },
                 enabled = name.isNotBlank() && selectedPath.isNotBlank()
             ) {
                 Text(stringResource(R.string.create))

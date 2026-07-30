@@ -156,4 +156,12 @@
     <string name="enable_scraping">Enable Scraping</string>
     <string name="scraping_on">Scraping enabled</string>
     <string name="scraping_off">Scraping disabled</string>
+
+    <!-- Adult Content -->
+    <string name="adult_library">Adult Content Library</string>
+    <string name="adult_library_desc">When enabled, all content in this library is automatically marked as adult and hidden in privacy mode</string>
+    <string name="adult_library_badge">R-18</string>
+    <string name="scrape_adult">Scrape Adult Rating</string>
+    <string name="scrape_adult_desc">Batch mark content in all libraries as adult</string>
+    <string name="scrape_adult_result">Updated %d items</string>
 </resources>

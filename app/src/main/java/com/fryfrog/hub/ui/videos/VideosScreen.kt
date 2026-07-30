@@ -1,4 +1,4 @@
-﻿package com.fryfrog.hub.ui.videos
+package com.fryfrog.hub.ui.videos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -46,6 +47,13 @@ fun VideosScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showSortMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.scrapeMessage) {
+        uiState.scrapeMessage?.let {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearScrapeMessage()
+        }
+    }
 
     val filteredSeries by remember(uiState.series, isAdultContentHidden) {
         derivedStateOf {
@@ -109,6 +117,29 @@ fun VideosScreen(
                                         }
                                     )
                                 }
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.scrape_adult),
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.scrapeAdultOnly()
+                                        showSortMenu = false
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.Warning,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                )
                             }
                         }
 
@@ -175,46 +206,63 @@ fun VideosScreen(
             }
         }
     ) { paddingValues ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (uiState.error != null) {
+                ErrorContent(
+                    message = uiState.error ?: stringResource(R.string.unknown_error),
+                    onRetry = { viewModel.loadVideos() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (filteredSeries.isEmpty() && uiState.isLoadingMore) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (filteredSeries.isEmpty() && uiState.currentPage >= uiState.totalPages - 1) {
+                EmptyVideosContent(
+                    message = if (uiState.searchQuery.isBlank()) {
+                        stringResource(R.string.no_videos)
+                    } else {
+                        stringResource(R.string.no_search_results)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                VideosGrid(
+                    series = filteredSeries,
+                    isLoadingMore = uiState.isLoadingMore,
+                    hasMore = uiState.currentPage < uiState.totalPages - 1,
+                    onLoadMore = { viewModel.loadNextPage() },
+                    onVideoClick = onVideoClick,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
-        } else if (uiState.error != null) {
-            ErrorContent(
-                message = uiState.error ?: stringResource(R.string.unknown_error),
-                onRetry = { viewModel.loadVideos() },
-                modifier = Modifier.padding(paddingValues)
-            )
-        } else if (filteredSeries.isEmpty() && uiState.isLoadingMore) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+
+            // Scrape message
+            uiState.scrapeMessage?.let { message ->
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(Dimens.spacingLg),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(Dimens.spacingSm))
+                        Text(message, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
-        } else if (filteredSeries.isEmpty() && uiState.currentPage >= uiState.totalPages - 1) {
-            EmptyVideosContent(
-                message = if (uiState.searchQuery.isBlank()) {
-                    stringResource(R.string.no_videos)
-                } else {
-                    stringResource(R.string.no_search_results)
-                },
-                modifier = Modifier.padding(paddingValues)
-            )
-        } else {
-            VideosGrid(
-                series = filteredSeries,
-                isLoadingMore = uiState.isLoadingMore,
-                hasMore = uiState.currentPage < uiState.totalPages - 1,
-                onLoadMore = { viewModel.loadNextPage() },
-                onVideoClick = onVideoClick,
-                modifier = Modifier.padding(paddingValues)
-            )
         }
     }
 }

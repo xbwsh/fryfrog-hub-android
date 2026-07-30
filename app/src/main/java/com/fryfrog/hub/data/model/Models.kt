@@ -220,6 +220,7 @@ data class MediaLibrary(
     val subType: String?,
     val enabled: Boolean,
     val enableScraping: Boolean? = null,
+    val isAdult: Boolean? = null,
     val sortOrder: Int?,
     val description: String?,
     val createdAt: String?,

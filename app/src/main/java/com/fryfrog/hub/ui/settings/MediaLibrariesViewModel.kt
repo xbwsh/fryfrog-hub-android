@@ -224,13 +224,59 @@ class MediaLibrariesViewModel : ViewModel() {
         }
     }
 
+    fun updateLibraryIsAdult(library: MediaLibrary, isAdult: Boolean) {
+        viewModelScope.launch {
+            try {
+                val api = ApiClient.getApi()
+                val updated = library.copy(isAdult = isAdult)
+                val response = api.updateMediaLibrary(library.id, updated)
+                if (response.success) {
+                    loadLibraries()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = response.message ?: "Failed to update adult setting"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
+    fun scrapeAdultOnly(libraryId: Long? = null) {
+        viewModelScope.launch {
+            try {
+                val api = ApiClient.getApi()
+                val response = api.scrapeAdultOnly(libraryId)
+                if (response.success) {
+                    val updated = response.data?.get("updated") as? Number ?: 0
+                    _uiState.value = _uiState.value.copy(
+                        scanMessage = "Updated $updated items"
+                    )
+                    loadLibraries()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = response.message ?: "Failed to scrape adult"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
     fun createLibrary(
         name: String,
         path: String,
         type: String,
         subType: String? = null,
         description: String? = null,
-        enableScraping: Boolean = true
+        enableScraping: Boolean = true,
+        isAdult: Boolean = false
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -244,6 +290,7 @@ class MediaLibrariesViewModel : ViewModel() {
                     subType = subType,
                     enabled = true,
                     enableScraping = enableScraping,
+                    isAdult = isAdult,
                     sortOrder = null,
                     description = description,
                     createdAt = null,
