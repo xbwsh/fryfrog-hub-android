@@ -275,7 +275,7 @@ private fun VideoDetailContent(
                             Color.White.copy(alpha = 0.12f)
                         )
                     ) {
-                        Column {
+                        Column(modifier = Modifier.padding(Dimens.spacingMd)) {
                             SectionHeader(title = stringResource(R.string.actors))
                             ActorsRow(actors = actors)
                         }
@@ -300,7 +300,7 @@ private fun VideoDetailContent(
                             Color.White.copy(alpha = 0.12f)
                         )
                     ) {
-                        Column {
+                        Column(modifier = Modifier.padding(Dimens.spacingMd)) {
                             SectionHeader(title = stringResource(R.string.episodes))
 
                             // Season Tabs (only show when multiple seasons exist)
@@ -706,15 +706,14 @@ private fun VideoInfoSection(
 private fun SectionHeader(title: String) {
     Text(
         text = title,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
+        style = MaterialTheme.typography.titleMedium
     )
 }
 
 @Composable
 private fun ActorsRow(actors: List<VideoActor>) {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = Dimens.spacingLg),
+        contentPadding = PaddingValues(horizontal = Dimens.spacingMd),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
     ) {
         items(actors) { actor ->
@@ -852,9 +851,7 @@ private fun EpisodeGrid(
     val columns = 6
     val rows = (episodes.size + columns - 1) / columns
 
-    Column(
-        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
-    ) {
+    Column {
         for (row in 0 until rows) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -970,7 +967,7 @@ private fun SeasonTabRow(
 
     ScrollableTabRow(
         selectedTabIndex = selectedIndex,
-        modifier = Modifier.padding(horizontal = Dimens.spacingLg),
+        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
         edgePadding = Dimens.spacingSm,
         containerColor = Color.Transparent,
         divider = {},
