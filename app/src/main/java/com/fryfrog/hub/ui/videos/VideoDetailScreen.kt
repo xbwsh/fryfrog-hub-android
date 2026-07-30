@@ -643,18 +643,32 @@ private fun VideoInfoSection(
             )
         }
 
-        // Overview - 固定高度，避免切换剧集时下方内容位移
+        // Overview Card
         val overview = selectedEpisode?.overview ?: series.overview
         overview?.let {
             Spacer(modifier = Modifier.height(Dimens.spacingLg))
-            Box(modifier = Modifier.height(110.dp)) {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 5,
-                    overflow = TextOverflow.Ellipsis
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(Dimens.radiusMd),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 )
+            ) {
+                Column(modifier = Modifier.padding(Dimens.spacingMd)) {
+                    Text(
+                        text = stringResource(R.string.description),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(Dimens.spacingXs))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 5,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
