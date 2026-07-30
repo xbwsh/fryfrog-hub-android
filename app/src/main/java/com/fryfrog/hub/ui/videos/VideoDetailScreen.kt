@@ -263,7 +263,9 @@ private fun VideoDetailContent(
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Dimens.spacingLg),
                         shape = RoundedCornerShape(Dimens.radiusMd),
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White.copy(alpha = 0.08f)
@@ -286,7 +288,9 @@ private fun VideoDetailContent(
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Dimens.spacingLg),
                         shape = RoundedCornerShape(Dimens.radiusMd),
                         colors = CardDefaults.cardColors(
                             containerColor = Color.White.copy(alpha = 0.08f)
