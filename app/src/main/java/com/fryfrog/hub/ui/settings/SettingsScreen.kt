@@ -665,7 +665,7 @@ private fun ModernCard(
 }
 
 @Composable
-private fun UniformSwitch(
+internal fun UniformSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier

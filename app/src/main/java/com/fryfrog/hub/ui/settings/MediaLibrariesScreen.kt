@@ -3,6 +3,7 @@
 package com.fryfrog.hub.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -149,6 +150,7 @@ fun MediaLibrariesScreen(
                             onToggle = { viewModel.toggleLibrary(library) },
                             onScan = { viewModel.scanLibrary(library) },
                             onDelete = { showDeleteDialog = library },
+                            onScrapeAdult = { viewModel.scrapeAdultOnly(library.id) },
                             onScrapingToggle = { viewModel.updateLibraryScraping(library, it) },
                             onIsAdultToggle = { viewModel.updateLibraryIsAdult(library, it) }
                         )
@@ -229,6 +231,7 @@ private fun MediaLibraryItem(
     onToggle: () -> Unit,
     onScan: () -> Unit,
     onDelete: () -> Unit,
+    onScrapeAdult: () -> Unit,
     onScrapingToggle: (Boolean) -> Unit,
     onIsAdultToggle: (Boolean) -> Unit
 ) {
@@ -237,22 +240,22 @@ private fun MediaLibraryItem(
         shape = RoundedCornerShape(Dimens.radiusMd),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
-        )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column {
-            // 第一行：图标 + 信息 + 启用开关 + 操作按钮
+        Column(
+            modifier = Modifier.padding(Dimens.spacingMd)
+        ) {
+            // 图标 + 名称/路径 + 三个开关
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggle() }
-                    .padding(Dimens.spacingMd),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 类型图标
                 Box(
                     modifier = Modifier
-                        .size(Dimens.avatarSize)
-                        .clip(CircleShape)
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(Dimens.radiusMd))
                         .background(
                             when (library.type) {
                                 "VIDEO" -> Primary.copy(alpha = 0.1f)
@@ -280,21 +283,21 @@ private fun MediaLibraryItem(
                             "EBOOK" -> Info
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                        modifier = Modifier.size(Dimens.avatarIconSize)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                // 信息
+                Spacer(Modifier.width(Dimens.spacingMd))
+
+                // 名称、路径
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = Dimens.spacingMd)
+                    modifier = Modifier.weight(1f)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = library.name,
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -302,13 +305,14 @@ private fun MediaLibraryItem(
                             Spacer(Modifier.width(Dimens.spacingXs))
                             Surface(
                                 color = Color(0xFFFF4D4F),
-                                shape = RoundedCornerShape(Dimens.radiusSm)
+                                shape = RoundedCornerShape(Dimens.radiusXs)
                             ) {
                                 Text(
                                     text = stringResource(R.string.adult_library_badge),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
@@ -316,17 +320,18 @@ private fun MediaLibraryItem(
                             Spacer(Modifier.width(Dimens.spacingXs))
                             Surface(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(Dimens.radiusSm)
+                                shape = RoundedCornerShape(Dimens.radiusXs)
                             ) {
                                 Text(
                                     text = stringResource(R.string.disabled),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                     }
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = library.path,
                         style = MaterialTheme.typography.bodySmall,
@@ -336,116 +341,134 @@ private fun MediaLibraryItem(
                     )
                 }
 
-                // 操作
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+                Spacer(Modifier.width(Dimens.spacingSm))
+
+                // 三个开关（水平排列）
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                 ) {
-                    Switch(
-                        checked = library.enabled,
-                        onCheckedChange = null
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
-                        IconButton(
-                            onClick = onScan,
-                            enabled = !isScanning,
-                            modifier = Modifier.size(Dimens.smallButtonSize),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = Primary.copy(alpha = 0.1f),
-                                contentColor = Primary,
-                                disabledContainerColor = Primary.copy(alpha = 0.05f),
-                                disabledContentColor = Primary.copy(alpha = 0.5f)
-                            )
-                        ) {
-                            if (isScanning) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(Dimens.smallIconSize),
-                                    strokeWidth = 2.dp,
-                                    color = Primary
-                                )
-                            } else {
-                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.scan), modifier = Modifier.size(Dimens.smallIconSize))
-                            }
-                        }
-                        IconButton(
-                            onClick = onDelete,
-                            modifier = Modifier.size(Dimens.smallButtonSize),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), modifier = Modifier.size(Dimens.smallIconSize))
-                        }
+                    // 刮削开关
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (library.enableScraping != false) stringResource(R.string.scraping_on) else stringResource(R.string.scraping_off),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        UniformSwitch(
+                            checked = library.enableScraping != false,
+                            onCheckedChange = onScrapingToggle
+                        )
+                    }
+
+                    // 成人内容开关
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (library.isAdult == true) stringResource(R.string.adult_library_on) else stringResource(R.string.adult_library_off),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        UniformSwitch(
+                            checked = library.isAdult == true,
+                            onCheckedChange = onIsAdultToggle
+                        )
+                    }
+
+                    // 启用开关
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (library.enabled) stringResource(R.string.enable_library) else stringResource(R.string.enable_library_off),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        UniformSwitch(
+                            checked = library.enabled,
+                            onCheckedChange = { onToggle() }
+                        )
                     }
                 }
             }
 
-            // 第二行：刮削开关
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = Dimens.spacingMd),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(Dimens.spacingSm))
-                Text(
-                    text = stringResource(R.string.enable_scraping),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = if (library.enableScraping != false) stringResource(R.string.scraping_on) else stringResource(R.string.scraping_off),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (library.enableScraping != false) Primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(Dimens.spacingSm))
-                Switch(
-                    checked = library.enableScraping != false,
-                    onCheckedChange = onScrapingToggle
-                )
-            }
+            Spacer(Modifier.height(Dimens.spacingSm))
 
-            // 第三行：成人内容开关
+            // 操作按钮区域
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
-                Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(Dimens.spacingSm))
-                Column(modifier = Modifier.weight(1f)) {
+                // 扫描按钮
+                OutlinedButton(
+                    onClick = onScan,
+                    enabled = !isScanning,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
+                    shape = RoundedCornerShape(Dimens.radiusSm)
+                ) {
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Primary
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(Dimens.spacingXs))
                     Text(
-                        text = stringResource(R.string.adult_library),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = stringResource(R.string.adult_library_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = stringResource(R.string.scan),
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
-                Spacer(Modifier.width(Dimens.spacingSm))
-                Switch(
-                    checked = library.isAdult == true,
-                    onCheckedChange = onIsAdultToggle
-                )
+
+                // 补全分级按钮
+                OutlinedButton(
+                    onClick = onScrapeAdult,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
+                    shape = RoundedCornerShape(Dimens.radiusSm),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Warning
+                    ),
+                    border = BorderStroke(1.dp, Warning.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(Dimens.spacingXs))
+                    Text(
+                        text = stringResource(R.string.scrape_adult_short),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+
+                // 删除按钮
+                OutlinedButton(
+                    onClick = onDelete,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
+                    shape = RoundedCornerShape(Dimens.radiusSm),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(Dimens.spacingXs))
+                    Text(
+                        text = stringResource(R.string.delete),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
             }
         }
     }
@@ -602,7 +625,7 @@ private fun CreateLibraryDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    Switch(
+                    UniformSwitch(
                         checked = enableScraping,
                         onCheckedChange = { enableScraping = it }
                     )
@@ -630,7 +653,7 @@ private fun CreateLibraryDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    UniformSwitch(
                         checked = isAdult,
                         onCheckedChange = { isAdult = it }
                     )

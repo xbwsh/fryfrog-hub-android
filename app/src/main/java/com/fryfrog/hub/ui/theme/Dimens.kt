@@ -17,6 +17,7 @@ data class AppDimens(
     val spacingXxl: Dp = 24.dp,
 
     // Corner Radius
+    val radiusXs: Dp = 2.dp,
     val radiusSm: Dp = 4.dp,
     val radiusMd: Dp = 6.dp,
     val radiusLg: Dp = 10.dp,
@@ -115,6 +116,7 @@ object Dimens {
     val spacingXl: Dp @Composable get() = LocalDimens.current.spacingXl
     val spacingXxl: Dp @Composable get() = LocalDimens.current.spacingXxl
 
+    val radiusXs: Dp @Composable get() = LocalDimens.current.radiusXs
     val radiusSm: Dp @Composable get() = LocalDimens.current.radiusSm
     val radiusMd: Dp @Composable get() = LocalDimens.current.radiusMd
     val radiusLg: Dp @Composable get() = LocalDimens.current.radiusLg

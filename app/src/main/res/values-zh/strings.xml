@@ -81,6 +81,8 @@
     <string name="media_libraries">媒体资源库</string>
     <string name="scan_all">全部扫描</string>
     <string name="scan">扫描</string>
+    <string name="enable_library">启用</string>
+    <string name="enable_library_off">启用关</string>
     <string name="add">添加</string>
     <string name="create">创建</string>
     <string name="no_libraries">暂无资源库</string>
@@ -155,14 +157,17 @@
 
     <!-- Scraping -->
     <string name="enable_scraping">启用刮削</string>
-    <string name="scraping_on">已启用刮削</string>
-    <string name="scraping_off">已关闭刮削</string>
+    <string name="scraping_on">刮削</string>
+    <string name="scraping_off">刮削关</string>
 
     <!-- Adult Content -->
     <string name="adult_library">成人内容库</string>
     <string name="adult_library_desc">启用后，库内所有内容自动标记为成人内容，隐私模式下将隐藏</string>
     <string name="adult_library_badge">R-18</string>
+    <string name="adult_library_on">成人</string>
+    <string name="adult_library_off">成人关</string>
     <string name="scrape_adult">补全分级</string>
+    <string name="scrape_adult_short">补全分级</string>
     <string name="scrape_adult_desc">批量将所有库中的内容标记为成人内容</string>
     <string name="scrape_adult_result">已更新 %d 项</string>
 </resources>
