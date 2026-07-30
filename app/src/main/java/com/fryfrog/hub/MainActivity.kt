@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -15,16 +16,23 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -177,32 +185,20 @@ private fun MainContent(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute in bottomNavRoutes
+    var bottomBarHeight by remember { mutableIntStateOf(0) }
 
     Scaffold(
-        bottomBar = {
-            if (currentRoute in bottomNavRoutes) {
-                FryfrogBottomBar(
-                    currentRoute = currentRoute,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(Screen.Home.route) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    sectionVisible = sectionVisible
-                )
-            }
-        },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.padding(paddingValues)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Home.route,
+                modifier = Modifier.fillMaxSize().padding(
+                    bottom = if (showBottomBar) with(LocalDensity.current) { bottomBarHeight.toDp() } else 0.dp
+                )
+            ) {
             composable(Screen.Home.route) {
                 HomeScreen(
                     isAdultContentHidden = isAdultContentHidden,
@@ -602,7 +598,40 @@ private fun MainContent(
                 )
             }
         }
-    }
+
+        // Floating bottom bar
+        AnimatedVisibility(
+            visible = showBottomBar,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(300)
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(300)
+            ) + fadeOut(animationSpec = tween(300)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .onGloballyPositioned { coordinates ->
+                    bottomBarHeight = coordinates.size.height
+                }
+        ) {
+            FryfrogBottomBar(
+                currentRoute = currentRoute,
+                onNavigate = { route ->
+                    navController.navigate(route) {
+                        popUpTo(Screen.Home.route) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                sectionVisible = sectionVisible
+            )
+        }
+        } // Box
+    } // Scaffold
 }
 
 private val bottomNavRoutes = listOf(

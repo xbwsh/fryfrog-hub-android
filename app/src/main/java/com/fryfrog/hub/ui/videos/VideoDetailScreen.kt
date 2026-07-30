@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
@@ -268,11 +269,11 @@ private fun VideoDetailContent(
                             .padding(horizontal = Dimens.spacingLg),
                         shape = RoundedCornerShape(Dimens.radiusMd),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White.copy(alpha = 0.08f)
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                         ),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            Color.White.copy(alpha = 0.12f)
+                            MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
                         Column(modifier = Modifier.padding(Dimens.spacingMd)) {
@@ -293,11 +294,11 @@ private fun VideoDetailContent(
                             .padding(horizontal = Dimens.spacingLg),
                         shape = RoundedCornerShape(Dimens.radiusMd),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color.White.copy(alpha = 0.08f)
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                         ),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            Color.White.copy(alpha = 0.12f)
+                            MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
                         Column(modifier = Modifier.padding(Dimens.spacingMd)) {
@@ -675,11 +676,11 @@ private fun VideoInfoSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(Dimens.radiusMd),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.White.copy(alpha = 0.08f)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 ),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    Color.White.copy(alpha = 0.12f)
+                    MaterialTheme.colorScheme.outlineVariant
                 )
             ) {
                 Column(modifier = Modifier.padding(Dimens.spacingMd)) {
@@ -959,36 +960,32 @@ private fun SeasonTabRow(
     selectedSeason: Int,
     onSeasonSelected: (Int) -> Unit
 ) {
-    val selectedIndex = seasons.indexOf(selectedSeason).coerceAtLeast(0)
-
-    ScrollableTabRow(
-        selectedTabIndex = selectedIndex,
-        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
-        edgePadding = Dimens.spacingSm,
-        containerColor = Color.Transparent,
-        divider = {},
-        indicator = { }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
     ) {
         seasons.forEach { season ->
-            Tab(
-                selected = season == selectedSeason,
+            val isSelected = season == selectedSeason
+            Surface(
                 onClick = { onSeasonSelected(season) },
-                text = {
-                    Text(
-                        text = stringResource(R.string.season_label, season),
-                        style = if (season == selectedSeason) {
-                            MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
-                        } else {
-                            MaterialTheme.typography.labelLarge
-                        },
-                        color = if (season == selectedSeason) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
-            )
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(Dimens.radiusSm),
+                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                else Color.Transparent
+            ) {
+                Text(
+                    text = stringResource(R.string.season_label, season),
+                    modifier = Modifier.padding(vertical = Dimens.spacingSm),
+                    style = if (isSelected) {
+                        MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    } else {
+                        MaterialTheme.typography.labelLarge
+                    },
+                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
