@@ -194,7 +194,25 @@ private fun VideoDetailContent(
 ) {
     // 选集状态：从 ViewModel 同步，初始 -1 表示未选中
     var selectedEpisodeIndex by remember { mutableIntStateOf(viewModel.uiState.value.selectedEpisodeIndex) }
-    val selectedEpisode = selectedEpisodeIndex.takeIf { it >= 0 }?.let { series.episodes?.getOrNull(it) }
+
+    // 季选择状态
+    val allEpisodes = series.episodes.orEmpty()
+    val seasons = remember(allEpisodes) {
+        allEpisodes.mapNotNull { it.seasonNumber }.distinct().sorted()
+    }
+    val hasMultipleSeasons = seasons.size > 1
+    var selectedSeason by remember { mutableIntStateOf(seasons.firstOrNull() ?: 1) }
+
+    // 当前季的剧集
+    val currentSeasonEpisodes = remember(allEpisodes, selectedSeason) {
+        if (hasMultipleSeasons) {
+            allEpisodes.filter { it.seasonNumber == selectedSeason }
+        } else {
+            allEpisodes
+        }
+    }
+
+    val selectedEpisode = selectedEpisodeIndex.takeIf { it >= 0 }?.let { currentSeasonEpisodes.getOrNull(it) }
 
     // 同步 ViewModel 的选集状态
     LaunchedEffect(viewModel.uiState.value.selectedEpisodeIndex) {
@@ -202,6 +220,11 @@ private fun VideoDetailContent(
         if (vmIndex >= 0 && vmIndex != selectedEpisodeIndex) {
             selectedEpisodeIndex = vmIndex
         }
+    }
+
+    // 切换季时重置选集索引
+    LaunchedEffect(selectedSeason) {
+        selectedEpisodeIndex = -1
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -215,7 +238,7 @@ private fun VideoDetailContent(
                     selectedEpisode = selectedEpisode,
                     progress = progress,
                     onPlayClick = {
-                        val ep = selectedEpisode ?: series.episodes?.firstOrNull()
+                        val ep = selectedEpisode ?: currentSeasonEpisodes.firstOrNull()
                         ep?.let {
                             val epProgress = viewModel.episodeProgress[it.id]
                             val isCompleted = epProgress?.completed == true
@@ -255,23 +278,37 @@ private fun VideoDetailContent(
             }
 
             // Episodes Section
-            if (!series.episodes.isNullOrEmpty()) {
+            if (currentSeasonEpisodes.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
                     SectionHeader(title = stringResource(R.string.episodes))
                 }
+
+                // Season Tabs (only show when multiple seasons exist)
+                if (hasMultipleSeasons) {
+                    item {
+                        SeasonTabRow(
+                            seasons = seasons,
+                            selectedSeason = selectedSeason,
+                            onSeasonSelected = { season ->
+                                selectedSeason = season
+                            }
+                        )
+                    }
+                }
+
                 item {
                     EpisodeGrid(
-                        episodes = series.episodes,
+                        episodes = currentSeasonEpisodes,
                         selectedIndex = selectedEpisodeIndex,
                         onEpisodeClick = { index ->
                             if (selectedEpisodeIndex == index) {
                                 // 第二次点击同一集 → 播放
-                                onPlayEpisode(series.episodes[index].id, false)
+                                onPlayEpisode(currentSeasonEpisodes[index].id, false)
                             } else {
                                 // 第一次点击或切换集数 → 选中并加载该集进度
                                 selectedEpisodeIndex = index
-                                viewModel.loadEpisodeProgress(series.episodes[index].id)
+                                viewModel.loadEpisodeProgress(currentSeasonEpisodes[index].id)
                             }
                         }
                     )
@@ -869,6 +906,46 @@ private fun EpisodeNumberBlock(
                         )
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SeasonTabRow(
+    seasons: List<Int>,
+    selectedSeason: Int,
+    onSeasonSelected: (Int) -> Unit
+) {
+    val selectedIndex = seasons.indexOf(selectedSeason).coerceAtLeast(0)
+
+    ScrollableTabRow(
+        selectedTabIndex = selectedIndex,
+        modifier = Modifier.padding(horizontal = Dimens.spacingLg),
+        edgePadding = Dimens.spacingSm,
+        containerColor = Color.Transparent,
+        divider = {},
+        indicator = { }
+    ) {
+        seasons.forEach { season ->
+            Tab(
+                selected = season == selectedSeason,
+                onClick = { onSeasonSelected(season) },
+                text = {
+                    Text(
+                        text = stringResource(R.string.season_label, season),
+                        style = if (season == selectedSeason) {
+                            MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        } else {
+                            MaterialTheme.typography.labelLarge
+                        },
+                        color = if (season == selectedSeason) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            )
         }
     }
 }

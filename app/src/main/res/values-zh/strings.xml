@@ -36,6 +36,7 @@
     <string name="play">播放</string>
     <string name="actors">演员</string>
     <string name="episodes">剧集</string>
+    <string name="season_label">第 %d 季</string>
     <string name="director">导演</string>
     <string name="minutes">分钟</string>
 
