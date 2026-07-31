@@ -52,6 +52,7 @@ import com.fryfrog.hub.ui.comics.ComicVolumeScreen
 import com.fryfrog.hub.ui.comics.ComicVolumeViewModel
 import com.fryfrog.hub.ui.comics.ComicVolumeViewModelFactory
 import com.fryfrog.hub.ui.comics.ComicsScreen
+import com.fryfrog.hub.ui.ebooks.BookSourcesScreen
 import com.fryfrog.hub.ui.ebooks.EbookDetailScreen
 import com.fryfrog.hub.ui.ebooks.EbookDetailViewModel
 import com.fryfrog.hub.ui.ebooks.EbookReaderScreen
@@ -59,6 +60,7 @@ import com.fryfrog.hub.ui.ebooks.EbookVolumeScreen
 import com.fryfrog.hub.ui.ebooks.EbookVolumeViewModel
 import com.fryfrog.hub.ui.ebooks.EbookVolumeViewModelFactory
 import com.fryfrog.hub.ui.ebooks.EbooksScreen
+import com.fryfrog.hub.ui.ebooks.OnlineSearchScreen
 import com.fryfrog.hub.ui.home.HomeScreen
 import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.music.MusicScreen
@@ -390,6 +392,12 @@ private fun MainContent(
                 EbooksScreen(
                     onEbookClick = { ebookId ->
                         navController.navigate("ebook_detail/$ebookId")
+                    },
+                    onBookSourcesClick = {
+                        navController.navigate("book_sources")
+                    },
+                    onOnlineSearchClick = {
+                        navController.navigate("online_search")
                     }
                 )
             }
@@ -430,9 +438,17 @@ private fun MainContent(
                 EbookDetailScreen(
                     series = uiState.value.series,
                     characters = uiState.value.characters,
+                    isOnline = uiState.value.isOnline,
+                    onlineChapters = uiState.value.onlineChapters,
+                    ebook = uiState.value.ebook,
                     onBackClick = { navController.popBackStack() },
                     onEbookClick = { ebookId ->
                         navController.navigate("ebook_volume/$ebookId")
+                    },
+                    onOnlineChapterClick = { chapterUrl ->
+                        val encodedTitle = android.net.Uri.encode(uiState.value.series?.name ?: "")
+                        val encodedChapterUrl = android.net.Uri.encode(chapterUrl)
+                        navController.navigate("ebook_reader/$seriesId/$encodedTitle?isOnline=true")
                     }
                 )
             }
@@ -480,11 +496,12 @@ private fun MainContent(
             }
 
             composable(
-                route = "ebook_reader/{ebookId}/{title}?startChapter={startChapter}",
+                route = "ebook_reader/{ebookId}/{title}?startChapter={startChapter}&isOnline={isOnline}",
                 arguments = listOf(
                     navArgument("ebookId") { type = NavType.LongType },
                     navArgument("title") { type = NavType.StringType },
-                    navArgument("startChapter") { type = NavType.IntType; defaultValue = 0 }
+                    navArgument("startChapter") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("isOnline") { type = NavType.BoolType; defaultValue = false }
                 ),
                 enterTransition = {
                     fadeIn(animationSpec = tween(300))
@@ -496,11 +513,28 @@ private fun MainContent(
                 val ebookId = backStackEntry.arguments?.getLong("ebookId") ?: 0L
                 val title = backStackEntry.arguments?.getString("title") ?: ""
                 val startChapter = backStackEntry.arguments?.getInt("startChapter") ?: 0
+                val isOnline = backStackEntry.arguments?.getBoolean("isOnline") ?: false
                 EbookReaderScreen(
                     ebookId = ebookId,
                     ebookTitle = title,
                     startChapter = startChapter,
+                    isOnline = isOnline,
                     onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            composable("book_sources") {
+                BookSourcesScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("online_search") {
+                OnlineSearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onBookAdded = { ebookId ->
+                        navController.navigate("ebook_detail/$ebookId")
+                    }
                 )
             }
 

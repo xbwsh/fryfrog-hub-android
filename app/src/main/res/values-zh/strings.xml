@@ -170,4 +170,29 @@
     <string name="scrape_adult_short">补全分级</string>
     <string name="scrape_adult_desc">批量将所有库中的内容标记为成人内容</string>
     <string name="scrape_adult_result">已更新 %d 项</string>
+
+    <!-- Book Source -->
+    <string name="book_sources_title">书源管理</string>
+    <string name="import_source">导入书源</string>
+    <string name="import_book_source">导入书源</string>
+    <string name="import_source_url_hint">输入书源 URL 进行导入：</string>
+    <string name="import_action">导入</string>
+    <string name="no_book_sources">暂无书源</string>
+    <string name="import_source_hint">点击 + 从 URL 导入书源</string>
+    <string name="delete_source">删除书源</string>
+    <string name="delete_source_confirm">确定要删除「%s」吗？</string>
+
+    <!-- Online Search -->
+    <string name="online_search">在线搜索</string>
+    <string name="search_hint">搜索在线书籍…</string>
+    <string name="search_results">搜索结果</string>
+    <string name="no_search_results_ebook">未找到书籍</string>
+    <string name="add_to_shelf">加入书架</string>
+    <string name="added_to_shelf">已加入书架</string>
+    <string name="source_label">来源：%s</string>
+    <string name="word_count">字数：%s</string>
+    <string name="last_chapter">最新：%s</string>
+    <string name="online_book_badge">在线</string>
+    <string name="select_source">选择书源</string>
+    <string name="all_sources">全部书源</string>
 </resources>

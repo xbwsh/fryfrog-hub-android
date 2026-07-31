@@ -133,6 +133,47 @@ class MediaRepository {
         api.getEbookCharacters(ebookId).data?.map { it.copy(imageUrl = fixUrl(it.imageUrl)) } ?: emptyList()
     }
 
+    // Book Source (书源管理)
+    suspend fun getBookSources(): Result<List<BookSource>> = safeApiCall {
+        api.getBookSources().data ?: emptyList()
+    }
+
+    suspend fun importBookSources(url: String): Result<List<BookSource>> = safeApiCall {
+        api.importBookSources(url).data ?: emptyList()
+    }
+
+    suspend fun toggleBookSource(id: Long, enabled: Boolean): Result<BookSource> = safeApiCall {
+        api.toggleBookSource(id, enabled).data ?: throw Exception("Failed to toggle book source")
+    }
+
+    suspend fun deleteBookSource(id: Long): Result<Map<String, Any>> = safeApiCall {
+        api.deleteBookSource(id).data ?: emptyMap()
+    }
+
+    // Online Book Search (在线搜索)
+    suspend fun searchOnlineBooks(keyword: String, sourceId: Long? = null): Result<List<OnlineBookResult>> = safeApiCall {
+        api.searchOnlineBooks(keyword, sourceId).data ?: emptyList()
+    }
+
+    suspend fun getOnlineBookChapters(bookUrl: String, sourceId: Long): Result<List<OnlineChapterInfo>> = safeApiCall {
+        api.getOnlineBookChapters(bookUrl, sourceId).data ?: emptyList()
+    }
+
+    suspend fun addToShelfOnline(request: AddToShelfRequest): Result<EbookDTO> = safeApiCall {
+        api.addToShelfOnline(request).data ?: throw Exception("Failed to add to shelf")
+    }
+
+    // Unified Ebook API (统一电子书接口)
+    suspend fun getUnifiedEbookDetail(id: Long): Result<EbookDTO> = safeApiCall {
+        api.getEbookDetail(id).data?.let { ebook ->
+            ebook.copy(coverUrl = fixUrl(ebook.coverUrl))
+        } ?: throw Exception("Ebook not found")
+    }
+
+    suspend fun getOnlineChapters(ebookId: Long): Result<List<UnifiedEbookChapterInfo>> = safeApiCall {
+        api.getOnlineChapters(ebookId).data ?: emptyList()
+    }
+
     // TMDB Scraping
     suspend fun searchTmdb(query: String): Result<List<TmdbSearchResult>> = safeApiCall {
         android.util.Log.d("MediaRepository", "searchTmdb: query=$query")

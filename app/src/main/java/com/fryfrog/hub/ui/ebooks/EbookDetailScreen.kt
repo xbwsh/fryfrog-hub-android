@@ -30,6 +30,7 @@ import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.EbookDTO
 import com.fryfrog.hub.data.model.EbookSeries
 import com.fryfrog.hub.data.model.MediaCharacter
+import com.fryfrog.hub.data.model.UnifiedEbookChapterInfo
 import com.fryfrog.hub.ui.components.*
 import com.fryfrog.hub.ui.theme.*
 
@@ -38,8 +39,12 @@ import com.fryfrog.hub.ui.theme.*
 fun EbookDetailScreen(
     series: EbookSeries?,
     characters: List<MediaCharacter>,
+    isOnline: Boolean = false,
+    onlineChapters: List<UnifiedEbookChapterInfo> = emptyList(),
+    ebook: EbookDTO? = null,
     onBackClick: () -> Unit,
-    onEbookClick: (Long) -> Unit
+    onEbookClick: (Long) -> Unit,
+    onOnlineChapterClick: (String) -> Unit = {}
 ) {
     if (series == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -179,6 +184,38 @@ fun EbookDetailScreen(
                 }
                 item(span = { GridItemSpan(3) }) {
                     CharactersRow(characters = characters)
+                }
+            }
+
+            // 在线书籍章节目录
+            if (isOnline && onlineChapters.isNotEmpty()) {
+                item(span = { GridItemSpan(3) }) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(4.dp)
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                        Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                        Text(
+                            text = stringResource(R.string.episodes),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                items(onlineChapters.size, key = { onlineChapters[it].chapterNum }) { index ->
+                    val chapter = onlineChapters[index]
+                    OnlineChapterItem(
+                        chapter = chapter,
+                        onClick = { onOnlineChapterClick(chapter.chapterUrl) }
+                    )
                 }
             }
 
@@ -328,5 +365,40 @@ private fun EbookVolumeGridItem(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+fun OnlineChapterItem(
+    chapter: UnifiedEbookChapterInfo,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Dimens.spacingSm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = chapter.chapterName,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (chapter.cached == true) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }

@@ -49,7 +49,8 @@ fun EbookReaderScreen(
     ebookId: Long,
     ebookTitle: String,
     startChapter: Int = 0,
-    viewModel: EbookReaderViewModel = viewModel(factory = EbookReaderViewModelFactory(ebookId)),
+    isOnline: Boolean = false,
+    viewModel: EbookReaderViewModel = viewModel(factory = EbookReaderViewModelFactory(ebookId, isOnline)),
     onBackClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -60,9 +61,12 @@ fun EbookReaderScreen(
     var showControls by remember { mutableStateOf(true) }
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
 
+    // 获取章节数量（根据是在线还是本地）
+    val chapterSize = if (isOnline) uiState.onlineChapters.size else uiState.chapters.size
+
     // 继续阅读：设置初始章节
-    LaunchedEffect(startChapter, uiState.chapters.size) {
-        if (startChapter > 0 && startChapter < uiState.chapters.size) {
+    LaunchedEffect(startChapter, chapterSize) {
+        if (startChapter > 0 && startChapter < chapterSize) {
             viewModel.loadChapter(startChapter)
         }
     }
@@ -109,10 +113,18 @@ fun EbookReaderScreen(
             AnimatedVisibility(visible = showControls) {
                 TopAppBar(
                     title = {
-                        val chapterTitle = if (uiState.chapters.isNotEmpty() && uiState.currentChapterIndex < uiState.chapters.size) {
-                            uiState.chapters[uiState.currentChapterIndex].title
+                        val chapterTitle = if (isOnline) {
+                            if (uiState.onlineChapters.isNotEmpty() && uiState.currentChapterIndex < uiState.onlineChapters.size) {
+                                uiState.onlineChapters[uiState.currentChapterIndex].chapterName
+                            } else {
+                                ebookTitle
+                            }
                         } else {
-                            ebookTitle
+                            if (uiState.chapters.isNotEmpty() && uiState.currentChapterIndex < uiState.chapters.size) {
+                                uiState.chapters[uiState.currentChapterIndex].title
+                            } else {
+                                ebookTitle
+                            }
                         }
                         Text(chapterTitle)
                     },
@@ -305,7 +317,7 @@ fun EbookReaderScreen(
                         } else {
                             Spacer(modifier = Modifier.width(1.dp))
                         }
-                        if (uiState.currentChapterIndex < uiState.chapters.size - 1) {
+                        if (uiState.currentChapterIndex < chapterSize - 1) {
                             Button(
                                 onClick = { viewModel.loadChapter(uiState.currentChapterIndex + 1) }
                             ) {
@@ -372,28 +384,55 @@ fun EbookReaderScreen(
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        uiState.chapters.forEachIndexed { index, chapter ->
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = if (index == uiState.currentChapterIndex) {
-                                    Primary.copy(alpha = 0.1f)
-                                } else {
-                                    Color.Transparent
-                                },
-                                onClick = {
-                                    viewModel.loadChapter(index)
-                                    showChapterList = false
-                                }
-                            ) {
-                                Text(
-                                    text = chapter.title,
-                                    modifier = Modifier.padding(Dimens.spacingMd),
+                        if (isOnline) {
+                            uiState.onlineChapters.forEachIndexed { index, chapter ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
                                     color = if (index == uiState.currentChapterIndex) {
-                                        Primary
+                                        Primary.copy(alpha = 0.1f)
                                     } else {
-                                        MaterialTheme.colorScheme.onSurface
+                                        Color.Transparent
+                                    },
+                                    onClick = {
+                                        viewModel.loadChapter(index)
+                                        showChapterList = false
                                     }
-                                )
+                                ) {
+                                    Text(
+                                        text = chapter.chapterName,
+                                        modifier = Modifier.padding(Dimens.spacingMd),
+                                        color = if (index == uiState.currentChapterIndex) {
+                                            Primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            uiState.chapters.forEachIndexed { index, chapter ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = if (index == uiState.currentChapterIndex) {
+                                        Primary.copy(alpha = 0.1f)
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                    onClick = {
+                                        viewModel.loadChapter(index)
+                                        showChapterList = false
+                                    }
+                                ) {
+                                    Text(
+                                        text = chapter.title,
+                                        modifier = Modifier.padding(Dimens.spacingMd),
+                                        color = if (index == uiState.currentChapterIndex) {
+                                            Primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

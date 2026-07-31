@@ -12,7 +12,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshotFlow
@@ -32,7 +34,9 @@ import com.fryfrog.hub.ui.theme.Dimens
 @Composable
 fun EbooksScreen(
     viewModel: EbooksViewModel = viewModel(),
-    onEbookClick: (Long) -> Unit = {}
+    onEbookClick: (Long) -> Unit = {},
+    onBookSourcesClick: () -> Unit = {},
+    onOnlineSearchClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -43,6 +47,12 @@ fun EbooksScreen(
                 title = { Text(stringResource(R.string.section_ebooks)) },
                 modifier = Modifier.statusBarsPadding(),
                 actions = {
+                    IconButton(onClick = onOnlineSearchClick) {
+                        Icon(Icons.Default.Search, contentDescription = stringResource(R.string.online_search))
+                    }
+                    IconButton(onClick = onBookSourcesClick) {
+                        Icon(Icons.Default.MenuBook, contentDescription = stringResource(R.string.book_sources_title))
+                    }
                     IconButton(onClick = { viewModel.loadEbooks() }) {
                         Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
