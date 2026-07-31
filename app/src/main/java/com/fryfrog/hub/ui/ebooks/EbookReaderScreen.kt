@@ -2,8 +2,11 @@
 
 package com.fryfrog.hub.ui.ebooks
 
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.fryfrog.hub.data.remote.ApiClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
@@ -210,11 +213,39 @@ fun EbookReaderScreen(
 
                         AndroidView(
                             factory = { context ->
+                                val token = ApiClient.getToken()
                                 WebView(context).apply {
-                                    webViewClient = WebViewClient()
+                                    webViewClient = object : WebViewClient() {
+                                        override fun shouldInterceptRequest(
+                                            view: WebView?,
+                                            request: WebResourceRequest?
+                                        ): WebResourceResponse? {
+                                            if (request != null && token != null) {
+                                                val url = request.url.toString()
+                                                if (url.startsWith("http")) {
+                                                    try {
+                                                        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                                                        connection.setRequestProperty("Authorization", "Bearer $token")
+                                                        connection.connectTimeout = 15000
+                                                        connection.readTimeout = 30000
+                                                        val contentType = connection.contentType ?: "image/*"
+                                                        val mimeType = contentType.split(";").firstOrNull() ?: "image/*"
+                                                        val encoding = connection.contentEncoding ?: "UTF-8"
+                                                        val inputStream = connection.inputStream
+                                                        return WebResourceResponse(mimeType, encoding, inputStream)
+                                                    } catch (e: Exception) {
+                                                        // 失败时让 WebView 自己处理
+                                                    }
+                                                }
+                                            }
+                                            return super.shouldInterceptRequest(view, request)
+                                        }
+                                    }
                                     settings.javaScriptEnabled = false
                                     settings.loadWithOverviewMode = true
                                     settings.useWideViewPort = true
+                                    settings.blockNetworkImage = false
+                                    settings.loadsImagesAutomatically = true
                                 }
                             },
                             update = { webView ->
