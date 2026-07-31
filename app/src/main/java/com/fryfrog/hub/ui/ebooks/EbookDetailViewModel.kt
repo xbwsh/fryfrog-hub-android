@@ -32,7 +32,28 @@ class EbookDetailViewModel(private val seriesId: Long) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val seriesResult = repository.getEbookSeries()
-            val series = seriesResult.getOrNull()?.content?.find { it.seriesId == seriesId }
+            val allSeries = seriesResult.getOrNull()?.content ?: emptyList()
+            
+            // 先尝试按 seriesId 查找
+            var series = allSeries.find { it.seriesId == seriesId }
+            
+            // 如果没找到，尝试作为 bookId 查找（未刮削的电子书）
+            if (series == null) {
+                val book = allSeries.flatMap { it.books ?: emptyList() }.find { it.id == seriesId }
+                if (book != null) {
+                    // 创建一个临时的 series 对象
+                    series = EbookSeries(
+                        seriesId = null,
+                        name = book.title,
+                        coverUrl = book.coverUrl,
+                        author = book.author,
+                        hasCover = book.coverUrl != null,
+                        volumeCount = 1,
+                        seriesSummary = book.summary,
+                        books = listOf(book)
+                    )
+                }
+            }
 
             val characters = if (series != null) {
                 val firstBookId = series.books?.firstOrNull()?.id

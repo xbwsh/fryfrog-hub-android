@@ -2,6 +2,7 @@
 
 package com.fryfrog.hub.ui.ebooks
 
+import android.app.Activity
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -35,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fryfrog.hub.R
 import com.fryfrog.hub.ui.theme.*
@@ -69,6 +73,21 @@ fun EbookReaderScreen(
     }
 
     BackHandler { onBackClick() }
+
+    // 进入阅读时隐藏系统栏，退出时恢复
+    DisposableEffect(Unit) {
+        val activity = context as? Activity
+        val controller = activity?.let {
+            WindowCompat.getInsetsController(it.window, it.window.decorView)
+        }
+        controller?.let {
+            it.hide(WindowInsetsCompat.Type.systemBars())
+            it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
 
     Box(
         modifier = Modifier

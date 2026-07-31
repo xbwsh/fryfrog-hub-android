@@ -94,7 +94,10 @@ fun EbooksScreen(
                 items(uiState.series) { ebook ->
                     EbookCard(
                         ebook = ebook,
-                        onClick = { ebook.seriesId?.let { onEbookClick(it) } }
+                        onClick = {
+                            val id = ebook.seriesId ?: ebook.books?.firstOrNull()?.id
+                            id?.let { onEbookClick(it) }
+                        }
                     )
                 }
 

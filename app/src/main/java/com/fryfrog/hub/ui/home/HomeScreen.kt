@@ -160,7 +160,10 @@ private fun HomeContent(
                         title = item.name ?: unknownTitle,
                         subtitle = item.author,
                         coverUrl = item.coverUrl,
-                        onClick = { item.seriesId?.let { onEbookClick(it) } }
+                        onClick = {
+                            val id = item.seriesId ?: item.books?.firstOrNull()?.id
+                            id?.let { onEbookClick(it) }
+                        }
                     )
                 }
                 else -> emptyList()
@@ -277,7 +280,10 @@ private fun HomeContent(
                                             title = series.name ?: unknownTitle,
                                             subtitle = series.author,
                                             coverUrl = series.coverUrl,
-                                            onClick = { series.seriesId?.let { onEbookClick(it) } }
+                                            onClick = {
+                                                val id = series.seriesId ?: series.books?.firstOrNull()?.id
+                                                id?.let { onEbookClick(it) }
+                                            }
                                         )
                                     }
                                 }
