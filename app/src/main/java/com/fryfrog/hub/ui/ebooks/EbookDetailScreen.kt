@@ -44,7 +44,7 @@ fun EbookDetailScreen(
     ebook: EbookDTO? = null,
     onBackClick: () -> Unit,
     onEbookClick: (Long) -> Unit,
-    onOnlineChapterClick: (String) -> Unit = {}
+    onOnlineChapterClick: (String?) -> Unit = {}
 ) {
     if (series == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
