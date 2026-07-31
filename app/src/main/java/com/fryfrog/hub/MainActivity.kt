@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -252,26 +253,26 @@ private fun MainContent(
                 enterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 exitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 popExitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 }
             ) { backStackEntry ->
                 val seriesId = backStackEntry.arguments?.getLong("seriesId") ?: 0L
@@ -295,26 +296,26 @@ private fun MainContent(
                 enterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 exitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 popExitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 }
             ) { backStackEntry ->
                 val comicId = backStackEntry.arguments?.getLong("comicId") ?: 0L
@@ -399,26 +400,26 @@ private fun MainContent(
                 enterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 exitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 popExitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 }
             ) { backStackEntry ->
                 val seriesId = backStackEntry.arguments?.getLong("seriesId") ?: 0L
@@ -442,26 +443,26 @@ private fun MainContent(
                 enterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 exitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 popExitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 }
             ) { backStackEntry ->
                 val ebookId = backStackEntry.arguments?.getLong("ebookId") ?: 0L
@@ -512,26 +513,26 @@ private fun MainContent(
                 enterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 exitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
                     slideInHorizontally(
                         initialOffsetX = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 popExitTransition = {
                     slideOutHorizontally(
                         targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 }
             ) { backStackEntry ->
                 val seriesId = backStackEntry.arguments?.getLong("seriesId") ?: 0L
@@ -560,26 +561,26 @@ private fun MainContent(
                 enterTransition = {
                     slideInVertically(
                         initialOffsetY = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 exitTransition = {
                     slideOutVertically(
                         targetOffsetY = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 },
                 popEnterTransition = {
                     slideInVertically(
                         initialOffsetY = { -it / 3 },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
                 },
                 popExitTransition = {
                     slideOutVertically(
                         targetOffsetY = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
                 }
             ) { backStackEntry ->
                 val videoId = backStackEntry.arguments?.getLong("videoId") ?: 0L
