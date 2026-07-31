@@ -142,7 +142,7 @@ class EbookReaderViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val chapterUrl = onlineChapters[index].chapterUrl
+                val chapterUrl = onlineChapters[index].chapterUrl ?: throw Exception("章节URL为空")
                 val response = ApiClient.getApi().readOnlineChapter(ebookId, chapterUrl)
                 if (response.isSuccessful) {
                     val content = response.body()?.string() ?: ""
