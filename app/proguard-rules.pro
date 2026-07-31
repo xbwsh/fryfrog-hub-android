@@ -28,6 +28,11 @@
 -keep class com.fryfrog.hub.data.model.** { *; }
 -keepclassmembers class com.fryfrog.hub.data.model.** { *; }
 
+# MPV Player (JNI) - must match libplayer.so JNI symbols
+-keep class is.xyz.mpv.** { *; }
+-keep class ** extends is.xyz.mpv.MPVLib$EventObserver { *; }
+-keep class ** extends is.xyz.mpv.MPVLib$LogObserver { *; }
+
 # Keep API response models
 -keep class com.fryfrog.hub.data.remote.** { *; }
 
