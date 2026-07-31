@@ -173,7 +173,11 @@ data class EbookDTO(
     val format: String?,
     val favorite: Boolean?,
     val coverUrl: String?,
-    val rating: Double?
+    val rating: Double?,
+    val sourceType: String? = null,
+    val isOnline: Boolean? = null,
+    val bookSourceId: Long? = null,
+    val onlineUrl: String? = null
 )
 
 // Character (通用角色模型，用于漫画和电子书)
