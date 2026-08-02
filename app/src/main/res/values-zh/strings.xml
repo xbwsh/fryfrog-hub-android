@@ -25,13 +25,11 @@
     <string name="section_home">首页</string>
     <string name="section_videos">视频</string>
     <string name="section_continue_watching">继续观看</string>
-    <string name="section_music">音乐</string>
-    <string name="section_comics">漫画</string>
-    <string name="section_ebooks">电子书</string>
+    <string name="section_media_libraries">媒体库</string>
+    <string name="section_me">我的</string>
     <string name="section_settings">设置</string>
 
     <!-- Common -->
-    <string name="unknown_album">未知专辑</string>
     <string name="back">返回</string>
     <string name="play">播放</string>
     <string name="actors">演员</string>
@@ -58,7 +56,8 @@
     <string name="bitrate">码率</string>
     <string name="file_size">文件大小</string>
     <string name="format">格式</string>
-    <string name="file_name">文件名</string>`n    <string name="original_file_name">原始片名</string>
+    <string name="file_name">文件名</string>
+    <string name="original_file_name">原始片名</string>
 
     <!-- Settings -->
     <string name="appearance">外观</string>
@@ -72,10 +71,6 @@
     <string name="privacy_mode_desc">隐藏视频中的成人内容</string>
     <string name="home_layout">首页布局</string>
     <string name="carousel_enabled">显示轮播图</string>
-    <string name="carousel_source">轮播图来源</string>
-    <string name="home_section_order_desc">调整首页各分区的显示顺序</string>
-    <string name="move_up">上移</string>
-    <string name="move_down">下移</string>
 
     <!-- Media Libraries -->
     <string name="media_libraries">媒体资源库</string>
@@ -94,7 +89,9 @@
     <string name="logout_confirm">确定要退出登录吗？</string>
     <string name="confirm">确定</string>
     <string name="resume_play">继续播放</string>
-    <string name="watched">已看完</string>`n    <string name="watched_percent">已看%1$s%%</string>`n    <string name="play_from_start">从头播放</string>
+    <string name="watched">已看完</string>
+    <string name="watched_percent">已看%1$s%%</string>
+    <string name="play_from_start">从头播放</string>
     <string name="disabled">已禁用</string>
     <string name="create_library">新建资源库</string>
     <string name="library_name">名称</string>
@@ -112,19 +109,6 @@
     <string name="select_directory">选择目录</string>
     <string name="browse">浏览</string>
     <string name="select">选择</string>
-
-    <!-- Music -->
-    <string name="section_albums">专辑</string>
-    <string name="section_recently_added">最近添加</string>
-    <string name="tracks">首</string>
-
-    <!-- Comic & Ebook -->
-    <string name="comic_volumes">卷数</string>
-    <string name="ebook_volumes">书目</string>
-    <string name="volumes">卷数</string>
-    <string name="ebook_count">书目</string>
-    <string name="start_date">连载日期</string>
-    <string name="characters">角色</string>
 
     <!-- TMDB Scraping -->
     <string name="tmdb_scrape">TMDB 刮削</string>

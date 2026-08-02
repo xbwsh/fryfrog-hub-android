@@ -92,103 +92,6 @@ data class VideoActor(
     val imageUrl: String?
 )
 
-// Music
-data class AlbumGroup(
-    val artist: String?,
-    val album: String?,
-    val coverUrl: String?,
-    val year: Int?,
-    val tracks: List<MusicTrack>?
-)
-
-data class MusicTrack(
-    val id: Long,
-    val title: String,
-    val artist: String?,
-    val album: String?,
-    val duration: Long?,
-    val filePath: String?,
-    val coverUrl: String?,
-    val trackNumber: Int?,
-    val year: Int?,
-    val genre: String?,
-    val favorite: Boolean?
-)
-
-// Comic
-data class ComicSeries(
-    val seriesId: Long?,
-    val name: String?,
-    val coverUrl: String?,
-    val author: String?,
-    val hasCover: Boolean?,
-    val volumeCount: Int?,
-    val seriesSummary: String?,
-    val serializationStart: String?,
-    val comics: List<ComicDTO>?
-)
-
-data class ComicDTO(
-    val id: Long,
-    val title: String,
-    val author: String?,
-    val series: String?,
-    val volume: Int?,
-    val year: Int?,
-    val genre: String?,
-    val summary: String?,
-    val fileName: String?,
-    val fileSize: Long?,
-    val pageCount: Int?,
-    val format: String?,
-    val favorite: Boolean?,
-    val coverUrl: String?,
-    val rating: Double?
-)
-
-// Ebook
-data class EbookSeries(
-    val seriesId: Long?,
-    val name: String?,
-    val coverUrl: String?,
-    val author: String?,
-    val hasCover: Boolean?,
-    val volumeCount: Int?,
-    val seriesSummary: String?,
-    val books: List<EbookDTO>?
-)
-
-data class EbookDTO(
-    val id: Long,
-    val title: String,
-    val author: String?,
-    val series: String?,
-    val volume: Int?,
-    val year: Int?,
-    val genre: String?,
-    val summary: String?,
-    val fileName: String?,
-    val fileSize: Long?,
-    val pageCount: Int?,
-    val format: String?,
-    val favorite: Boolean?,
-    val coverUrl: String?,
-    val rating: Double?,
-    val sourceType: String? = null
-)
-
-// Character (通用角色模型，用于漫画和电子书)
-data class MediaCharacter(
-    val id: Long,
-    val name: String,
-    val originalName: String?,
-    val description: String?,
-    val role: String?,
-    val sourceCharacterId: Long?,
-    val source: String?,
-    val imageUrl: String?
-)
-
 // Subtitle
 data class SubtitleDTO(
     val filename: String,
@@ -228,37 +131,6 @@ data class MediaLibrary(
     val updatedAt: String?
 )
 
-// Comic Reading - API returns data as direct array
-typealias ComicPagesResponse = List<ComicPageInfo>
-
-data class ComicPageInfo(
-    val pageNum: Int,
-    val fileName: String
-)
-
-// Ebook Reading - API returns data as direct array
-typealias EbookChaptersResponse = List<EbookChapterInfo>
-
-data class EbookChapterInfo(
-    val chapterNum: Int,
-    val title: String
-)
-
-// Reading Progress
-data class ReadingProgress(
-    val id: Long,
-    val currentPage: Int,
-    val totalPages: Int,
-    val completed: Boolean,
-    val progressPercent: Double,
-    val updatedAt: String?
-)
-
-data class ReadingProgressRequest(
-    val currentPage: Int,
-    val totalPages: Int
-)
-
 // TMDB Scraping
 data class TmdbSearchResult(
     val id: Long,
@@ -278,4 +150,14 @@ data class TmdbBindRequest(
     val mediaType: String
 )
 
-
+// Library Grouped Videos
+data class LibraryGroup(
+    val libraryId: Long?,
+    val libraryName: String,
+    val libraryPath: String? = null,
+    val subType: String? = null,
+    val series: List<SeriesDTO>,
+    val standaloneVideos: List<SeriesDTO>,
+    val seriesCount: Int,
+    val standaloneCount: Int
+)

@@ -26,30 +26,15 @@ import androidx.compose.ui.unit.dp
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.Primary
 
-private val SECTION_ROUTE_MAP = mapOf(
-    "videos" to "videos",
-    "music" to "music",
-    "comics" to "comics",
-    "ebooks" to "ebooks"
-)
-
 @Composable
 fun FryfrogBottomBar(
     currentRoute: String?,
-    onNavigate: (String) -> Unit,
-    sectionVisible: Map<String, Boolean> = mapOf(
-        "videos" to true, "music" to true, "comics" to true, "ebooks" to true
-    )
+    onNavigate: (String) -> Unit
 ) {
-    val visibleScreens = bottomNavScreens.filter { screen ->
-        val sectionId = SECTION_ROUTE_MAP[screen.route]
-        sectionId == null || sectionVisible[sectionId] != false
-    }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
             .padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs)
     ) {
         Row(
@@ -57,17 +42,17 @@ fun FryfrogBottomBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            visibleScreens.forEach { screen ->
+            bottomNavScreens.forEach { screen ->
                 val isSelected = currentRoute == screen.route
 
                 val iconColor by animateColorAsState(
-                    targetValue = if (isSelected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    targetValue = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     animationSpec = spring(),
                     label = "iconColor"
                 )
 
                 val textColor by animateColorAsState(
-                    targetValue = if (isSelected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    targetValue = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     animationSpec = spring(),
                     label = "textColor"
                 )

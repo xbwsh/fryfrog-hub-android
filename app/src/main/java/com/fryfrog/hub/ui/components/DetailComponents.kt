@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.fryfrog.hub.data.model.MediaCharacter
 import com.fryfrog.hub.ui.theme.*
 
 /**
@@ -187,84 +186,7 @@ fun SectionTitle(
     }
 }
 
-/**
- * 角色行 - 水平滚动的角色列表
- */
-@Composable
-fun CharactersRow(
-    characters: List<MediaCharacter>,
-    modifier: Modifier = Modifier
-) {
-    LazyRow(
-        modifier = modifier.height(120.dp),
-        contentPadding = PaddingValues(start = 0.dp, end = Dimens.spacingLg),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
-    ) {
-        items(characters) { character ->
-            CharacterAvatar(character = character)
-        }
-    }
-}
 
-/**
- * 角色头像卡片 - 圆形，显示上半部分
- * 对应 Web 的 object-fit: cover + object-position: top
- */
-@Composable
-fun CharacterAvatar(
-    character: MediaCharacter,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.width(80.dp).height(110.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(68.dp)
-                .clip(CircleShape)
-                .border(2.dp, Primary, CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            if (character.imageUrl != null) {
-                AsyncImage(
-                    model = character.imageUrl,
-                    contentDescription = character.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    alignment = Alignment.TopCenter
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(Dimens.spacingSm))
-        Text(
-            text = character.name,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        character.originalName?.let { origName ->
-            if (origName != character.name) {
-                Text(
-                    text = origName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
 
 /**
  * 卷/册列表卡片 - 现代设计

@@ -5,27 +5,38 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ViewModule
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fryfrog.hub.R
+import com.fryfrog.hub.data.model.LibraryGroup
+import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.ui.components.MediaCard
 import com.fryfrog.hub.ui.components.SectionHeader
 import com.fryfrog.hub.ui.components.WideMediaCard
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Primary
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private const val CAROUSEL_AUTO_SCROLL_DELAY = 3000L
 private const val CAROUSEL_MAX_ITEMS = 5
@@ -35,103 +46,120 @@ private const val CAROUSEL_MAX_ITEMS = 5
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
     isAdultContentHidden: Boolean = true,
-    sectionOrder: List<String> = listOf("videos", "music", "comics", "ebooks"),
-    sectionVisible: Map<String, Boolean> = mapOf(
-        "videos" to true, "music" to true, "comics" to true, "ebooks" to true
-    ),
-    carouselSource: String = "videos",
     isCarouselEnabled: Boolean = true,
-    onVideoClick: (Long, String) -> Unit = { _, _ -> },
-    onMusicClick: (Long) -> Unit = {},
-    onComicClick: (Long) -> Unit = {},
-    onEbookClick: (Long) -> Unit = {}
+    homeViewMode: String = "grouped",
+    onViewModeChange: (String) -> Unit = {},
+    onVideoClick: (Long, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    LaunchedEffect(isAdultContentHidden) {
+        viewModel.setAdultContentHidden(isAdultContentHidden)
+    }
+
+    LaunchedEffect(homeViewMode) {
+        viewModel.setViewMode(homeViewMode)
+    }
+
     Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                modifier = Modifier.statusBarsPadding(),
-                actions = {
-                    IconButton(onClick = { viewModel.loadHomeData() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.refresh)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
-        if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (uiState.error != null) {
+                ErrorContent(
+                    message = uiState.error ?: stringResource(R.string.unknown_error),
+                    onRetry = { viewModel.loadHomeData() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                if (homeViewMode == "grouped") {
+                    GroupedContent(
+                        uiState = uiState,
+                        isCarouselEnabled = isCarouselEnabled,
+                        onVideoClick = onVideoClick,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    OverviewContent(
+                        uiState = uiState,
+                        isCarouselEnabled = isCarouselEnabled,
+                        onVideoClick = onVideoClick,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .height(Dimens.topBarGradientHeight)
             ) {
-                CircularProgressIndicator()
+                val gradientColors = listOf(
+                    Color.Black.copy(alpha = 0.6f),
+                    Color.Black.copy(alpha = 0.3f),
+                    Color.Transparent
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.verticalGradient(gradientColors))
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .padding(horizontal = Dimens.spacingMd)
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f).align(Alignment.CenterVertically)
+                    )
+                    Row(modifier = Modifier.align(Alignment.CenterVertically)) {
+                        IconButton(onClick = {
+                            val newMode = if (homeViewMode == "grouped") "overview" else "grouped"
+                            onViewModeChange(newMode)
+                        }) {
+                            Icon(
+                                imageVector = if (homeViewMode == "grouped") Icons.Default.ViewList else Icons.Default.ViewModule,
+                                contentDescription = if (homeViewMode == "grouped") "总览模式" else "分组模式",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = { viewModel.loadHomeData() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.refresh),
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
             }
-        } else if (uiState.error != null) {
-            ErrorContent(
-                message = uiState.error ?: stringResource(R.string.unknown_error),
-                onRetry = { viewModel.loadHomeData() },
-                modifier = Modifier.padding(paddingValues)
-            )
-        } else {
-            HomeContent(
-                uiState = uiState,
-                isAdultContentHidden = isAdultContentHidden,
-                sectionOrder = sectionOrder,
-                sectionVisible = sectionVisible,
-                carouselSource = carouselSource,
-                isCarouselEnabled = isCarouselEnabled,
-                onVideoClick = onVideoClick,
-                onMusicClick = onMusicClick,
-                onComicClick = onComicClick,
-                onEbookClick = onEbookClick,
-                modifier = Modifier.padding(paddingValues)
-            )
         }
     }
 }
 
 @Composable
-private fun HomeContent(
+private fun GroupedContent(
     uiState: HomeUiState,
-    isAdultContentHidden: Boolean,
-    sectionOrder: List<String>,
-    sectionVisible: Map<String, Boolean>,
-    carouselSource: String,
     isCarouselEnabled: Boolean,
     onVideoClick: (Long, String) -> Unit,
-    onMusicClick: (Long) -> Unit,
-    onComicClick: (Long) -> Unit,
-    onEbookClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val unknownTitle = stringResource(R.string.unknown)
-
-    val filteredVideoSeries by remember(uiState.videoSeries, isAdultContentHidden) {
+    val carouselItems by remember(uiState.libraryGroups, isCarouselEnabled) {
         derivedStateOf {
-            if (isAdultContentHidden) {
-                uiState.videoSeries.filter { it.isAdult != true }
-            } else {
-                uiState.videoSeries
-            }
-        }
-    }
-
-    // Build carousel items from the selected source with random shuffle
-    val carouselItems by remember(filteredVideoSeries, uiState.musicAlbums, uiState.comicSeries, uiState.ebookSeries, carouselSource, isAdultContentHidden) {
-        derivedStateOf {
-            when (carouselSource) {
-                "videos" -> filteredVideoSeries.shuffled().take(CAROUSEL_MAX_ITEMS).map { item ->
+            if (isCarouselEnabled) {
+                uiState.allVideos.shuffled().take(CAROUSEL_MAX_ITEMS).map { item ->
                     CarouselItem(
                         title = item.title,
                         subtitle = item.year?.toString(),
@@ -139,34 +167,8 @@ private fun HomeContent(
                         onClick = { onVideoClick(item.id, item.type ?: "series") }
                     )
                 }
-                "music" -> uiState.musicAlbums.shuffled().take(CAROUSEL_MAX_ITEMS).map { item ->
-                    CarouselItem(
-                        title = item.album ?: "",
-                        subtitle = item.artist,
-                        coverUrl = item.coverUrl,
-                        onClick = { item.tracks?.firstOrNull()?.let { onMusicClick(it.id) } }
-                    )
-                }
-                "comics" -> uiState.comicSeries.shuffled().take(CAROUSEL_MAX_ITEMS).map { item ->
-                    CarouselItem(
-                        title = item.name ?: unknownTitle,
-                        subtitle = item.author,
-                        coverUrl = item.coverUrl,
-                        onClick = { item.seriesId?.let { onComicClick(it) } }
-                    )
-                }
-                "ebooks" -> uiState.ebookSeries.shuffled().take(CAROUSEL_MAX_ITEMS).map { item ->
-                    CarouselItem(
-                        title = item.name ?: unknownTitle,
-                        subtitle = item.author,
-                        coverUrl = item.coverUrl,
-                        onClick = {
-                            val id = item.seriesId ?: item.books?.firstOrNull()?.id
-                            id?.let { onEbookClick(it) }
-                        }
-                    )
-                }
-                else -> emptyList()
+            } else {
+                emptyList()
             }
         }
     }
@@ -175,122 +177,95 @@ private fun HomeContent(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = Dimens.spacingLg)
     ) {
-        // Carousel
+        // 轮播图
         if (isCarouselEnabled && carouselItems.isNotEmpty()) {
             item {
                 CarouselSection(items = carouselItems)
             }
         }
 
-        // Dynamic sections based on order and visibility
-        sectionOrder.forEachIndexed { index, sectionId ->
-            if (sectionVisible[sectionId] != false) {
-                when (sectionId) {
-                    "videos" -> {
-                        if (filteredVideoSeries.isNotEmpty()) {
-                            if (index > 0 || (isCarouselEnabled && carouselItems.isNotEmpty())) {
-                                item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
-                            }
-                            item {
-                                SectionHeader(title = stringResource(R.string.section_videos))
-                            }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
-                                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
-                                ) {
-                                    items(filteredVideoSeries) { series ->
-                                        MediaCard(
-                                            title = series.title,
-                                            subtitle = series.year?.toString(),
-                                            coverUrl = series.coverUrl,
-                                            onClick = { onVideoClick(series.id, series.type ?: "series") }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "music" -> {
-                        if (uiState.musicAlbums.isNotEmpty()) {
-                            if (index > 0) {
-                                item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
-                            }
-                            item {
-                                SectionHeader(title = stringResource(R.string.section_music))
-                            }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
-                                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
-                                ) {
-                                    items(uiState.musicAlbums) { album ->
-                                        MediaCard(
-                                            title = album.album ?: stringResource(R.string.unknown_album),
-                                            subtitle = album.artist,
-                                            coverUrl = album.coverUrl,
-                                            onClick = { album.tracks?.firstOrNull()?.let { onMusicClick(it.id) } },
-                                            square = true
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "comics" -> {
-                        if (uiState.comicSeries.isNotEmpty()) {
-                            if (index > 0) {
-                                item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
-                            }
-                            item {
-                                SectionHeader(title = stringResource(R.string.section_comics))
-                            }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
-                                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
-                                ) {
-                                    items(uiState.comicSeries) { series ->
-                                        MediaCard(
-                                            title = series.name ?: unknownTitle,
-                                            subtitle = series.author,
-                                            coverUrl = series.coverUrl,
-                                            onClick = { series.seriesId?.let { onComicClick(it) } }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "ebooks" -> {
-                        if (uiState.ebookSeries.isNotEmpty()) {
-                            if (index > 0) {
-                                item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
-                            }
-                            item {
-                                SectionHeader(title = stringResource(R.string.section_ebooks))
-                            }
-                            item {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
-                                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
-                                ) {
-                                    items(uiState.ebookSeries) { series ->
-                                        MediaCard(
-                                            title = series.name ?: unknownTitle,
-                                            subtitle = series.author,
-                                            coverUrl = series.coverUrl,
-                                            onClick = {
-                                                val id = series.seriesId ?: series.books?.firstOrNull()?.id
-                                                id?.let { onEbookClick(it) }
-                                            }
-                                        )
-                                    }
-                                }
-                            }
+        uiState.libraryGroups.forEach { group ->
+            // 合并系列和独立视频为一个列表
+            val allItems = group.series + group.standaloneVideos
+            if (allItems.isNotEmpty()) {
+                if (isCarouselEnabled && carouselItems.isNotEmpty()) {
+                    item { Spacer(modifier = Modifier.height(Dimens.spacingXl)) }
+                }
+
+                item {
+                    SectionHeader(
+                        title = group.libraryName,
+                        subtitle = "${allItems.size}"
+                    )
+                }
+
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+                    ) {
+                        items(allItems) { series ->
+                            MediaCard(
+                                title = series.title,
+                                subtitle = series.year?.toString(),
+                                coverUrl = series.coverUrl,
+                                onClick = { onVideoClick(series.id, series.type ?: "series") }
+                            )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewContent(
+    uiState: HomeUiState,
+    isCarouselEnabled: Boolean,
+    onVideoClick: (Long, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val carouselItems by remember(uiState.allVideos, isCarouselEnabled) {
+        derivedStateOf {
+            if (isCarouselEnabled) {
+                uiState.allVideos.shuffled().take(CAROUSEL_MAX_ITEMS).map { item ->
+                    CarouselItem(
+                        title = item.title,
+                        subtitle = item.year?.toString(),
+                        coverUrl = item.fanartUrl ?: item.coverUrl,
+                        onClick = { onVideoClick(item.id, item.type ?: "series") }
+                    )
+                }
+            } else {
+                emptyList()
+            }
+        }
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(5),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = Dimens.spacingLg),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+    ) {
+        // 轮播图占满整行
+        if (isCarouselEnabled && carouselItems.isNotEmpty()) {
+            item(span = { GridItemSpan(5) }) {
+                CarouselSection(items = carouselItems)
+            }
+        }
+
+        // 网格视频
+        items(uiState.allVideos) { series ->
+            Box(modifier = Modifier.padding(horizontal = Dimens.spacingXs)) {
+                MediaCard(
+                    title = series.title,
+                    subtitle = series.year?.toString(),
+                    coverUrl = series.coverUrl,
+                    onClick = { onVideoClick(series.id, series.type ?: "series") }
+                )
             }
         }
     }
@@ -304,14 +279,15 @@ private data class CarouselItem(
 )
 
 @Composable
-private fun CarouselSection(items: List<CarouselItem>) {
+private fun CarouselSection(
+    items: List<CarouselItem>,
+    modifier: Modifier = Modifier
+) {
     val pagerState = rememberPagerState(pageCount = { items.size })
-    val scope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val carouselHeight = if (isTablet) Dimens.carouselHeightTablet else Dimens.carouselHeight
 
-    // Auto-scroll
     LaunchedEffect(pagerState) {
         while (true) {
             delay(CAROUSEL_AUTO_SCROLL_DELAY)
@@ -320,14 +296,13 @@ private fun CarouselSection(items: List<CarouselItem>) {
         }
     }
 
-    Column {
+    Column(modifier = modifier.fillMaxWidth()) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(carouselHeight),
-            contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
-            pageSpacing = Dimens.spacingMd
+            pageSpacing = 0.dp
         ) { page ->
             val item = items[page]
             WideMediaCard(
@@ -336,18 +311,17 @@ private fun CarouselSection(items: List<CarouselItem>) {
                 coverUrl = item.coverUrl,
                 onClick = item.onClick,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(horizontal = Dimens.spacingXs),
-                fixedSize = false
+                    .fillMaxHeight(),
+                fixedSize = false,
+                clipShape = RectangleShape
             )
         }
 
-        // Page indicators
         if (items.size > 1) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = Dimens.spacingSm),
+                    .padding(top = Dimens.spacingXs),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {

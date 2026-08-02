@@ -16,8 +16,8 @@ class MediaRepository {
     }
 
     // Video
-    suspend fun getVideoSeries(page: Int = 0, size: Int = 20): Result<PageResponse<SeriesDTO>> = safeApiCall {
-        val response = api.getVideoSeries(page, size)
+    suspend fun getVideoSeries(page: Int = 0, size: Int = 20, adult: Boolean? = null): Result<PageResponse<SeriesDTO>> = safeApiCall {
+        val response = api.getVideoSeries(page, size, adult)
         val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
         data.copy(content = data.content.map { it.copy(
             coverUrl = fixUrl(it.coverUrl),
@@ -25,11 +25,26 @@ class MediaRepository {
         ) })
     }
 
+    suspend fun getVideoSeriesGroupedByLibrary(): Result<List<LibraryGroup>> = safeApiCall {
+        val response = api.getVideoSeriesGroupedByLibrary()
+        response.data?.map { group ->
+            group.copy(
+                series = group.series.map { it.copy(
+                    coverUrl = fixUrl(it.coverUrl),
+                    fanartUrl = fixUrl(it.fanartUrl)
+                ) },
+                standaloneVideos = group.standaloneVideos.map { it.copy(
+                    coverUrl = fixUrl(it.coverUrl),
+                    fanartUrl = fixUrl(it.fanartUrl)
+                ) }
+            )
+        } ?: emptyList()
+    }
+
     suspend fun getVideoSeriesDetail(id: Long, type: String? = null): Result<SeriesDTO> = safeApiCall {
         val url = "$baseUrl/api/v1/video/series/$id"
         android.util.Log.d("MediaRepository", "Fetching: $url type=$type")
         api.getVideoSeriesDetail(id, type).data?.let { series ->
-            // Flatten seasons into episodes for UI compatibility
             val flatEpisodes = series.seasons?.flatMap { season ->
                 season.episodes.orEmpty()
             }
@@ -61,83 +76,6 @@ class MediaRepository {
             coverUrl = fixUrl(it.coverUrl),
             fanartUrl = fixUrl(it.fanartUrl)
         ) } ?: emptyList()
-    }
-
-    // Music
-    suspend fun getMusicByAlbum(): Result<List<AlbumGroup>> = safeApiCall {
-        api.getMusicByAlbum().data?.content?.map { album ->
-            album.copy(
-                coverUrl = fixUrl(album.coverUrl),
-                tracks = album.tracks?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
-            )
-        } ?: emptyList()
-    }
-
-    suspend fun getRecentlyAddedMusic(): Result<List<MusicTrack>> = safeApiCall {
-        api.getRecentlyAddedMusic().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
-    }
-
-    suspend fun getMusicFavorites(): Result<List<MusicTrack>> = safeApiCall {
-        api.getMusicFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
-    }
-
-    suspend fun getMusicEmbeddedLyrics(trackId: Long): Result<String?> = safeApiCall {
-        api.getMusicEmbeddedLyrics(trackId).data
-    }
-
-    suspend fun getMusicExternalLyrics(trackId: Long): Result<String?> = safeApiCall {
-        api.getMusicExternalLyrics(trackId).data
-    }
-
-    // Comic
-    suspend fun getComicSeries(page: Int = 0, size: Int = 20): Result<PageResponse<ComicSeries>> = safeApiCall {
-        val response = api.getComicSeries(page, size)
-        val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
-        data.copy(content = data.content.map { series ->
-            series.copy(
-                coverUrl = fixUrl(series.coverUrl),
-                comics = series.comics?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
-            )
-        })
-    }
-
-    suspend fun getComicFavorites(): Result<List<ComicDTO>> = safeApiCall {
-        api.getComicFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
-    }
-
-    suspend fun getComicCharacters(comicId: Long): Result<List<MediaCharacter>> = safeApiCall {
-        api.getComicCharacters(comicId).data?.map { it.copy(imageUrl = fixUrl(it.imageUrl)) } ?: emptyList()
-    }
-
-    // Ebook
-    suspend fun getEbookSeries(page: Int = 0, size: Int = 20): Result<PageResponse<EbookSeries>> = safeApiCall {
-        val response = api.getEbookSeries(page, size)
-        val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
-        data.copy(content = data.content.map { series ->
-            series.copy(
-                coverUrl = fixUrl(series.coverUrl),
-                books = series.books?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) }
-            )
-        })
-    }
-
-    suspend fun getRecentlyAddedEbooks(): Result<List<EbookDTO>> = safeApiCall {
-        api.getRecentlyAddedEbooks().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
-    }
-
-    suspend fun getEbookFavorites(): Result<List<EbookDTO>> = safeApiCall {
-        api.getEbookFavorites().data?.content?.map { it.copy(coverUrl = fixUrl(it.coverUrl)) } ?: emptyList()
-    }
-
-    suspend fun getEbookCharacters(ebookId: Long): Result<List<MediaCharacter>> = safeApiCall {
-        api.getEbookCharacters(ebookId).data?.map { it.copy(imageUrl = fixUrl(it.imageUrl)) } ?: emptyList()
-    }
-
-    // Unified Ebook API (统一电子书接口)
-    suspend fun getUnifiedEbookDetail(id: Long): Result<EbookDTO> = safeApiCall {
-        api.getEbookDetail(id).data?.let { ebook ->
-            ebook.copy(coverUrl = fixUrl(ebook.coverUrl))
-        } ?: throw Exception("Ebook not found")
     }
 
     // TMDB Scraping

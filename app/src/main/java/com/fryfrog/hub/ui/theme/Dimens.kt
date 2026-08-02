@@ -25,8 +25,8 @@ data class AppDimens(
     val radiusFull: Dp = 999.dp,
 
     // Media Card
-    val cardMediaWidth: Dp = 110.dp,
-    val cardMediaWidthTablet: Dp = 160.dp,
+    val cardMediaWidth: Dp = 85.dp,
+    val cardMediaWidthTablet: Dp = 130.dp,
     val gridMinCardWidth: Dp = 90.dp,
 
     // Wide Media Card
@@ -36,10 +36,12 @@ data class AppDimens(
     val cardWideHeightTablet: Dp = 160.dp,
 
     // Carousel
-    val carouselHeight: Dp = 150.dp,
-    val carouselHeightTablet: Dp = 380.dp,
-    val indicatorSize: Dp = 6.dp,
+    val carouselHeight: Dp = 320.dp,
+    val carouselHeightTablet: Dp = 400.dp,
+    val carouselPadding: Dp = 4.dp,
+    val indicatorSize: Dp = 5.dp,
     val indicatorSpacing: Dp = 3.dp,
+    val topBarGradientHeight: Dp = 100.dp,
 
     // Page Padding
     val pageHorizontalPadding: Dp = 12.dp,
@@ -134,8 +136,10 @@ object Dimens {
 
     val carouselHeight: Dp @Composable get() = LocalDimens.current.carouselHeight
     val carouselHeightTablet: Dp @Composable get() = LocalDimens.current.carouselHeightTablet
+    val carouselPadding: Dp @Composable get() = LocalDimens.current.carouselPadding
     val indicatorSize: Dp @Composable get() = LocalDimens.current.indicatorSize
     val indicatorSpacing: Dp @Composable get() = LocalDimens.current.indicatorSpacing
+    val topBarGradientHeight: Dp @Composable get() = LocalDimens.current.topBarGradientHeight
 
     val pageHorizontalPadding: Dp @Composable get() = LocalDimens.current.pageHorizontalPadding
     val pageVerticalPadding: Dp @Composable get() = LocalDimens.current.pageVerticalPadding

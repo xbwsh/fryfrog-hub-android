@@ -33,7 +33,7 @@ private val videoSubTypes = listOf("MOVIE", "TV", "MIXED")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaLibrariesScreen(
-    onBackClick: () -> Unit,
+    onBackClick: (() -> Unit)? = null,
     viewModel: MediaLibrariesViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -60,8 +60,10 @@ fun MediaLibrariesScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.media_libraries)) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
+                    if (onBackClick != null) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 },
                 actions = {

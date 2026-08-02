@@ -17,18 +17,9 @@ class PrefsManager(context: Context) {
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_DARK_THEME = "dark_theme"
         private const val KEY_ADULT_CONTENT_HIDDEN = "adult_content_hidden"
-        private const val KEY_HOME_SECTION_ORDER = "home_section_order"
-        private const val KEY_HOME_SECTION_VISIBLE = "home_section_visible"
-        private const val KEY_CAROUSEL_SOURCE = "carousel_source"
         private const val KEY_CAROUSEL_ENABLED = "carousel_enabled"
+        private const val KEY_HOME_VIEW_MODE = "home_view_mode"
         private const val KEY_SAVED_SERVERS = "saved_servers"
-        private const val KEY_COMIC_READING_MODE = "comic_reading_mode"
-        private const val KEY_EBOOK_FONT_SIZE = "ebook_font_size"
-
-        private val DEFAULT_SECTION_ORDER = listOf("videos", "music", "comics", "ebooks")
-        private val DEFAULT_SECTION_VISIBLE = mapOf(
-            "videos" to true, "music" to true, "comics" to true, "ebooks" to true
-        )
 
         private const val DEFAULT_SERVER_URL = ""
     }
@@ -53,45 +44,13 @@ class PrefsManager(context: Context) {
         get() = prefs.getBoolean(KEY_ADULT_CONTENT_HIDDEN, true)
         set(value) = prefs.edit().putBoolean(KEY_ADULT_CONTENT_HIDDEN, value).apply()
 
-    var homeSectionOrder: List<String>
-        get() {
-            val json = prefs.getString(KEY_HOME_SECTION_ORDER, null) ?: return DEFAULT_SECTION_ORDER
-            return try {
-                val type = object : TypeToken<List<String>>() {}.type
-                gson.fromJson(json, type)
-            } catch (e: Exception) {
-                DEFAULT_SECTION_ORDER
-            }
-        }
-        set(value) = prefs.edit().putString(KEY_HOME_SECTION_ORDER, gson.toJson(value)).apply()
-
-    var homeSectionVisible: Map<String, Boolean>
-        get() {
-            val json = prefs.getString(KEY_HOME_SECTION_VISIBLE, null) ?: return DEFAULT_SECTION_VISIBLE
-            return try {
-                val type = object : TypeToken<Map<String, Boolean>>() {}.type
-                gson.fromJson(json, type)
-            } catch (e: Exception) {
-                DEFAULT_SECTION_VISIBLE
-            }
-        }
-        set(value) = prefs.edit().putString(KEY_HOME_SECTION_VISIBLE, gson.toJson(value)).apply()
-
-    var carouselSource: String
-        get() = prefs.getString(KEY_CAROUSEL_SOURCE, "videos") ?: "videos"
-        set(value) = prefs.edit().putString(KEY_CAROUSEL_SOURCE, value).apply()
-
     var isCarouselEnabled: Boolean
         get() = prefs.getBoolean(KEY_CAROUSEL_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_CAROUSEL_ENABLED, value).apply()
 
-    var comicReadingMode: String
-        get() = prefs.getString(KEY_COMIC_READING_MODE, "HORIZONTAL_LTR") ?: "HORIZONTAL_LTR"
-        set(value) = prefs.edit().putString(KEY_COMIC_READING_MODE, value).apply()
-
-    var ebookFontSize: Float
-        get() = prefs.getFloat(KEY_EBOOK_FONT_SIZE, 16f)
-        set(value) = prefs.edit().putFloat(KEY_EBOOK_FONT_SIZE, value).apply()
+    var homeViewMode: String
+        get() = prefs.getString(KEY_HOME_VIEW_MODE, "grouped") ?: "grouped"
+        set(value) = prefs.edit().putString(KEY_HOME_VIEW_MODE, value).apply()
 
     data class SavedServer(
         val name: String,
@@ -111,7 +70,6 @@ class PrefsManager(context: Context) {
 
     fun saveServer(name: String, url: String, token: String) {
         val servers = getSavedServers().toMutableList()
-        // Update if same URL exists, otherwise add
         val existingIndex = servers.indexOfFirst { it.url == url }
         if (existingIndex >= 0) {
             servers[existingIndex] = SavedServer(name, url, token)

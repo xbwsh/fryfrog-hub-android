@@ -46,9 +46,17 @@ class VideosViewModel : ViewModel() {
     private var loadJob: Job? = null
     private var loadMoreJob: Job? = null
     private var searchLoadJob: Job? = null
+    private var isAdultContentHidden: Boolean = true
 
     init {
         loadVideos()
+    }
+
+    fun setAdultContentHidden(hidden: Boolean) {
+        if (isAdultContentHidden != hidden) {
+            isAdultContentHidden = hidden
+            loadVideos()
+        }
     }
 
     fun loadVideos() {
@@ -65,7 +73,7 @@ class VideosViewModel : ViewModel() {
                 allSeries = emptyList()
             )
 
-            val result = repository.getVideoSeries(page = 0)
+            val result = repository.getVideoSeries(page = 0, adult = if (isAdultContentHidden) false else null)
             val pageData = result.getOrNull()
 
             _uiState.value = _uiState.value.copy(
@@ -89,7 +97,7 @@ class VideosViewModel : ViewModel() {
                 if (state.isLoading || state.isLoadingMore || state.currentPage >= state.totalPages - 1) return@withLock
 
                 _uiState.value = state.copy(isLoadingMore = true, error = null)
-                val result = repository.getVideoSeries(page = state.currentPage + 1)
+                val result = repository.getVideoSeries(page = state.currentPage + 1, adult = if (isAdultContentHidden) false else null)
                 val pageData = result.getOrNull()
 
                 if (pageData != null) {
@@ -140,7 +148,7 @@ class VideosViewModel : ViewModel() {
             if (state.isLoading || state.currentPage >= state.totalPages - 1) return@withLock
 
             _uiState.value = state.copy(isLoadingMore = true, error = null)
-            val result = repository.getVideoSeries(page = state.currentPage + 1)
+            val result = repository.getVideoSeries(page = state.currentPage + 1, adult = if (isAdultContentHidden) false else null)
             val pageData = result.getOrNull()
 
             if (pageData != null) {

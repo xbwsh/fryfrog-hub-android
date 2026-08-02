@@ -7,7 +7,14 @@ interface FryfrogApi {
 
     // ========== Video ==========
     @GET("/api/v1/video/series")
-    suspend fun getVideoSeries(@Query("page") page: Int = 0, @Query("size") size: Int = 20): ApiResponse<PageResponse<SeriesDTO>>
+    suspend fun getVideoSeries(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20,
+        @Query("adult") adult: Boolean? = null
+    ): ApiResponse<PageResponse<SeriesDTO>>
+
+    @GET("/api/v1/video/series/grouped-by-library")
+    suspend fun getVideoSeriesGroupedByLibrary(): ApiResponse<List<LibraryGroup>>
 
     @GET("/api/v1/video/series/{id}")
     suspend fun getVideoSeriesDetail(@Path("id") id: Long, @Query("type") type: String? = null): ApiResponse<SeriesDTO>
@@ -39,8 +46,6 @@ interface FryfrogApi {
     @PUT("/api/v1/video/{id}/progress")
     suspend fun saveVideoProgress(@Path("id") id: Long, @Body request: WatchProgressRequest): ApiResponse<WatchProgressDTO>
 
-
-
     // ========== TMDB Scraping ==========
     @GET("/api/v1/video/tmdb/search")
     suspend fun searchTmdb(@Query("q") query: String): ApiResponse<List<TmdbSearchResult>>
@@ -59,117 +64,6 @@ interface FryfrogApi {
 
     @POST("/api/v1/video/scrape/adult-only")
     suspend fun scrapeAdultOnly(@Query("libraryId") libraryId: Long? = null): ApiResponse<Map<String, Any>>
-
-    // ========== Music ==========
-    @GET("/api/v1/music")
-    suspend fun getMusicByAlbum(): ApiResponse<PageResponse<AlbumGroup>>
-
-    @GET("/api/v1/music/list")
-    suspend fun getMusicList(): ApiResponse<PageResponse<MusicTrack>>
-
-    @GET("/api/v1/music/{id}")
-    suspend fun getMusicDetail(@Path("id") id: Long): ApiResponse<MusicTrack>
-
-    @GET("/api/v1/music/{id}/cover")
-    suspend fun getMusicCover(@Path("id") id: Long): ApiResponse<String>
-
-    @GET("/api/v1/music/{id}/lyrics")
-    suspend fun getMusicEmbeddedLyrics(@Path("id") id: Long): ApiResponse<String?>
-
-    @GET("/api/v1/music/tracks/{id}/lyrics")
-    suspend fun getMusicExternalLyrics(@Path("id") id: Long): ApiResponse<String?>
-
-    @GET("/api/v1/music/recently-added")
-    suspend fun getRecentlyAddedMusic(): ApiResponse<PageResponse<MusicTrack>>
-
-    @GET("/api/v1/music/recently-played")
-    suspend fun getRecentlyPlayedMusic(): ApiResponse<PageResponse<MusicTrack>>
-
-    @GET("/api/v1/music/favorites")
-    suspend fun getMusicFavorites(): ApiResponse<PageResponse<MusicTrack>>
-
-    @GET("/api/v1/music/most-played")
-    suspend fun getMostPlayedMusic(): ApiResponse<PageResponse<MusicTrack>>
-
-    @GET("/api/v1/music/recommendations")
-    suspend fun getMusicRecommendations(): ApiResponse<Map<String, List<MusicTrack>>>
-
-    // ========== Comic ==========
-    @GET("/api/v1/comic/series")
-    suspend fun getComicSeries(@Query("page") page: Int = 0, @Query("size") size: Int = 20): ApiResponse<PageResponse<ComicSeries>>
-
-    @GET("/api/v1/comic/{id}")
-    suspend fun getComicDetail(@Path("id") id: Long): ApiResponse<ComicDTO>
-
-    @GET("/api/v1/comic/{id}/cover")
-    suspend fun getComicCover(@Path("id") id: Long): ApiResponse<String>
-
-    @GET("/api/v1/comic/favorites")
-    suspend fun getComicFavorites(): ApiResponse<PageResponse<ComicDTO>>
-
-    @GET("/api/v1/comic/{id}/characters")
-    suspend fun getComicCharacters(@Path("id") id: Long): ApiResponse<List<MediaCharacter>>
-
-    @GET("/api/v1/comic/{id}/pages")
-    suspend fun getComicPages(@Path("id") id: Long): ApiResponse<ComicPagesResponse>
-
-    @GET("/api/v1/comic/{id}/pages/{pageNum}")
-    suspend fun getComicPageImage(
-        @Path("id") id: Long,
-        @Path("pageNum") pageNum: Int
-    ): retrofit2.Response<okhttp3.ResponseBody>
-
-    @GET("/api/v1/comic/{id}/progress")
-    suspend fun getComicProgress(@Path("id") id: Long): ApiResponse<ReadingProgress>
-
-    @PUT("/api/v1/comic/{id}/progress")
-    suspend fun saveComicProgress(
-        @Path("id") id: Long,
-        @Body request: ReadingProgressRequest
-    ): ApiResponse<ReadingProgress>
-
-    // ========== Ebook ==========
-    @GET("/api/v1/ebook/series")
-    suspend fun getEbookSeries(@Query("page") page: Int = 0, @Query("size") size: Int = 20): ApiResponse<PageResponse<EbookSeries>>
-
-    @GET("/api/v1/ebook/{id}")
-    suspend fun getEbookDetail(@Path("id") id: Long): ApiResponse<EbookDTO>
-
-    @GET("/api/v1/ebook/{id}/cover")
-    suspend fun getEbookCover(@Path("id") id: Long): ApiResponse<String>
-
-    @GET("/api/v1/ebook/recently-added")
-    suspend fun getRecentlyAddedEbooks(): ApiResponse<PageResponse<EbookDTO>>
-
-    @GET("/api/v1/ebook/recently-read")
-    suspend fun getRecentlyReadEbooks(): ApiResponse<PageResponse<EbookDTO>>
-
-    @GET("/api/v1/ebook/favorites")
-    suspend fun getEbookFavorites(): ApiResponse<PageResponse<EbookDTO>>
-
-    @GET("/api/v1/ebook/{id}/characters")
-    suspend fun getEbookCharacters(@Path("id") id: Long): ApiResponse<List<MediaCharacter>>
-
-    @GET("/api/v1/ebook/stats")
-    suspend fun getEbookStats(): ApiResponse<Map<String, Any>>
-
-    @GET("/api/v1/ebook/{id}/chapters")
-    suspend fun getEbookChapters(@Path("id") id: Long): ApiResponse<EbookChaptersResponse>
-
-    @GET("/api/v1/ebook/{id}/read")
-    suspend fun getEbookContent(
-        @Path("id") id: Long,
-        @Query("chapter") chapter: Int? = null
-    ): retrofit2.Response<okhttp3.ResponseBody>
-
-    @GET("/api/v1/ebook/{id}/progress")
-    suspend fun getEbookProgress(@Path("id") id: Long): ApiResponse<ReadingProgress>
-
-    @PUT("/api/v1/ebook/{id}/progress")
-    suspend fun saveEbookProgress(
-        @Path("id") id: Long,
-        @Body request: ReadingProgressRequest
-    ): ApiResponse<ReadingProgress>
 
     // ========== Auth ==========
     @POST("/api/v1/auth/login")
@@ -206,6 +100,4 @@ interface FryfrogApi {
     // ========== Settings ==========
     @GET("/api/v1/settings")
     suspend fun getSettings(): ApiResponse<List<Map<String, Any>>>
-
-    // ========== Unified Ebook API (统一电子书接口) ==========
 }

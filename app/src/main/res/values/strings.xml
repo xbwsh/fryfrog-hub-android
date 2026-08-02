@@ -25,13 +25,11 @@
     <string name="section_home">Home</string>
     <string name="section_videos">Videos</string>
     <string name="section_continue_watching">Continue Watching</string>
-    <string name="section_music">Music</string>
-    <string name="section_comics">Comics</string>
-    <string name="section_ebooks">Ebooks</string>
+    <string name="section_media_libraries">Libraries</string>
+    <string name="section_me">Me</string>
     <string name="section_settings">Settings</string>
 
     <!-- Common -->
-    <string name="unknown_album">Unknown Album</string>
     <string name="back">Back</string>
     <string name="play">Play</string>
     <string name="actors">Actors</string>
@@ -58,7 +56,8 @@
     <string name="bitrate">Bitrate</string>
     <string name="file_size">File Size</string>
     <string name="format">Format</string>
-    <string name="file_name">File Name</string>`n    <string name="original_file_name">Original File Name</string>
+    <string name="file_name">File Name</string>
+    <string name="original_file_name">Original File Name</string>
 
     <!-- Settings -->
     <string name="appearance">Appearance</string>
@@ -72,10 +71,6 @@
     <string name="privacy_mode_desc">Hide adult content from video library</string>
     <string name="home_layout">Home Layout</string>
     <string name="carousel_enabled">Show Carousel</string>
-    <string name="carousel_source">Carousel Source</string>
-    <string name="home_section_order_desc">Drag to reorder home sections</string>
-    <string name="move_up">Move up</string>
-    <string name="move_down">Move down</string>
 
     <!-- Media Libraries -->
     <string name="media_libraries">Media Libraries</string>
@@ -94,7 +89,9 @@
     <string name="logout_confirm">Are you sure you want to logout?</string>
     <string name="confirm">Confirm</string>
     <string name="resume_play">Resume</string>
-    <string name="watched">Watched</string>`n    <string name="watched_percent">Watched %1$s%%</string>`n    <string name="play_from_start">Play from Start</string>
+    <string name="watched">Watched</string>
+    <string name="watched_percent">Watched %1$s%%</string>
+    <string name="play_from_start">Play from Start</string>
     <string name="disabled">Disabled</string>
     <string name="create_library">Create Library</string>
     <string name="library_name">Name</string>
@@ -112,19 +109,6 @@
     <string name="select_directory">Select Directory</string>
     <string name="browse">Browse</string>
     <string name="select">Select</string>
-
-    <!-- Music -->
-    <string name="section_albums">Albums</string>
-    <string name="section_recently_added">Recently Added</string>
-    <string name="tracks">tracks</string>
-
-    <!-- Comic & Ebook -->
-    <string name="comic_volumes">Volumes</string>
-    <string name="ebook_volumes">Books</string>
-    <string name="volumes">Volumes</string>
-    <string name="ebook_count">Books</string>
-    <string name="start_date">Start Date</string>
-    <string name="characters">Characters</string>
 
     <!-- TMDB Scraping -->
     <string name="tmdb_scrape">TMDB Scraping</string>

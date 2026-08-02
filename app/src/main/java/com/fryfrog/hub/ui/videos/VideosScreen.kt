@@ -51,6 +51,10 @@ fun VideosScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showSortMenu by remember { mutableStateOf(false) }
 
+    LaunchedEffect(isAdultContentHidden) {
+        viewModel.setAdultContentHidden(isAdultContentHidden)
+    }
+
     LaunchedEffect(uiState.scrapeMessage) {
         uiState.scrapeMessage?.let {
             kotlinx.coroutines.delay(3000)

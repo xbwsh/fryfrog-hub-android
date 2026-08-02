@@ -1,12 +1,9 @@
 package com.fryfrog.hub.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ChromeReaderMode
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(
@@ -20,42 +17,21 @@ sealed class Screen(
         icon = Icons.Default.Home
     )
 
-    data object Videos : Screen(
-        route = "videos",
-        titleResId = com.fryfrog.hub.R.string.section_videos,
+    data object MediaLibraries : Screen(
+        route = "media_libraries",
+        titleResId = com.fryfrog.hub.R.string.section_media_libraries,
         icon = Icons.Default.VideoLibrary
     )
 
-    data object Music : Screen(
-        route = "music",
-        titleResId = com.fryfrog.hub.R.string.section_music,
-        icon = Icons.Default.LibraryMusic
-    )
-
-    data object Comics : Screen(
-        route = "comics",
-        titleResId = com.fryfrog.hub.R.string.section_comics,
-        icon = Icons.Default.Book
-    )
-
-    data object Ebooks : Screen(
-        route = "ebooks",
-        titleResId = com.fryfrog.hub.R.string.section_ebooks,
-        icon = Icons.Default.ChromeReaderMode
-    )
-
-    data object Settings : Screen(
-        route = "settings",
-        titleResId = com.fryfrog.hub.R.string.section_settings,
-        icon = Icons.Default.Settings
+    data object Me : Screen(
+        route = "me",
+        titleResId = com.fryfrog.hub.R.string.section_me,
+        icon = Icons.Default.Person
     )
 }
 
 val bottomNavScreens = listOf(
     Screen.Home,
-    Screen.Videos,
-    Screen.Music,
-    Screen.Comics,
-    Screen.Ebooks,
-    Screen.Settings
+    Screen.MediaLibraries,
+    Screen.Me
 )

@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -97,6 +98,7 @@ fun MediaCard(
 @Composable
 fun SectionHeader(
     title: String,
+    subtitle: String? = null,
     onSeeAll: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -107,11 +109,21 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            if (subtitle != null) {
+                Text(
+                    text = " $subtitle",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+            }
+        }
 
         if (onSeeAll != null) {
             Text(
@@ -131,7 +143,8 @@ fun WideMediaCard(
     coverUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    fixedSize: Boolean = true
+    fixedSize: Boolean = true,
+    clipShape: Shape = RoundedCornerShape(Dimens.radiusLg)
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -141,7 +154,7 @@ fun WideMediaCard(
     Box(
         modifier = modifier
             .then(if (fixedSize) Modifier.width(cardWidth).height(cardHeight) else Modifier)
-            .clip(RoundedCornerShape(Dimens.radiusLg))
+            .clip(clipShape)
             .clickable(onClick = onClick)
     ) {
         if (coverUrl != null) {
@@ -149,7 +162,8 @@ fun WideMediaCard(
                 model = coverUrl,
                 contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter
             )
         } else {
             Box(
