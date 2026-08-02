@@ -171,29 +171,4 @@
     <string name="scrape_adult_desc">Batch mark content in all libraries as adult</string>
     <string name="scrape_adult_result">Updated %d items</string>
     <string name="scrape_adult_off">Scrape Off</string>
-
-    <!-- Book Source -->
-    <string name="book_sources_title">Book Sources</string>
-    <string name="import_source">Import Source</string>
-    <string name="import_book_source">Import Book Source</string>
-    <string name="import_source_url_hint">Enter the book source URL to import:</string>
-    <string name="import_action">Import</string>
-    <string name="no_book_sources">No book sources</string>
-    <string name="import_source_hint">Tap + to import book sources from URL</string>
-    <string name="delete_source">Delete Source</string>
-    <string name="delete_source_confirm">Are you sure you want to delete \"%s\"?</string>
-
-    <!-- Online Search -->
-    <string name="online_search">Online Search</string>
-    <string name="search_hint">Search books online…</string>
-    <string name="search_results">Search Results</string>
-    <string name="no_search_results_ebook">No books found</string>
-    <string name="add_to_shelf">Add to Shelf</string>
-    <string name="added_to_shelf">Added to shelf</string>
-    <string name="source_label">Source: %s</string>
-    <string name="word_count">Words: %s</string>
-    <string name="last_chapter">Latest: %s</string>
-    <string name="online_book_badge">ONLINE</string>
-    <string name="select_source">Select Source</string>
-    <string name="all_sources">All Sources</string>
 </resources>

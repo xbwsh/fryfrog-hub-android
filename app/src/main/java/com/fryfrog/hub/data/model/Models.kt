@@ -174,10 +174,7 @@ data class EbookDTO(
     val favorite: Boolean?,
     val coverUrl: String?,
     val rating: Double?,
-    val sourceType: String? = null,
-    val isOnline: Boolean? = null,
-    val bookSourceId: Long? = null,
-    val onlineUrl: String? = null
+    val sourceType: String? = null
 )
 
 // Character (通用角色模型，用于漫画和电子书)
@@ -281,84 +278,4 @@ data class TmdbBindRequest(
     val mediaType: String
 )
 
-// ========== Book Source (书源) ==========
-data class BookSource(
-    val id: Long,
-    val name: String,
-    val author: String?,
-    val version: String?,
-    val url: String,
-    val ruleJson: String?,
-    val cleanRuleJson: String?,
-    val enabled: Boolean,
-    val group: String?,
-    val sourceType: String?,
-    val headerJson: String?,
-    val sortOrder: Int?,
-    val description: String?,
-    val createdAt: String?,
-    val updatedAt: String?
-)
 
-data class BookSourceImportRequest(
-    val url: String
-)
-
-// ========== Online Book Search ==========
-data class OnlineBookResult(
-    val name: String,
-    val author: String?,
-    val coverUrl: String?,
-    val bookUrl: String,
-    val intro: String?,
-    val kind: String?,
-    val lastChapter: String?,
-    val wordCount: String?,
-    val sourceId: Long,
-    val sourceName: String?
-)
-
-data class OnlineChapterInfo(
-    val chapterNum: Int,
-    val chapterName: String,
-    val chapterUrl: String,
-    val cached: Boolean
-)
-
-data class AddToShelfRequest(
-    val bookUrl: String,
-    val sourceId: Long,
-    val bookInfo: OnlineBookResult?
-)
-
-// ========== Unified Ebook (统一电子书模型) ==========
-data class UnifiedEbookDTO(
-    val id: Long,
-    val title: String,
-    val author: String?,
-    val sourceType: String?,  // LOCAL 或 ONLINE
-    val isOnline: Boolean?,
-    val coverUrl: String?,
-    val downloadUrl: String?,
-    val readUrl: String?,
-    val favorite: Boolean?,
-    val series: String?,
-    val volume: Int?,
-    val year: Int?,
-    val genre: String?,
-    val summary: String?,
-    val fileName: String?,
-    val fileSize: Long?,
-    val pageCount: Int?,
-    val format: String?,
-    val hasCover: Boolean?,
-    val bookSourceId: Long?,
-    val onlineUrl: String?
-)
-
-data class UnifiedEbookChapterInfo(
-    val chapterNum: Int,
-    val chapterName: String,
-    val chapterUrl: String?,
-    val cached: Boolean?
-)

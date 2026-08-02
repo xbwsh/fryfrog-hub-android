@@ -49,8 +49,7 @@ fun EbookReaderScreen(
     ebookId: Long,
     ebookTitle: String,
     startChapter: Int = 0,
-    isOnline: Boolean = false,
-    viewModel: EbookReaderViewModel = viewModel(factory = EbookReaderViewModelFactory(ebookId, isOnline)),
+    viewModel: EbookReaderViewModel = viewModel(factory = EbookReaderViewModelFactory(ebookId)),
     onBackClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -61,8 +60,7 @@ fun EbookReaderScreen(
     var showControls by remember { mutableStateOf(true) }
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
 
-    // 获取章节数量（根据是在线还是本地）
-    val chapterSize = if (isOnline) uiState.onlineChapters.size else uiState.chapters.size
+    val chapterSize = uiState.chapters.size
 
     // 继续阅读：设置初始章节
     LaunchedEffect(startChapter, chapterSize) {
@@ -113,18 +111,10 @@ fun EbookReaderScreen(
             AnimatedVisibility(visible = showControls) {
                 TopAppBar(
                     title = {
-                        val chapterTitle = if (isOnline) {
-                            if (uiState.onlineChapters.isNotEmpty() && uiState.currentChapterIndex < uiState.onlineChapters.size) {
-                                uiState.onlineChapters[uiState.currentChapterIndex].chapterName
-                            } else {
-                                ebookTitle
-                            }
+                        val chapterTitle = if (uiState.chapters.isNotEmpty() && uiState.currentChapterIndex < uiState.chapters.size) {
+                            uiState.chapters[uiState.currentChapterIndex].title
                         } else {
-                            if (uiState.chapters.isNotEmpty() && uiState.currentChapterIndex < uiState.chapters.size) {
-                                uiState.chapters[uiState.currentChapterIndex].title
-                            } else {
-                                ebookTitle
-                            }
+                            ebookTitle
                         }
                         Text(chapterTitle)
                     },
@@ -384,55 +374,28 @@ fun EbookReaderScreen(
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
-                        if (isOnline) {
-                            uiState.onlineChapters.forEachIndexed { index, chapter ->
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = if (index == uiState.currentChapterIndex) {
-                                        Primary.copy(alpha = 0.1f)
-                                    } else {
-                                        Color.Transparent
-                                    },
-                                    onClick = {
-                                        viewModel.loadChapter(index)
-                                        showChapterList = false
-                                    }
-                                ) {
-                                    Text(
-                                        text = chapter.chapterName,
-                                        modifier = Modifier.padding(Dimens.spacingMd),
-                                        color = if (index == uiState.currentChapterIndex) {
-                                            Primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        }
-                                    )
+                        uiState.chapters.forEachIndexed { index, chapter ->
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = if (index == uiState.currentChapterIndex) {
+                                    Primary.copy(alpha = 0.1f)
+                                } else {
+                                    Color.Transparent
+                                },
+                                onClick = {
+                                    viewModel.loadChapter(index)
+                                    showChapterList = false
                                 }
-                            }
-                        } else {
-                            uiState.chapters.forEachIndexed { index, chapter ->
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = chapter.title,
+                                    modifier = Modifier.padding(Dimens.spacingMd),
                                     color = if (index == uiState.currentChapterIndex) {
-                                        Primary.copy(alpha = 0.1f)
+                                        Primary
                                     } else {
-                                        Color.Transparent
-                                    },
-                                    onClick = {
-                                        viewModel.loadChapter(index)
-                                        showChapterList = false
+                                        MaterialTheme.colorScheme.onSurface
                                     }
-                                ) {
-                                    Text(
-                                        text = chapter.title,
-                                        modifier = Modifier.padding(Dimens.spacingMd),
-                                        color = if (index == uiState.currentChapterIndex) {
-                                            Primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        }
-                                    )
-                                }
+                                )
                             }
                         }
                     }

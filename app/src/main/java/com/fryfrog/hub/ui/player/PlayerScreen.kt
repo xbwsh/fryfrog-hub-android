@@ -666,6 +666,7 @@ fun PlayerScreen(
         val orig = activity.requestedOrientation
         activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
         val window = activity.window
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val ctrl = WindowInsetsControllerCompat(window, window.decorView)
         ctrl.hide(WindowInsetsCompat.Type.systemBars())
@@ -681,6 +682,11 @@ fun PlayerScreen(
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            // 重置屏幕亮度为系统默认值
+            window.attributes = window.attributes.apply {
+                screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            }
             ctrl.show(WindowInsetsCompat.Type.systemBars())
             WindowCompat.setDecorFitsSystemWindows(window, true)
             activity.requestedOrientation = orig
@@ -792,57 +798,6 @@ fun PlayerScreen(
                                 lastTapTime = now
                                 showControls = !showControls
                             }
-                        }
-                    }
-                    vm.hideAllIndicators()
-                }
-            }
-            .pointerInput(vm.showPlaybackInfo) {
-                if (vm.showPlaybackInfo) return@pointerInput
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    vm.resetAccumulators()
-                    var swipeAccumulator = 0f
-                    var isSwiping = false
-                    do {
-                        val event = awaitPointerEvent()
-                        val dragChange = event.changes.firstOrNull()
-                        if (dragChange != null && dragChange.pressed) {
-                            val pos = dragChange.position
-                            val prevPos = dragChange.previousPosition
-                            val deltaX = pos.x - prevPos.x
-                            val deltaY = pos.y - prevPos.y
-
-                            // Detect horizontal swipe
-                            if (!isSwiping && (kotlin.math.abs(deltaX) > 5f || kotlin.math.abs(deltaY) > 5f)) {
-                                isSwiping = kotlin.math.abs(deltaX) > kotlin.math.abs(deltaY)
-                            }
-
-                            if (isSwiping) {
-                                swipeAccumulator += deltaX
-                                val seekDelta = (swipeAccumulator / 100f * 5000f).toLong()
-                                vm.showSeekIndicator(seekDelta)
-                            } else if (deltaY != 0f) {
-                                val width = size.width
-                                val height = size.height
-                                val x = pos.x
-                                val y = pos.y
-                                val inSafeZone = y in height * 0.1f..height * 0.9f
-                                if (inSafeZone) {
-                                    if (x < width / 3f) {
-                                        vm.adjustBrightness(deltaY)
-                                    } else if (x > width * 2 / 3f) {
-                                        vm.adjustVolume(deltaY)
-                                    }
-                                }
-                            }
-                        }
-                    } while (event.changes.any { it.pressed })
-                    // Seek on release
-                    if (isSwiping) {
-                        val seekDelta = (swipeAccumulator / 100f * 5000f).toLong()
-                        if (kotlin.math.abs(seekDelta) >= 500L) {
-                            vm.seekRelative(seekDelta)
                         }
                     }
                     vm.hideAllIndicators()

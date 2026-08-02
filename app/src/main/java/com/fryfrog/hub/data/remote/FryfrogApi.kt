@@ -207,51 +207,5 @@ interface FryfrogApi {
     @GET("/api/v1/settings")
     suspend fun getSettings(): ApiResponse<List<Map<String, Any>>>
 
-    // ========== Book Source (书源管理) ==========
-    @GET("/api/v1/book-sources")
-    suspend fun getBookSources(): ApiResponse<List<BookSource>>
-
-    @POST("/api/v1/book-sources/import")
-    suspend fun importBookSources(@Query("url") url: String): ApiResponse<List<BookSource>>
-
-    @PUT("/api/v1/book-sources/{id}/toggle")
-    suspend fun toggleBookSource(
-        @Path("id") id: Long,
-        @Query("enabled") enabled: Boolean
-    ): ApiResponse<BookSource>
-
-    @DELETE("/api/v1/book-sources/{id}")
-    suspend fun deleteBookSource(@Path("id") id: Long): ApiResponse<Map<String, Any>>
-
-    // ========== Online Book Search (在线搜索) ==========
-    @GET("/api/v1/ebook/online/search")
-    suspend fun searchOnlineBooks(
-        @Query("keyword") keyword: String,
-        @Query("sourceId") sourceId: Long? = null
-    ): ApiResponse<List<OnlineBookResult>>
-
-    @GET("/api/v1/ebook/online/chapters")
-    suspend fun getOnlineBookChapters(
-        @Query("bookUrl") bookUrl: String,
-        @Query("sourceId") sourceId: Long
-    ): ApiResponse<List<OnlineChapterInfo>>
-
-    @GET("/api/v1/ebook/online/chapter")
-    suspend fun getOnlineChapterContent(
-        @Query("chapterUrl") chapterUrl: String,
-        @Query("sourceId") sourceId: Long
-    ): retrofit2.Response<okhttp3.ResponseBody>
-
-    @POST("/api/v1/ebook/online/add-to-shelf")
-    suspend fun addToShelfOnline(@Body request: AddToShelfRequest): ApiResponse<EbookDTO>
-
     // ========== Unified Ebook API (统一电子书接口) ==========
-    @GET("/api/v1/ebook/{id}/chapters/online")
-    suspend fun getOnlineChapters(@Path("id") id: Long): ApiResponse<List<UnifiedEbookChapterInfo>>
-
-    @GET("/api/v1/ebook/{id}/read/online")
-    suspend fun readOnlineChapter(
-        @Path("id") id: Long,
-        @Query("chapterUrl") chapterUrl: String
-    ): retrofit2.Response<okhttp3.ResponseBody>
 }

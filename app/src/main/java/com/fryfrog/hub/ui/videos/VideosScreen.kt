@@ -10,8 +10,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SortByAlpha
@@ -26,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,10 +61,7 @@ fun VideosScreen(
     val filteredSeries by remember(uiState.series, isAdultContentHidden) {
         derivedStateOf {
             if (isAdultContentHidden) {
-                uiState.series.filter { series ->
-                    series.isAdult != true &&
-                        series.episodes?.any { it.isAdult == true } != true
-                }
+                uiState.series.filter { it.isAdult != true }
             } else {
                 uiState.series
             }
@@ -329,7 +329,11 @@ private fun VideosGrid(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacingLg),
         modifier = modifier.fillMaxSize()
     ) {
-        items(series, key = { "${it.id}_${it.type}" }) { item ->
+        items(
+            items = series,
+            key = { "${it.id}_${it.type}" },
+            contentType = { "video_card" }
+        ) { item ->
             VideoCard(
                 series = item,
                 onClick = { onVideoClick(item.id, item.type ?: "series") }
@@ -373,6 +377,13 @@ private fun VideoCard(
     series: SeriesDTO,
     onClick: () -> Unit
 ) {
+    val placeholderPainter = rememberVectorPainter(
+        Icons.Default.Image
+    )
+    val errorPainter = rememberVectorPainter(
+        Icons.Default.BrokenImage
+    )
+
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(Dimens.radiusMd))
@@ -391,7 +402,9 @@ private fun VideoCard(
                     contentDescription = series.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    alignment = Alignment.TopCenter
+                    alignment = Alignment.TopCenter,
+                    placeholder = placeholderPainter,
+                    error = errorPainter
                 )
             } else {
                 Box(
@@ -406,24 +419,7 @@ private fun VideoCard(
                 }
             }
 
-            if (series.isAdult == true) {
-                Surface(
-                    modifier = Modifier
-                        .padding(Dimens.spacingSm)
-                        .align(Alignment.TopEnd),
-                    color = Color(0xFFFF4D4F),
-                    shape = RoundedCornerShape(Dimens.radiusSm)
-                ) {
-                    Text(
-                        text = "R-18",
-                        modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
-                    )
-                }
-            }
-
-            // 类型标签
+            // 类型标签 - 右上角
             val typeLabel = when (series.mediaType) {
                 "movie" -> "电影"
                 "tv" -> "剧集"
@@ -433,12 +429,30 @@ private fun VideoCard(
                 Surface(
                     modifier = Modifier
                         .padding(Dimens.spacingSm)
-                        .align(Alignment.TopStart),
+                        .align(Alignment.TopEnd),
                     color = MaterialTheme.colorScheme.primary,
                     shape = RoundedCornerShape(Dimens.radiusSm)
                 ) {
                     Text(
                         text = label,
+                        modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // R-18 标签 - 类型标签下方
+            if (series.isAdult == true) {
+                Surface(
+                    modifier = Modifier
+                        .padding(start = Dimens.spacingSm, end = Dimens.spacingSm, top = 32.dp)
+                        .align(Alignment.TopEnd),
+                    color = Color(0xFFFF4D4F),
+                    shape = RoundedCornerShape(Dimens.radiusSm)
+                ) {
+                    Text(
+                        text = "R-18",
                         modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White
