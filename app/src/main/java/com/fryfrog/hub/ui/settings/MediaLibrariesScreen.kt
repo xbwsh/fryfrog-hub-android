@@ -277,7 +277,9 @@ private fun MediaLibraryItem(
 
                 // 名称、路径
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(min = 100.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
