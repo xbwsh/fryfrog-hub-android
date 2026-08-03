@@ -232,7 +232,7 @@ private fun MediaLibraryItem(
         Column(
             modifier = Modifier.padding(Dimens.spacingMd)
         ) {
-            // 图标 + 名称/路径 + 勾选框
+            // 第一行：图标 + 名称/路径
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -276,11 +276,7 @@ private fun MediaLibraryItem(
                 Spacer(Modifier.width(Dimens.spacingMd))
 
                 // 名称、路径
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .widthIn(min = 100.dp)
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = library.name,
@@ -328,40 +324,39 @@ private fun MediaLibraryItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                Spacer(Modifier.width(Dimens.spacingSm))
-
-                // 三个勾选框
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
-                ) {
-                    Checkbox(
-                        checked = library.enabled,
-                        onCheckedChange = { onToggle() },
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Checkbox(
-                        checked = library.enableScraping != false,
-                        onCheckedChange = onScrapingToggle,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Checkbox(
-                        checked = library.isAdult == true,
-                        onCheckedChange = onIsAdultToggle,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
 
-            Spacer(Modifier.height(Dimens.spacingSm))
+            Spacer(Modifier.height(Dimens.spacingMd))
 
-            // 操作按钮区域
+            // 第二行：三个状态开关（带标签，水平分布）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                StatusChip(
+                    label = stringResource(R.string.enable_library),
+                    checked = library.enabled,
+                    onCheckedChange = { onToggle() }
+                )
+                StatusChip(
+                    label = stringResource(R.string.scraping_on),
+                    checked = library.enableScraping != false,
+                    onCheckedChange = onScrapingToggle
+                )
+                StatusChip(
+                    label = stringResource(R.string.adult_library_on),
+                    checked = library.isAdult == true,
+                    onCheckedChange = onIsAdultToggle
+                )
+            }
+
+            Spacer(Modifier.height(Dimens.spacingMd))
+
+            // 第三行：操作按钮
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
-                // 扫描按钮
                 OutlinedButton(
                     onClick = onScan,
                     enabled = !isScanning && !isSupplementing,
@@ -370,105 +365,92 @@ private fun MediaLibraryItem(
                     shape = RoundedCornerShape(Dimens.radiusSm)
                 ) {
                     if (isScanning) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = Primary
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Primary)
                     } else {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(
-                        text = stringResource(R.string.scan),
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Text(stringResource(R.string.scan), style = MaterialTheme.typography.labelMedium)
                 }
 
-                // 补全资源按钮
                 OutlinedButton(
                     onClick = onSupplement,
                     enabled = !isScanning && !isSupplementing,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = Dimens.spacingSm),
                     shape = RoundedCornerShape(Dimens.radiusSm),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Info
-                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Info),
                     border = BorderStroke(1.dp, Info.copy(alpha = 0.5f))
                 ) {
                     if (isSupplementing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = Info
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Info)
                     } else {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(
-                        text = stringResource(R.string.supplement),
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Text(stringResource(R.string.supplement), style = MaterialTheme.typography.labelMedium)
                 }
 
-                // 补全分级按钮
                 OutlinedButton(
                     onClick = onScrapeAdult,
                     enabled = !isScanning && !isSupplementing,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = Dimens.spacingSm),
                     shape = RoundedCornerShape(Dimens.radiusSm),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Warning
-                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Warning),
                     border = BorderStroke(1.dp, Warning.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        Icons.Default.Warning,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(
-                        text = stringResource(R.string.scrape_adult_short),
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Text(stringResource(R.string.scrape_adult_short), style = MaterialTheme.typography.labelMedium)
                 }
 
-                // 删除按钮
                 OutlinedButton(
                     onClick = onDelete,
                     enabled = !isScanning && !isSupplementing,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = Dimens.spacingSm),
                     shape = RoundedCornerShape(Dimens.radiusSm),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(
-                        text = stringResource(R.string.delete),
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    Text(stringResource(R.string.delete), style = MaterialTheme.typography.labelMedium)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StatusChip(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(Dimens.radiusFull),
+        color = if (checked) Primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, if (checked) Primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+        ) {
+            Checkbox(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                modifier = Modifier.size(16.dp),
+                colors = CheckboxDefaults.colors(checkedColor = Primary)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (checked) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
