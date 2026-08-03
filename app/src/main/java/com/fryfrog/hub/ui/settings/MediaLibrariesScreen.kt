@@ -232,7 +232,7 @@ private fun MediaLibraryItem(
         Column(
             modifier = Modifier.padding(Dimens.spacingMd)
         ) {
-            // 第一行：图标 + 名称/路径
+            // 图标 + 名称/路径 + 勾选框
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -326,35 +326,30 @@ private fun MediaLibraryItem(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
 
-            Spacer(Modifier.height(Dimens.spacingMd))
+                Spacer(Modifier.width(Dimens.spacingSm))
 
-            // 开关区域 - 三个开关水平排列，更紧凑
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // 启用开关
-                SwitchItem(
-                    label = stringResource(R.string.enable_library),
-                    checked = library.enabled,
-                    onCheckedChange = { onToggle() }
-                )
-
-                // 刮削开关
-                SwitchItem(
-                    label = stringResource(R.string.scraping_on),
-                    checked = library.enableScraping != false,
-                    onCheckedChange = onScrapingToggle
-                )
-
-                // 成人内容开关
-                SwitchItem(
-                    label = stringResource(R.string.adult_library_on),
-                    checked = library.isAdult == true,
-                    onCheckedChange = onIsAdultToggle
-                )
+                // 三个勾选框
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
+                ) {
+                    Checkbox(
+                        checked = library.enabled,
+                        onCheckedChange = { onToggle() },
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Checkbox(
+                        checked = library.enableScraping != false,
+                        onCheckedChange = onScrapingToggle,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Checkbox(
+                        checked = library.isAdult == true,
+                        onCheckedChange = onIsAdultToggle,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.height(Dimens.spacingSm))
@@ -473,29 +468,6 @@ private fun MediaLibraryItem(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SwitchItem(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
-    ) {
-        Checkbox(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.size(18.dp)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
