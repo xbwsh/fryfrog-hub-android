@@ -99,6 +99,13 @@ class MediaRepository {
         api.refreshTmdb(videoId).data ?: emptyMap()
     }
 
+    suspend fun scrapeSupplement(libraryId: Long, force: Boolean = false): Result<ScrapeSupplementResult> = safeApiCall {
+        android.util.Log.d("MediaRepository", "scrapeSupplement: libraryId=$libraryId, force=$force")
+        val response = api.scrapeSupplement(libraryId, force)
+        android.util.Log.d("MediaRepository", "scrapeSupplement response: ${response.data}")
+        response.data ?: throw Exception("No data")
+    }
+
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {
         return try {
             Result.success(call())

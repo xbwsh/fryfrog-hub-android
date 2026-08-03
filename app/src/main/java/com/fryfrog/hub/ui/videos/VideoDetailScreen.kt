@@ -269,12 +269,9 @@ private fun VideoDetailContent(
                             .padding(horizontal = Dimens.spacingLg),
                         shape = RoundedCornerShape(Dimens.radiusMd),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            containerColor = MaterialTheme.colorScheme.surface
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant
-                        )
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(Dimens.spacingMd)) {
                             SectionHeader(title = stringResource(R.string.actors))
@@ -294,12 +291,9 @@ private fun VideoDetailContent(
                             .padding(horizontal = Dimens.spacingLg),
                         shape = RoundedCornerShape(Dimens.radiusMd),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            containerColor = MaterialTheme.colorScheme.surface
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            MaterialTheme.colorScheme.outlineVariant
-                        )
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(Dimens.spacingMd)) {
                             SectionHeader(title = stringResource(R.string.episodes))
@@ -676,12 +670,9 @@ private fun VideoInfoSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(Dimens.radiusMd),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant
-                )
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(Dimens.spacingMd)) {
                     SectionHeader(title = stringResource(R.string.overview))
@@ -713,7 +704,10 @@ private fun ActorsRow(actors: List<VideoActor>) {
         contentPadding = PaddingValues(horizontal = Dimens.spacingMd),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
     ) {
-        items(actors) { actor ->
+        items(
+            items = actors,
+            key = { it.name }
+        ) { actor ->
             ActorCard(actor = actor)
         }
     }
@@ -1187,7 +1181,10 @@ private fun TmdbScrapeSheet(
                         modifier = Modifier.heightIn(max = 300.dp),
                         verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                     ) {
-                        items(uiState.tmdbSearchResults) { result ->
+                        items(
+                            items = uiState.tmdbSearchResults,
+                            key = { it.id }
+                        ) { result ->
                             TmdbSearchResultItem(
                                 result = result,
                                 isBinding = uiState.isBindingTmdb,

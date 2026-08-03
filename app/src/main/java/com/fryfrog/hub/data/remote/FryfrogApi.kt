@@ -65,6 +65,12 @@ interface FryfrogApi {
     @POST("/api/v1/video/scrape/adult-only")
     suspend fun scrapeAdultOnly(@Query("libraryId") libraryId: Long? = null): ApiResponse<Map<String, Any>>
 
+    @POST("/api/v1/video/scrape/supplement/{libraryId}")
+    suspend fun scrapeSupplement(
+        @Path("libraryId") libraryId: Long,
+        @Query("force") force: Boolean = false
+    ): ApiResponse<ScrapeSupplementResult>
+
     // ========== Auth ==========
     @POST("/api/v1/auth/login")
     suspend fun login(@Body body: Map<String, String>): LoginResponse

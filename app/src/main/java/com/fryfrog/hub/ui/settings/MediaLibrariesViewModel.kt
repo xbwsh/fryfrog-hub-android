@@ -3,6 +3,7 @@ package com.fryfrog.hub.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.model.MediaLibrary
+import com.fryfrog.hub.data.model.ScrapeSupplementResult
 import com.fryfrog.hub.data.remote.ApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,8 @@ data class MediaLibrariesUiState(
     val error: String? = null,
     val scanMessage: String? = null,
     val scanningLibraryIds: Set<Long> = emptySet(),
+    val supplementingLibraryIds: Set<Long> = emptySet(),
+    val supplementResult: ScrapeSupplementResult? = null,
     val createSuccess: Boolean = false,
     val directories: List<DirectoryItem> = emptyList(),
     val currentPath: String? = null,
@@ -265,6 +268,42 @@ class MediaLibrariesViewModel : ViewModel() {
                 _uiState.value = _uiState.value.copy(
                     error = e.message ?: "Unknown error"
                 )
+            }
+        }
+    }
+
+    fun scrapeSupplement(libraryId: Long, force: Boolean = false) {
+        viewModelScope.launch {
+            val newIds = _uiState.value.supplementingLibraryIds + libraryId
+            _uiState.value = _uiState.value.copy(supplementingLibraryIds = newIds)
+            try {
+                val api = ApiClient.getApi()
+                val response = api.scrapeSupplement(libraryId, force)
+                if (response.success) {
+                    _uiState.value = _uiState.value.copy(
+                        supplementResult = response.data,
+                        scanMessage = buildString {
+                            append("Supplement completed: ")
+                            append("${response.data?.total ?: 0} total, ")
+                            append("${response.data?.actorsSaved ?: 0} actors, ")
+                            append("${response.data?.assetsGenerated ?: 0} assets")
+                            if ((response.data?.failed ?: 0) > 0) {
+                                append(", ${response.data?.failed} failed")
+                            }
+                        }
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = response.message ?: "Failed to supplement scrape"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.message ?: "Unknown error"
+                )
+            } finally {
+                val clearedIds = _uiState.value.supplementingLibraryIds - libraryId
+                _uiState.value = _uiState.value.copy(supplementingLibraryIds = clearedIds)
             }
         }
     }

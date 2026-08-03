@@ -40,6 +40,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.ui.home.HomeScreen
+import com.fryfrog.hub.ui.home.HomeViewModel
+import com.fryfrog.hub.ui.home.LibraryOverviewScreen
 import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
@@ -146,6 +148,9 @@ private fun MainContent(
     val isHomeScreen = currentRoute == Screen.Home.route
     val view = LocalView.current
 
+    // Activity 级别的共享 HomeViewModel
+    val homeViewModel: HomeViewModel = viewModel()
+
     LaunchedEffect(isHomeScreen, isDarkTheme) {
         val window = (view.context as android.app.Activity).window
         val controller = WindowInsetsControllerCompat(window, window.decorView)
@@ -172,10 +177,64 @@ private fun MainContent(
             // 首页 - 视频列表
             composable(Screen.Home.route) {
                 HomeScreen(
+                    viewModel = homeViewModel,
                     isAdultContentHidden = isAdultContentHidden,
                     isCarouselEnabled = isCarouselEnabled,
                     homeViewMode = homeViewMode,
                     onViewModeChange = onViewModeChange,
+                    onVideoClick = { videoId, type ->
+                        navController.navigate("video_detail/$videoId?type=$type")
+                    },
+                    onLibraryClick = { libraryId, libraryName ->
+                        val encodedName = android.net.Uri.encode(libraryName)
+                        navController.navigate("library_overview/$libraryId?name=$encodedName")
+                    }
+                )
+            }
+
+            // 库总览
+            composable(
+                route = "library_overview/{libraryId}?name={name}",
+                arguments = listOf(
+                    navArgument("libraryId") { type = NavType.LongType },
+                    navArgument("name") { type = NavType.StringType; defaultValue = "" }
+                ),
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -it / 3 },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
+                },
+                popEnterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { -it / 3 },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
+                },
+                popExitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
+                }
+            ) { backStackEntry ->
+                val libraryId = backStackEntry.arguments?.getLong("libraryId")
+                val libraryName = backStackEntry.arguments?.getString("name") ?: ""
+                val homeUiState by homeViewModel.uiState.collectAsState()
+                val libraryItems = homeUiState.libraryGroups.find { it.libraryId == libraryId }
+                    ?.let { it.series + it.standaloneVideos }
+                    ?: emptyList()
+                LibraryOverviewScreen(
+                    libraryId = libraryId,
+                    libraryName = libraryName,
+                    libraryItems = libraryItems,
+                    onBackClick = { navController.popBackStack() },
                     onVideoClick = { videoId, type ->
                         navController.navigate("video_detail/$videoId?type=$type")
                     }

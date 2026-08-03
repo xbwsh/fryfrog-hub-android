@@ -9,6 +9,8 @@
     <string name="failed_to_load">加载数据失败</string>
     <string name="refresh">刷新</string>
     <string name="no_videos">暂无视频</string>
+    <string name="portrait_cover">竖屏</string>
+    <string name="landscape_cover">横屏</string>
 
     <!-- Login -->
     <string name="welcome">欢迎</string>
@@ -154,4 +156,5 @@
     <string name="scrape_adult_short">补全分级</string>
     <string name="scrape_adult_desc">批量将所有库中的内容标记为成人内容</string>
     <string name="scrape_adult_result">已更新 %d 项</string>
+    <string name="supplement">补全资源</string>
 </resources>

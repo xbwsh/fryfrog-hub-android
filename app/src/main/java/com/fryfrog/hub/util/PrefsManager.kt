@@ -19,6 +19,7 @@ class PrefsManager(context: Context) {
         private const val KEY_ADULT_CONTENT_HIDDEN = "adult_content_hidden"
         private const val KEY_CAROUSEL_ENABLED = "carousel_enabled"
         private const val KEY_HOME_VIEW_MODE = "home_view_mode"
+        private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
         private const val KEY_SAVED_SERVERS = "saved_servers"
 
         private const val DEFAULT_SERVER_URL = ""
@@ -51,6 +52,10 @@ class PrefsManager(context: Context) {
     var homeViewMode: String
         get() = prefs.getString(KEY_HOME_VIEW_MODE, "grouped") ?: "grouped"
         set(value) = prefs.edit().putString(KEY_HOME_VIEW_MODE, value).apply()
+
+    var libraryViewMode: String
+        get() = prefs.getString(KEY_LIBRARY_VIEW_MODE, "portrait") ?: "portrait"
+        set(value) = prefs.edit().putString(KEY_LIBRARY_VIEW_MODE, value).apply()
 
     data class SavedServer(
         val name: String,

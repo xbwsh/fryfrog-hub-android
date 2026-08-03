@@ -149,8 +149,10 @@ fun MediaLibrariesScreen(
                         MediaLibraryItem(
                             library = library,
                             isScanning = library.id in uiState.scanningLibraryIds,
+                            isSupplementing = library.id in uiState.supplementingLibraryIds,
                             onToggle = { viewModel.toggleLibrary(library) },
                             onScan = { viewModel.scanLibrary(library) },
+                            onSupplement = { viewModel.scrapeSupplement(library.id) },
                             onDelete = { showDeleteDialog = library },
                             onScrapeAdult = { viewModel.scrapeAdultOnly(library.id) },
                             onScrapingToggle = { viewModel.updateLibraryScraping(library, it) },
@@ -230,8 +232,10 @@ fun MediaLibrariesScreen(
 private fun MediaLibraryItem(
     library: MediaLibrary,
     isScanning: Boolean,
+    isSupplementing: Boolean,
     onToggle: () -> Unit,
     onScan: () -> Unit,
+    onSupplement: () -> Unit,
     onDelete: () -> Unit,
     onScrapeAdult: () -> Unit,
     onScrapingToggle: (Boolean) -> Unit,
@@ -401,7 +405,7 @@ private fun MediaLibraryItem(
                 // 扫描按钮
                 OutlinedButton(
                     onClick = onScan,
-                    enabled = !isScanning,
+                    enabled = !isScanning && !isSupplementing,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = Dimens.spacingSm),
                     shape = RoundedCornerShape(Dimens.radiusSm)
@@ -426,9 +430,42 @@ private fun MediaLibraryItem(
                     )
                 }
 
+                // 补全资源按钮
+                OutlinedButton(
+                    onClick = onSupplement,
+                    enabled = !isScanning && !isSupplementing,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
+                    shape = RoundedCornerShape(Dimens.radiusSm),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Info
+                    ),
+                    border = BorderStroke(1.dp, Info.copy(alpha = 0.5f))
+                ) {
+                    if (isSupplementing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Info
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(Dimens.spacingXs))
+                    Text(
+                        text = stringResource(R.string.supplement),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+
                 // 补全分级按钮
                 OutlinedButton(
                     onClick = onScrapeAdult,
+                    enabled = !isScanning && !isSupplementing,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = Dimens.spacingSm),
                     shape = RoundedCornerShape(Dimens.radiusSm),
@@ -452,6 +489,7 @@ private fun MediaLibraryItem(
                 // 删除按钮
                 OutlinedButton(
                     onClick = onDelete,
+                    enabled = !isScanning && !isSupplementing,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = Dimens.spacingSm),
                     shape = RoundedCornerShape(Dimens.radiusSm),

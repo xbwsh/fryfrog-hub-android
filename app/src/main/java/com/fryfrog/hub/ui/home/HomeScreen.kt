@@ -49,7 +49,8 @@ fun HomeScreen(
     isCarouselEnabled: Boolean = true,
     homeViewMode: String = "grouped",
     onViewModeChange: (String) -> Unit = {},
-    onVideoClick: (Long, String) -> Unit = { _, _ -> }
+    onVideoClick: (Long, String) -> Unit = { _, _ -> },
+    onLibraryClick: (Long?, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -84,6 +85,7 @@ fun HomeScreen(
                         uiState = uiState,
                         isCarouselEnabled = isCarouselEnabled,
                         onVideoClick = onVideoClick,
+                        onLibraryClick = onLibraryClick,
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -154,6 +156,7 @@ private fun GroupedContent(
     uiState: HomeUiState,
     isCarouselEnabled: Boolean,
     onVideoClick: (Long, String) -> Unit,
+    onLibraryClick: (Long?, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val carouselItems by remember(uiState.libraryGroups, isCarouselEnabled) {
@@ -195,7 +198,7 @@ private fun GroupedContent(
                 item {
                     SectionHeader(
                         title = group.libraryName,
-                        subtitle = "${allItems.size}"
+                        onTitleClick = { onLibraryClick(group.libraryId, group.libraryName) }
                     )
                 }
 
@@ -204,7 +207,10 @@ private fun GroupedContent(
                         contentPadding = PaddingValues(horizontal = Dimens.pageHorizontalPadding),
                         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                     ) {
-                        items(allItems) { series ->
+                        items(
+                            items = allItems,
+                            key = { it.id }
+                        ) { series ->
                             MediaCard(
                                 title = series.title,
                                 subtitle = series.year?.toString(),
@@ -258,7 +264,10 @@ private fun OverviewContent(
         }
 
         // 网格视频
-        items(uiState.allVideos) { series ->
+        items(
+            items = uiState.allVideos,
+            key = { it.id }
+        ) { series ->
             Box(modifier = Modifier.padding(horizontal = Dimens.spacingXs)) {
                 MediaCard(
                     title = series.title,

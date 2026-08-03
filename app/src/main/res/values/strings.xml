@@ -9,6 +9,8 @@
     <string name="failed_to_load">Failed to load data</string>
     <string name="refresh">Refresh</string>
     <string name="no_videos">No videos found</string>
+    <string name="portrait_cover">Portrait</string>
+    <string name="landscape_cover">Landscape</string>
 
     <!-- Login -->
     <string name="welcome">Welcome</string>
@@ -155,4 +157,5 @@
     <string name="scrape_adult_desc">Batch mark content in all libraries as adult</string>
     <string name="scrape_adult_result">Updated %d items</string>
     <string name="scrape_adult_off">Scrape Off</string>
+    <string name="supplement">Supplement</string>
 </resources>

@@ -161,3 +161,10 @@ data class LibraryGroup(
     val seriesCount: Int,
     val standaloneCount: Int
 )
+
+data class ScrapeSupplementResult(
+    val total: Int,
+    val actorsSaved: Int,
+    val assetsGenerated: Int,
+    val failed: Int
+)
