@@ -486,14 +486,15 @@ private fun SwitchItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)
     ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.size(18.dp)
+        )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        UniformSwitch(
-            checked = checked,
-            onCheckedChange = onCheckedChange
         )
     }
 }
