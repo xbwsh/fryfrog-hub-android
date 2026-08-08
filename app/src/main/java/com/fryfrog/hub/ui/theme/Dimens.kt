@@ -46,6 +46,7 @@ data class AppDimens(
     val topBarGradientHeight: Dp = 100.dp,
     val carouselFadeHeight: Dp = 64.dp,
     val heroFadeHeight: Dp = 64.dp,
+    val heroBlurRadius: Dp = 24.dp,
 
     // Page Padding
     val pageHorizontalPadding: Dp = 12.dp,
@@ -150,6 +151,7 @@ object Dimens {
     val topBarGradientHeight: Dp @Composable get() = LocalDimens.current.topBarGradientHeight
     val carouselFadeHeight: Dp @Composable get() = LocalDimens.current.carouselFadeHeight
     val heroFadeHeight: Dp @Composable get() = LocalDimens.current.heroFadeHeight
+    val heroBlurRadius: Dp @Composable get() = LocalDimens.current.heroBlurRadius
 
     val pageHorizontalPadding: Dp @Composable get() = LocalDimens.current.pageHorizontalPadding
     val pageVerticalPadding: Dp @Composable get() = LocalDimens.current.pageVerticalPadding

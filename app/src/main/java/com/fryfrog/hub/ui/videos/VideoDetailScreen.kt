@@ -32,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -364,6 +365,9 @@ private fun HeroSection(
     var showMenu by remember { mutableStateOf(false) }
     val bannerUrl = selectedEpisode?.fanartUrl ?: selectedEpisode?.coverUrl
         ?: series.fanartUrl ?: series.coverUrl
+    // 无横屏剧照时，竖屏封面模糊铺满作为背景
+    val hasFanart = selectedEpisode?.fanartUrl != null || series.fanartUrl != null
+    val useBlurredPoster = bannerUrl != null && !hasFanart
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val heroHeight = if (isTablet) 400.dp else 320.dp
@@ -377,8 +381,19 @@ private fun HeroSection(
             AsyncImage(
                 model = bannerUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (useBlurredPoster) Modifier.blur(Dimens.heroBlurRadius) else Modifier),
                 contentScale = ContentScale.Crop
+            )
+        }
+
+        // 模糊竖屏背景压暗，保证前景文字可读
+        if (useBlurredPoster) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f))
             )
         }
 
