@@ -215,6 +215,7 @@ private fun GroupedContent(
                                 title = series.title,
                                 subtitle = series.year?.toString(),
                                 coverUrl = series.coverUrl,
+                                rating = series.rating,
                                 onClick = { onVideoClick(series.id, series.type ?: "series") }
                             )
                         }
@@ -273,6 +274,7 @@ private fun OverviewContent(
                     title = series.title,
                     subtitle = series.year?.toString(),
                     coverUrl = series.coverUrl,
+                    rating = series.rating,
                     onClick = { onVideoClick(series.id, series.type ?: "series") }
                 )
             }
@@ -306,23 +308,42 @@ private fun CarouselSection(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(carouselHeight),
-            pageSpacing = 0.dp
-        ) { page ->
-            val item = items[page]
-            WideMediaCard(
-                title = item.title,
-                subtitle = item.subtitle,
-                coverUrl = item.coverUrl,
-                onClick = item.onClick,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
-                    .fillMaxHeight(),
-                fixedSize = false,
-                clipShape = RectangleShape
+                    .fillMaxWidth()
+                    .height(carouselHeight),
+                pageSpacing = 0.dp
+            ) { page ->
+                val item = items[page]
+                WideMediaCard(
+                    title = item.title,
+                    subtitle = item.subtitle,
+                    coverUrl = item.coverUrl,
+                    onClick = item.onClick,
+                    modifier = Modifier
+                        .fillMaxHeight(),
+                    fixedSize = false,
+                    clipShape = RectangleShape,
+                    bottomContentPadding = Dimens.carouselFadeHeight
+                )
+            }
+
+            // 底部渐变遮罩：轮播图柔和渐隐进背景
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(Dimens.carouselFadeHeight)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MaterialTheme.colorScheme.background
+                            )
+                        )
+                    )
             )
         }
 

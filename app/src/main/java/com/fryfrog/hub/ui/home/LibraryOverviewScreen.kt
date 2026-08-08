@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +32,8 @@ fun LibraryOverviewScreen(
     libraryName: String,
     libraryItems: List<SeriesDTO>,
     onBackClick: () -> Unit,
-    onVideoClick: (Long, String) -> Unit
+    onVideoClick: (Long, String) -> Unit,
+    onRefresh: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { PrefsManager(context) }
@@ -58,6 +60,13 @@ fun LibraryOverviewScreen(
                         Icon(
                             imageVector = if (isPortrait) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
                             contentDescription = if (isPortrait) stringResource(R.string.landscape_cover) else stringResource(R.string.portrait_cover),
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.refresh),
                             tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
@@ -110,8 +119,12 @@ private fun PortraitGrid(
     onVideoClick: (Long, String) -> Unit
 ) {
     val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
-    val columns = if (isTablet) 7 else 5
+    // 平板横屏（宽屏）7 列，平板竖屏 5 列，手机 5 列
+    val columns = when {
+        configuration.screenWidthDp >= 900 -> 7
+        configuration.screenWidthDp >= 600 -> 5
+        else -> 5
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(columns),
@@ -125,12 +138,18 @@ private fun PortraitGrid(
         verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
     ) {
         items(items, key = { it.id }) { series ->
-            MediaCard(
-                title = series.title,
-                subtitle = series.year?.toString(),
-                coverUrl = series.coverUrl,
-                onClick = { onVideoClick(series.id, series.type ?: "series") }
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                MediaCard(
+                    title = series.title,
+                    subtitle = series.year?.toString(),
+                    coverUrl = series.coverUrl,
+                    rating = series.rating,
+                    onClick = { onVideoClick(series.id, series.type ?: "series") }
+                )
+            }
         }
     }
 }

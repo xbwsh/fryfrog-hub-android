@@ -32,8 +32,7 @@ data class VideosUiState(
     val sortOption: SortOption = SortOption.DEFAULT,
     val searchQuery: String = "",
     val currentPage: Int = 0,
-    val totalPages: Int = 1,
-    val scrapeMessage: String? = null
+    val totalPages: Int = 1
 )
 
 class VideosViewModel : ViewModel() {
@@ -203,10 +202,6 @@ class VideosViewModel : ViewModel() {
                 val api = com.fryfrog.hub.data.remote.ApiClient.getApi()
                 val response = api.scrapeAdultOnly()
                 if (response.success) {
-                    val updated = response.data?.get("updated") as? Number ?: 0
-                    _uiState.value = _uiState.value.copy(
-                        scrapeMessage = "Updated $updated items"
-                    )
                     loadVideos()
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -219,9 +214,5 @@ class VideosViewModel : ViewModel() {
                 )
             }
         }
-    }
-
-    fun clearScrapeMessage() {
-        _uiState.value = _uiState.value.copy(scrapeMessage = null)
     }
 }

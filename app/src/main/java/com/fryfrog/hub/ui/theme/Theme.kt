@@ -24,9 +24,9 @@ private val DarkColorScheme = darkColorScheme(
 
     background = SoftBlack,
     onBackground = White,
-    surface = SoftBlack,
+    surface = SurfaceDark,
     onSurface = White,
-    surfaceVariant = Color(0xFF252525),
+    surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = TextSecondary,
 
     error = Danger,

@@ -35,6 +35,11 @@ val FillExtraLight = Color(0xFFFAFCFF)
 // ===== 基础色 =====
 val SoftBlack = Color(0xFF1A1A1A)
 val White = Color(0xFFFFFFFF)
+val Gold = Color(0xFFFFB300)
+
+// ===== 暗色主题分层色（比背景亮一档，保证卡片/填充可见）=====
+val SurfaceDark = Color(0xFF242424)
+val SurfaceVariantDark = Color(0xFF2E2E2E)
 
 // ===== 背景色 =====
 val PageBackground = Color(0xFFF2F3F5)

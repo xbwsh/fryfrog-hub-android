@@ -20,11 +20,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Gold
 
 @Composable
 fun MediaCard(
@@ -33,7 +36,8 @@ fun MediaCard(
     coverUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    square: Boolean = false
+    square: Boolean = false,
+    rating: Double? = null
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -70,6 +74,25 @@ fun MediaCard(
                         text = title.take(1),
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // 左上角评分徽章（金黄字 + 半透明黑底）
+            if (rating != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(Dimens.spacingXs)
+                        .clip(RoundedCornerShape(Dimens.radiusMd))
+                        .background(Color.Black.copy(alpha = Dimens.alphaOverlay))
+                        .padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs)
+                ) {
+                    Text(
+                        text = String.format("%.1f", rating),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Gold,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -161,7 +184,8 @@ fun WideMediaCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     fixedSize: Boolean = true,
-    clipShape: Shape = RoundedCornerShape(Dimens.radiusLg)
+    clipShape: Shape = RoundedCornerShape(Dimens.radiusLg),
+    bottomContentPadding: Dp? = null
 ) {
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -203,7 +227,12 @@ fun WideMediaCard(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(Dimens.spacingLg)
+                .padding(
+                    start = Dimens.spacingLg,
+                    top = Dimens.spacingLg,
+                    end = Dimens.spacingLg,
+                    bottom = bottomContentPadding ?: Dimens.spacingLg
+                )
         ) {
             Text(
                 text = title,

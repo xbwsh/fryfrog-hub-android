@@ -55,13 +55,6 @@ fun VideosScreen(
         viewModel.setAdultContentHidden(isAdultContentHidden)
     }
 
-    LaunchedEffect(uiState.scrapeMessage) {
-        uiState.scrapeMessage?.let {
-            kotlinx.coroutines.delay(3000)
-            viewModel.clearScrapeMessage()
-        }
-    }
-
     val filteredSeries by remember(uiState.series, isAdultContentHidden) {
         derivedStateOf {
             if (isAdultContentHidden) {
@@ -249,23 +242,6 @@ fun VideosScreen(
                     onVideoClick = onVideoClick,
                     modifier = Modifier.fillMaxSize()
                 )
-            }
-
-            // Scrape message
-            uiState.scrapeMessage?.let { message ->
-                Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(Dimens.spacingLg),
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(Dimens.spacingSm))
-                        Text(message, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
             }
         }
     }

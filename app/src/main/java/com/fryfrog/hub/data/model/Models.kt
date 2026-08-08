@@ -33,6 +33,7 @@ data class SeriesDTO(
     val overview: String?,
     val mediaType: String?,
     val tmdbId: Long?,
+    val tmdbTitle: String? = null,
     val rating: Double?,
     val year: Int?,
     val seasonNumber: Int?,
@@ -162,9 +163,30 @@ data class LibraryGroup(
     val standaloneCount: Int
 )
 
-data class ScrapeSupplementResult(
+// 视频刮削进度（module 形如 "supplement:{libraryId}" / "adult:{libraryId}" / "adult:all"）
+data class ScrapeProgress(
+    val module: String?,
+    val stage: String?,
+    val running: Boolean,
     val total: Int,
-    val actorsSaved: Int,
-    val assetsGenerated: Int,
-    val failed: Int
+    val completed: Int,
+    val failed: Int,
+    val skipped: Int,
+    val pending: Int,
+    val percent: Double,
+    val currentItem: String?,
+    val startedAt: String?,
+    val updatedAt: String?
+)
+
+// 扫描流水线进度（聚合接口：scan/scrape/actors/assets/done 全阶段）
+data class PipelineProgress(
+    val libraryId: Long,
+    val stage: String?,
+    val running: Boolean,
+    val percent: Double,
+    val currentItem: String?,
+    val scrapingEnabled: Boolean,
+    val scanPercent: Double,
+    val scrapePercent: Double
 )

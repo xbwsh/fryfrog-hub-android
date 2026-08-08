@@ -54,6 +54,8 @@ import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.util.PrefsManager
 
+private const val VIDEO_DETAIL_ROUTE = "video_detail/{seriesId}?type={type}"
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,21 +148,18 @@ private fun MainContent(
     var bottomBarHeight by remember { mutableIntStateOf(0) }
 
     val isHomeScreen = currentRoute == Screen.Home.route
+    // 顶部有深色渐变遮罩的页面：状态栏图标固定为白色
+    val hasDarkTopOverlay = isHomeScreen || currentRoute == VIDEO_DETAIL_ROUTE
     val view = LocalView.current
 
     // Activity 级别的共享 HomeViewModel
     val homeViewModel: HomeViewModel = viewModel()
 
-    LaunchedEffect(isHomeScreen, isDarkTheme) {
+    LaunchedEffect(hasDarkTopOverlay, isHomeScreen, isDarkTheme) {
         val window = (view.context as android.app.Activity).window
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        if (isHomeScreen) {
-            controller.isAppearanceLightStatusBars = false
-            controller.isAppearanceLightNavigationBars = false
-        } else {
-            controller.isAppearanceLightStatusBars = !isDarkTheme
-            controller.isAppearanceLightNavigationBars = !isDarkTheme
-        }
+        controller.isAppearanceLightStatusBars = !hasDarkTopOverlay && !isDarkTheme
+        controller.isAppearanceLightNavigationBars = if (isHomeScreen) false else !isDarkTheme
     }
 
     Scaffold(
@@ -237,7 +236,8 @@ private fun MainContent(
                     onBackClick = { navController.popBackStack() },
                     onVideoClick = { videoId, type ->
                         navController.navigate("video_detail/$videoId?type=$type")
-                    }
+                    },
+                    onRefresh = { homeViewModel.loadHomeData() }
                 )
             }
 
@@ -265,7 +265,7 @@ private fun MainContent(
 
             // 视频详情
             composable(
-                route = "video_detail/{seriesId}?type={type}",
+                route = VIDEO_DETAIL_ROUTE,
                 arguments = listOf(
                     navArgument("seriesId") { type = NavType.LongType },
                     navArgument("type") { type = NavType.StringType; defaultValue = "" }

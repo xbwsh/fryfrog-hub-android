@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.FileCopy
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PlayArrow
@@ -50,6 +51,7 @@ import com.fryfrog.hub.data.model.TmdbSearchResult
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
+import com.fryfrog.hub.ui.theme.Gold
 import com.fryfrog.hub.ui.theme.Primary
 import com.fryfrog.hub.ui.theme.Success
 import com.fryfrog.hub.ui.theme.Warning
@@ -85,7 +87,11 @@ fun VideoDetailScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -196,17 +202,24 @@ private fun VideoDetailContent(
     // 选集状态：初始 0 表示选中第一集
     var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
 
-    // 季选择状态
+    // 仅剧集才显示选集/季选择；独立电影（后端也会带出单条剧集结构）直接播放
     val allEpisodes = series.episodes.orEmpty()
-    val seasons = remember(allEpisodes) {
-        allEpisodes.mapNotNull { it.seasonNumber }.distinct().sorted()
+    val isSeries = series.mediaType == "tv" || allEpisodes.size > 1
+    val seasons = remember(allEpisodes, isSeries) {
+        if (isSeries) {
+            allEpisodes.mapNotNull { it.seasonNumber }.distinct().sorted()
+        } else {
+            emptyList()
+        }
     }
     val hasMultipleSeasons = seasons.size > 1
     var selectedSeason by remember { mutableIntStateOf(seasons.firstOrNull() ?: 1) }
 
     // 当前季的剧集
-    val currentSeasonEpisodes = remember(allEpisodes, selectedSeason) {
-        if (hasMultipleSeasons) {
+    val currentSeasonEpisodes = remember(allEpisodes, selectedSeason, isSeries) {
+        if (!isSeries) {
+            allEpisodes
+        } else if (hasMultipleSeasons) {
             allEpisodes.filter { it.seasonNumber == selectedSeason }
         } else {
             allEpisodes
@@ -228,8 +241,10 @@ private fun VideoDetailContent(
             item {
                 HeroSection(
                     series = series,
+                    isSeries = isSeries,
                     selectedEpisode = selectedEpisode,
                     progress = progress,
+                    onBackClick = onBackClick,
                     onPlayClick = {
                         val ep = selectedEpisode ?: currentSeasonEpisodes.firstOrNull()
                         ep?.let {
@@ -282,7 +297,7 @@ private fun VideoDetailContent(
             }
 
             // Episodes Section
-            if (currentSeasonEpisodes.isNotEmpty()) {
+            if (isSeries && currentSeasonEpisodes.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(Dimens.spacingXl))
                     Card(
@@ -336,8 +351,10 @@ private fun VideoDetailContent(
 @Composable
 private fun HeroSection(
     series: SeriesDTO,
+    isSeries: Boolean = false,
     selectedEpisode: VideoDTO? = null,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
+    onBackClick: () -> Unit = {},
     onPlayClick: () -> Unit,
     onToggleWatched: () -> Unit = {},
     onSearchTmdb: () -> Unit,
@@ -380,14 +397,54 @@ private fun HeroSection(
                 )
         )
 
+        // Top gradient overlay (same as home screen)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(Dimens.topBarGradientHeight)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.6f),
+                            Color.Black.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Bottom fade overlay (same as home carousel): 背景图柔和渐隐进下方内容
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(Dimens.heroFadeHeight)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            MaterialTheme.colorScheme.background
+                        )
+                    )
+                )
+        )
+
+        // Top-left back button (与右上角菜单对称)
+        Box(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(Dimens.spacingMd)) {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = Color.White
+                )
+            }
+        }
+
         // Top-right menu
         Box(modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(Dimens.spacingMd)) {
             IconButton(
-                onClick = { showMenu = true },
-                modifier = Modifier.background(
-                    Color.Black.copy(alpha = Dimens.alphaOverlay),
-                    CircleShape
-                )
+                onClick = { showMenu = true }
             ) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
@@ -437,7 +494,12 @@ private fun HeroSection(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(Dimens.spacingLg)
+                .padding(
+                    start = Dimens.spacingLg,
+                    top = Dimens.spacingLg,
+                    end = Dimens.spacingLg,
+                    bottom = Dimens.heroFadeHeight + Dimens.spacingLg
+                )
         ) {
             // Tags row
             Row(
@@ -475,6 +537,22 @@ private fun HeroSection(
                             modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White
+                        )
+                    }
+                }
+
+                // 评分（样式与类型/R-18 标签一致，金黄字 + 半透明黑底）
+                series.rating?.let { rating ->
+                    Surface(
+                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = String.format("%.1f", rating),
+                            modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Gold,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -554,21 +632,6 @@ private fun HeroSection(
                     }
                 }
 
-                // Rating badge
-                series.rating?.let { rating ->
-                    Surface(
-                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
-                        shape = RoundedCornerShape(Dimens.radiusSm)
-                    ) {
-                        Text(
-                            text = String.format("%.1f", rating),
-                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White
-                        )
-                    }
-                }
-
                 // Year
                 (selectedEpisode?.year ?: series.year)?.let { year ->
                     Surface(
@@ -585,17 +648,19 @@ private fun HeroSection(
                 }
 
                 // Episode count
-                series.episodeCount?.let { count ->
-                    Surface(
-                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
-                        shape = RoundedCornerShape(Dimens.radiusSm)
-                    ) {
-                        Text(
-                            text = "$count ${stringResource(R.string.episodes)}",
-                            modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White
-                        )
+                if (isSeries) {
+                    series.episodeCount?.let { count ->
+                        Surface(
+                            color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                            shape = RoundedCornerShape(Dimens.radiusSm)
+                        ) {
+                            Text(
+                                text = "$count ${stringResource(R.string.episodes)}",
+                                modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
 
@@ -628,62 +693,93 @@ private fun VideoInfoSection(
 ) {
     val episode = selectedEpisode ?: series.episodes?.firstOrNull()
 
-    Column(
-        modifier = Modifier.padding(horizontal = Dimens.spacingLg)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.spacingLg)
+            .height(Dimens.posterHeight),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd),
+        verticalAlignment = Alignment.Top
     ) {
-        // Duration
-        episode?.durationMinutes?.let { duration ->
-            Text(
-                text = "${duration} ${stringResource(R.string.minutes)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        // 竖屏封面（固定尺寸，信息区高度以它为准）
+        val posterModifier = Modifier
+            .width(Dimens.posterWidth)
+            .height(Dimens.posterHeight)
+            .clip(RoundedCornerShape(Dimens.radiusMd))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+        if (series.coverUrl != null) {
+            AsyncImage(
+                model = series.coverUrl,
+                contentDescription = series.title,
+                modifier = posterModifier,
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter
             )
+        } else {
+            Box(modifier = posterModifier)
         }
 
-        // Original File Name
-        series.originalFileName?.let { fileName ->
-            if (fileName.isNotBlank()) {
-                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        ) {
+            // Duration
+            episode?.durationMinutes?.let { duration ->
                 Text(
-                    text = fileName,
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${duration} ${stringResource(R.string.minutes)}",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
 
-        // Director
-        episode?.director?.let { director ->
-            Spacer(modifier = Modifier.height(Dimens.spacingXs))
-            Text(
-                text = "${stringResource(R.string.director)}: $director",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        // Overview Card
-        val overview = selectedEpisode?.overview ?: series.overview
-        overview?.let {
-            Spacer(modifier = Modifier.height(Dimens.spacingLg))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(Dimens.radiusMd),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(Dimens.spacingMd)) {
-                    SectionHeader(title = stringResource(R.string.overview))
-                    Spacer(modifier = Modifier.height(Dimens.spacingXs))
+            // Original File Name
+            series.originalFileName?.let { fileName ->
+                if (fileName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(Dimens.spacingSm))
                     Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 5,
-                        overflow = TextOverflow.Ellipsis
+                        text = fileName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            // Director
+            episode?.director?.let { director ->
+                Spacer(modifier = Modifier.height(Dimens.spacingXs))
+                Text(
+                    text = "${stringResource(R.string.director)}: $director",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Overview Card（占据封面高度内剩余空间）
+            val overview = selectedEpisode?.overview ?: series.overview
+            overview?.let {
+                Spacer(modifier = Modifier.height(Dimens.spacingSm))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    shape = RoundedCornerShape(Dimens.radiusMd),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(Dimens.spacingMd)) {
+                        SectionHeader(title = stringResource(R.string.overview))
+                        Spacer(modifier = Modifier.height(Dimens.spacingXs))
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 5,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -1025,65 +1121,109 @@ private fun TmdbScrapeSheet(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         )
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(Dimens.spacingMd),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (series.tmdbId != null) Success.copy(alpha = 0.1f)
-                                        else MaterialTheme.colorScheme.surfaceVariant
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (series.tmdbId != null) Icons.Default.Check else Icons.Default.Close,
-                                    contentDescription = null,
-                                    tint = if (series.tmdbId != null) Success else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(Dimens.spacingMd))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.tmdb_current_binding),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(Dimens.spacingXxs))
-                                if (series.tmdbId != null) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "TMDB #${series.tmdbId}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        Spacer(modifier = Modifier.width(Dimens.spacingSm))
-                                        Surface(
-                                            color = Primary.copy(alpha = 0.1f),
-                                            shape = RoundedCornerShape(Dimens.radiusSm)
-                                        ) {
-                                            Text(
-                                                text = (series.mediaType ?: "tv").uppercase(),
-                                                modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Primary
-                                            )
-                                        }
-                                    }
-                                } else {
+                        Column(modifier = Modifier.padding(Dimens.spacingMd)) {
+                            // 原始文件名区
+                            val originalFileName = series.originalFileName
+                                ?: series.episodes?.firstOrNull()?.fileName
+                            if (!originalFileName.isNullOrBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.FileCopy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(Dimens.spacingSm))
                                     Text(
-                                        text = stringResource(R.string.tmdb_not_bound),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        text = stringResource(R.string.original_file_name),
+                                        style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                }
+                                Spacer(modifier = Modifier.height(Dimens.spacingXxs))
+                                Text(
+                                    text = originalFileName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(Dimens.spacingMd))
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                                Spacer(modifier = Modifier.height(Dimens.spacingMd))
+                            }
+
+                            // 当前绑定区
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (series.tmdbId != null) Success.copy(alpha = 0.1f)
+                                            else MaterialTheme.colorScheme.surfaceVariant
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (series.tmdbId != null) Icons.Default.Check else Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = if (series.tmdbId != null) Success else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(Dimens.spacingMd))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.tmdb_current_binding),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(Dimens.spacingXxs))
+                                    if (series.tmdbId != null) {
+                                        // 绑定剧名（优先 TMDB 侧标题，回退当前标题）
+                                        Text(
+                                            text = series.tmdbTitle ?: series.title,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(Dimens.spacingXxs))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "TMDB #${series.tmdbId}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                                            Surface(
+                                                color = Primary.copy(alpha = 0.1f),
+                                                shape = RoundedCornerShape(Dimens.radiusSm)
+                                            ) {
+                                                Text(
+                                                    text = (series.mediaType ?: "tv").uppercase(),
+                                                    modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Primary
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        Text(
+                                            text = stringResource(R.string.tmdb_not_bound),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -60,7 +60,7 @@ interface FryfrogApi {
     suspend fun refreshTmdb(@Path("id") id: Long): ApiResponse<Map<String, Any>>
 
     @GET("/api/v1/video/scrape/progress")
-    suspend fun getScrapeProgress(): ApiResponse<Map<String, Any>>
+    suspend fun getScrapeProgress(@Query("module") module: String? = null): ApiResponse<ScrapeProgress>
 
     @POST("/api/v1/video/scrape/adult-only")
     suspend fun scrapeAdultOnly(@Query("libraryId") libraryId: Long? = null): ApiResponse<Map<String, Any>>
@@ -69,7 +69,7 @@ interface FryfrogApi {
     suspend fun scrapeSupplement(
         @Path("libraryId") libraryId: Long,
         @Query("force") force: Boolean = false
-    ): ApiResponse<ScrapeSupplementResult>
+    ): ApiResponse<Map<String, Any>>
 
     // ========== Auth ==========
     @POST("/api/v1/auth/login")
@@ -91,11 +91,11 @@ interface FryfrogApi {
     @DELETE("/api/v1/media-libraries/{id}")
     suspend fun deleteMediaLibrary(@Path("id") id: Long): ApiResponse<Map<String, Any>>
 
-    @PUT("/api/v1/media-libraries/{id}/toggle")
-    suspend fun toggleMediaLibrary(@Path("id") id: Long): ApiResponse<MediaLibrary>
-
     @POST("/api/v1/media-libraries/{id}/scan")
     suspend fun scanMediaLibrary(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/media-libraries/{id}/pipeline-progress")
+    suspend fun getPipelineProgress(@Path("id") id: Long): ApiResponse<PipelineProgress>
 
     @POST("/api/v1/media-libraries/scan")
     suspend fun scanAllMediaLibraries(): ApiResponse<Map<String, Any>>

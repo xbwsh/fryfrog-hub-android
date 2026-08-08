@@ -28,6 +28,8 @@ data class AppDimens(
     val cardMediaWidth: Dp = 85.dp,
     val cardMediaWidthTablet: Dp = 130.dp,
     val gridMinCardWidth: Dp = 90.dp,
+    val posterWidth: Dp = 100.dp,
+    val posterHeight: Dp = 143.dp,
 
     // Wide Media Card
     val cardWideWidth: Dp = 200.dp,
@@ -42,6 +44,8 @@ data class AppDimens(
     val indicatorSize: Dp = 5.dp,
     val indicatorSpacing: Dp = 3.dp,
     val topBarGradientHeight: Dp = 100.dp,
+    val carouselFadeHeight: Dp = 64.dp,
+    val heroFadeHeight: Dp = 64.dp,
 
     // Page Padding
     val pageHorizontalPadding: Dp = 12.dp,
@@ -83,6 +87,8 @@ val TabletDimens = AppDimens(
 
     // Media Card - 平板加大
     gridMinCardWidth = 110.dp,
+    posterWidth = 130.dp,
+    posterHeight = 186.dp,
 
     // Component Sizes - 平板加大
     iconSize = 24.dp,
@@ -128,6 +134,8 @@ object Dimens {
     val cardMediaWidth: Dp @Composable get() = LocalDimens.current.cardMediaWidth
     val cardMediaWidthTablet: Dp @Composable get() = LocalDimens.current.cardMediaWidthTablet
     val gridMinCardWidth: Dp @Composable get() = LocalDimens.current.gridMinCardWidth
+    val posterWidth: Dp @Composable get() = LocalDimens.current.posterWidth
+    val posterHeight: Dp @Composable get() = LocalDimens.current.posterHeight
 
     val cardWideWidth: Dp @Composable get() = LocalDimens.current.cardWideWidth
     val cardWideWidthTablet: Dp @Composable get() = LocalDimens.current.cardWideWidthTablet
@@ -140,6 +148,8 @@ object Dimens {
     val indicatorSize: Dp @Composable get() = LocalDimens.current.indicatorSize
     val indicatorSpacing: Dp @Composable get() = LocalDimens.current.indicatorSpacing
     val topBarGradientHeight: Dp @Composable get() = LocalDimens.current.topBarGradientHeight
+    val carouselFadeHeight: Dp @Composable get() = LocalDimens.current.carouselFadeHeight
+    val heroFadeHeight: Dp @Composable get() = LocalDimens.current.heroFadeHeight
 
     val pageHorizontalPadding: Dp @Composable get() = LocalDimens.current.pageHorizontalPadding
     val pageVerticalPadding: Dp @Composable get() = LocalDimens.current.pageVerticalPadding
