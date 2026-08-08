@@ -139,6 +139,12 @@
     <string name="tmdb_unbind">解绑</string>
     <string name="tmdb_refresh">刷新</string>
     <string name="more">更多</string>
+    <string name="set_cover">设置封面</string>
+    <string name="generating_frames">正在生成候选帧…</string>
+    <string name="generate_frames_failed">转码服务不可用</string>
+    <string name="frame_type_poster">竖屏封面</string>
+    <string name="frame_type_fanart">横屏背景</string>
+    <string name="frame_position">%d 秒</string>
 
     <!-- Sort -->
     <string name="sort">排序</string>

@@ -2,6 +2,7 @@ package com.fryfrog.hub.ui.videos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fryfrog.hub.data.model.FrameCandidate
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.TmdbSearchResult
 import com.fryfrog.hub.data.model.VideoActor
@@ -25,6 +26,10 @@ data class VideoDetailUiState(
     val isBindingTmdb: Boolean = false,
     val isUnbindingTmdb: Boolean = false,
     val isRefreshingTmdb: Boolean = false,
+    val frameCandidates: List<FrameCandidate> = emptyList(),
+    val isGeneratingFrames: Boolean = false,
+    val isSubmittingFrame: Boolean = false,
+    val frameError: String? = null,
     val snackbarMessage: String? = null,
     val shouldNavigateBack: Boolean = false
 )
@@ -222,6 +227,51 @@ class VideoDetailViewModel(
 
     fun clearSnackbarMessage() {
         _uiState.value = _uiState.value.copy(snackbarMessage = null)
+    }
+
+    // ===== 封面候选帧 =====
+
+    fun generateFrames() {
+        val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isGeneratingFrames = true, frameError = null)
+            val result = repository.generateFrames(videoId)
+            result.fold(
+                onSuccess = { data ->
+                    _uiState.value = _uiState.value.copy(
+                        frameCandidates = data.candidates.orEmpty(),
+                        isGeneratingFrames = false
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isGeneratingFrames = false,
+                        frameError = e.message ?: "Failed to generate frames"
+                    )
+                }
+            )
+        }
+    }
+
+    fun selectFrame(index: Int, type: String, onSuccess: () -> Unit = {}) {
+        val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSubmittingFrame = true)
+            val result = repository.selectFrame(videoId, index, type)
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(isSubmittingFrame = false)
+                    loadVideoDetail()
+                    onSuccess()
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSubmittingFrame = false,
+                        frameError = e.message ?: "Failed to select frame"
+                    )
+                }
+            )
+        }
     }
 
     fun refreshProgress() {

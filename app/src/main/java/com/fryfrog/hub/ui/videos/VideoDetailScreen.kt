@@ -1,15 +1,19 @@
 package com.fryfrog.hub.ui.videos
 
 import android.app.Activity
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -18,6 +22,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FileCopy
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PlayArrow
@@ -47,6 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
+import com.fryfrog.hub.data.model.FrameCandidate
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.TmdbSearchResult
 import com.fryfrog.hub.data.model.VideoActor
@@ -69,6 +75,7 @@ fun VideoDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showScrapeSheet by remember { mutableStateOf(false) }
+    var showFramePicker by remember { mutableStateOf(false) }
     var showUnbindConfirm by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -121,7 +128,8 @@ fun VideoDetailScreen(
                     onPlayEpisode = onPlayClick,
                     onSearchTmdb = { showScrapeSheet = true },
                     onRefreshTmdb = { viewModel.refreshTmdb() },
-                    onUnbindTmdb = { showUnbindConfirm = true }
+                    onUnbindTmdb = { showUnbindConfirm = true },
+                    onSetCover = { showFramePicker = true }
                 )
             }
         }
@@ -155,6 +163,20 @@ fun VideoDetailScreen(
             onRefresh = {
                 viewModel.refreshTmdb()
                 showScrapeSheet = false
+            }
+        )
+    }
+
+    // 设置封面弹窗
+    if (showFramePicker) {
+        FramePickerSheet(
+            uiState = uiState,
+            onDismiss = { showFramePicker = false },
+            onGenerate = viewModel::generateFrames,
+            onSelect = { index, type ->
+                viewModel.selectFrame(index, type) {
+                    showFramePicker = false
+                }
             }
         )
     }
@@ -198,7 +220,8 @@ private fun VideoDetailContent(
     onToggleWatched: () -> Unit = {},
     onSearchTmdb: () -> Unit,
     onRefreshTmdb: () -> Unit,
-    onUnbindTmdb: () -> Unit
+    onUnbindTmdb: () -> Unit,
+    onSetCover: () -> Unit = {}
 ) {
     // 选集状态：初始 0 表示选中第一集
     var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
@@ -263,7 +286,8 @@ private fun VideoDetailContent(
                     onToggleWatched = onToggleWatched,
                     onSearchTmdb = onSearchTmdb,
                     onRefreshTmdb = onRefreshTmdb,
-                    onUnbindTmdb = onUnbindTmdb
+                    onUnbindTmdb = onUnbindTmdb,
+                    onSetCover = onSetCover
                 )
             }
 
@@ -360,7 +384,8 @@ private fun HeroSection(
     onToggleWatched: () -> Unit = {},
     onSearchTmdb: () -> Unit,
     onRefreshTmdb: () -> Unit,
-    onUnbindTmdb: () -> Unit
+    onUnbindTmdb: () -> Unit,
+    onSetCover: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val bannerUrl = selectedEpisode?.fanartUrl ?: selectedEpisode?.coverUrl
@@ -490,6 +515,15 @@ private fun HeroSection(
                     label = stringResource(R.string.tmdb_refresh),
                     onClick = { showMenu = false; onRefreshTmdb() }
                 )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                TmdbMenuItem(
+                    icon = Icons.Default.Image,
+                    label = stringResource(R.string.set_cover),
+                    onClick = { showMenu = false; onSetCover() }
+                )
                 if (series.tmdbId != null) {
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = Dimens.spacingMd),
@@ -513,7 +547,7 @@ private fun HeroSection(
                     start = Dimens.spacingLg,
                     top = Dimens.spacingLg,
                     end = Dimens.spacingLg,
-                    bottom = Dimens.heroFadeHeight + Dimens.spacingLg
+                    bottom = Dimens.spacingXxl + Dimens.spacingLg
                 )
         ) {
             // Tags row
@@ -573,6 +607,7 @@ private fun HeroSection(
                 }
             }
 
+            // 标题
             Text(
                 text = series.title,
                 style = MaterialTheme.typography.headlineMedium,
@@ -1094,6 +1129,200 @@ private fun SeasonTabRow(
         }
     }
 }
+@Composable
+private fun FramePickerSheet(
+    uiState: VideoDetailUiState,
+    onDismiss: () -> Unit,
+    onGenerate: () -> Unit,
+    onSelect: (Int, String) -> Unit
+) {
+    var selectedIndex by remember { mutableIntStateOf(-1) }
+    var selectedType by remember { mutableStateOf("poster") }
+
+    // 进入弹窗即生成候选帧
+    LaunchedEffect(Unit) { onGenerate() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.set_cover)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+            ) {
+                when {
+                    uiState.isGeneratingFrames -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator()
+                                Spacer(Modifier.height(Dimens.spacingMd))
+                                Text(
+                                    text = stringResource(R.string.generating_frames),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    uiState.frameError != null -> {
+                        Text(
+                            text = stringResource(R.string.generate_frames_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = uiState.frameError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    uiState.frameCandidates.isNotEmpty() -> {
+                        // 6 宫格候选
+                        val candidates = uiState.frameCandidates
+                        val rows = (candidates.size + 2) / 3
+                        for (row in 0 until rows) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                            ) {
+                                for (col in 0 until 3) {
+                                    val index = row * 3 + col
+                                    if (index < candidates.size) {
+                                        val candidate = candidates[index]
+                                        FrameThumb(
+                                            candidate = candidate,
+                                            isSelected = selectedIndex == candidate.index,
+                                            onClick = { selectedIndex = candidate.index },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(Dimens.spacingSm))
+
+                        // 类型选择
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                        ) {
+                            FrameTypeChip(
+                                label = stringResource(R.string.frame_type_poster),
+                                selected = selectedType == "poster",
+                                onClick = { selectedType = "poster" },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FrameTypeChip(
+                                label = stringResource(R.string.frame_type_fanart),
+                                selected = selectedType == "fanart",
+                                onClick = { selectedType = "fanart" },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSelect(selectedIndex, selectedType) },
+                enabled = selectedIndex >= 0 && !uiState.isSubmittingFrame && !uiState.isGeneratingFrames
+            ) {
+                if (uiState.isSubmittingFrame) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !uiState.isSubmittingFrame) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun FrameThumb(
+    candidate: FrameCandidate,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(Dimens.radiusSm))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(
+                width = 2.dp,
+                color = if (isSelected) Primary else Color.Transparent,
+                shape = RoundedCornerShape(Dimens.radiusSm)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        if (candidate.url != null) {
+            AsyncImage(
+                model = candidate.url,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+        Text(
+            text = stringResource(R.string.frame_position, candidate.position),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(Dimens.spacingXs)
+                .clip(RoundedCornerShape(Dimens.radiusXs))
+                .background(Color.Black.copy(alpha = 0.6f))
+                .padding(horizontal = Dimens.spacingXs, vertical = 1.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White
+        )
+    }
+}
+
+@Composable
+private fun FrameTypeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(Dimens.radiusSm),
+        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (selected) Primary else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(vertical = Dimens.spacingSm),
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 @Composable
 private fun TmdbScrapeSheet(
     uiState: VideoDetailUiState,

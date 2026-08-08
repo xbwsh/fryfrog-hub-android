@@ -71,6 +71,13 @@ interface FryfrogApi {
         @Query("force") force: Boolean = false
     ): ApiResponse<Map<String, Any>>
 
+    // ========== Frame Cover ==========
+    @POST("/api/v1/video/{id}/frames")
+    suspend fun generateFrames(@Path("id") id: Long): ApiResponse<GenerateFramesResponse>
+
+    @POST("/api/v1/video/{id}/frames/select")
+    suspend fun selectFrame(@Path("id") id: Long, @Body body: SelectFrameRequest): ApiResponse<SelectFrameResponse>
+
     // ========== Auth ==========
     @POST("/api/v1/auth/login")
     suspend fun login(@Body body: Map<String, String>): LoginResponse

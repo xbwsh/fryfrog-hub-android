@@ -139,6 +139,12 @@
     <string name="tmdb_unbind">Unbind</string>
     <string name="tmdb_refresh">Refresh</string>
     <string name="more">More</string>
+    <string name="set_cover">Set Cover</string>
+    <string name="generating_frames">Generating frames…</string>
+    <string name="generate_frames_failed">Transcoder unavailable</string>
+    <string name="frame_type_poster">Portrait Cover</string>
+    <string name="frame_type_fanart">Landscape Backdrop</string>
+    <string name="frame_position">%d s</string>
 
     <!-- Sort -->
     <string name="sort">Sort</string>

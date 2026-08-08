@@ -179,6 +179,30 @@ data class ScrapeProgress(
     val updatedAt: String?
 )
 
+// 封面候选帧
+data class FrameCandidate(
+    val index: Int,
+    val position: Int,
+    val url: String?
+)
+
+data class GenerateFramesResponse(
+    val videoId: Long,
+    val total: Int,
+    val candidates: List<FrameCandidate>? = emptyList()
+)
+
+data class SelectFrameRequest(
+    val index: Int,
+    val type: String
+)
+
+data class SelectFrameResponse(
+    val videoId: Long,
+    val type: String?,
+    val path: String?
+)
+
 // 扫描流水线进度（聚合接口：scan/scrape/actors/assets/done 全阶段）
 data class PipelineProgress(
     val libraryId: Long,

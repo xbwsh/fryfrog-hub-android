@@ -106,6 +106,22 @@ class MediaRepository {
         response.data ?: throw Exception("No data")
     }
 
+    suspend fun generateFrames(videoId: Long): Result<GenerateFramesResponse> = safeApiCall {
+        val response = api.generateFrames(videoId)
+        android.util.Log.d("MediaRepository", "generateFrames: videoId=$videoId, success=${response.success}")
+        response.data?.let { data ->
+            data.copy(
+                candidates = data.candidates?.map { it.copy(url = fixUrl(it.url)) }
+            )
+        } ?: throw Exception(response.message ?: "Failed to generate frames")
+    }
+
+    suspend fun selectFrame(videoId: Long, index: Int, type: String): Result<SelectFrameResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "selectFrame: videoId=$videoId, index=$index, type=$type")
+        api.selectFrame(videoId, SelectFrameRequest(index, type)).data
+            ?: throw Exception("Failed to select frame")
+    }
+
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {
         return try {
             Result.success(call())
