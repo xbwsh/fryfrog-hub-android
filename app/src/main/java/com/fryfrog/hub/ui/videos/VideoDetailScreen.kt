@@ -1230,6 +1230,15 @@ private fun FramePickerSheet(
                                 onClick = { selectedType = "fanart" },
                                 modifier = Modifier.weight(1f)
                             )
+                            // 仅剧集可设置为系列横屏背景
+                            if (uiState.series?.mediaType == "tv") {
+                                FrameTypeChip(
+                                    label = stringResource(R.string.frame_type_series_fanart),
+                                    selected = selectedType == "series_fanart",
+                                    onClick = { selectedType = "series_fanart" },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
@@ -1316,7 +1325,7 @@ private fun FrameTypeChip(
         Text(
             text = label,
             modifier = Modifier.padding(vertical = Dimens.spacingSm),
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             color = if (selected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )

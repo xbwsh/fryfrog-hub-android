@@ -144,6 +144,7 @@
     <string name="generate_frames_failed">转码服务不可用</string>
     <string name="frame_type_poster">竖屏封面</string>
     <string name="frame_type_fanart">横屏背景</string>
+    <string name="frame_type_series_fanart">系列背景</string>
     <string name="frame_position">%d 秒</string>
 
     <!-- Sort -->
