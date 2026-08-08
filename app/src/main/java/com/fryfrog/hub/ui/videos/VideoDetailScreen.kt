@@ -16,13 +16,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FileCopy
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PlayArrow
@@ -53,8 +56,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.FrameCandidate
+import com.fryfrog.hub.data.model.ScrapeProgress
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.TmdbSearchResult
+import com.fryfrog.hub.data.model.UpdateMetadataRequest
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.theme.Dimens
@@ -66,6 +71,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun VideoDetailScreen(
@@ -76,7 +85,10 @@ fun VideoDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showScrapeSheet by remember { mutableStateOf(false) }
     var showFramePicker by remember { mutableStateOf(false) }
+    var showEditMetadata by remember { mutableStateOf(false) }
     var showUnbindConfirm by remember { mutableStateOf(false) }
+    // 设置封面针对的当前选中剧集
+    var coverVideoId by remember { mutableStateOf<Long?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Snackbar auto-dismiss
@@ -129,7 +141,11 @@ fun VideoDetailScreen(
                     onSearchTmdb = { showScrapeSheet = true },
                     onRefreshTmdb = { viewModel.refreshTmdb() },
                     onUnbindTmdb = { showUnbindConfirm = true },
-                    onSetCover = { showFramePicker = true }
+                    onSetCover = { episodeId ->
+                        coverVideoId = episodeId
+                        showFramePicker = episodeId != null
+                    },
+                    onEditMetadata = { showEditMetadata = true }
                 )
             }
         }
@@ -141,6 +157,11 @@ fun VideoDetailScreen(
                 .align(Alignment.BottomCenter)
                 .padding(Dimens.spacingLg)
         )
+
+        // TMDB 绑定/刷新进度遮罩（全屏）
+        uiState.bindProgress?.let { progress ->
+            BindProgressOverlay(progress = progress)
+        }
     }
 
     if (showScrapeSheet) {
@@ -172,13 +193,27 @@ fun VideoDetailScreen(
         FramePickerSheet(
             uiState = uiState,
             onDismiss = { showFramePicker = false },
-            onGenerate = viewModel::generateFrames,
+            onGenerate = { coverVideoId?.let(viewModel::generateFrames) },
             onSelect = { index, type ->
-                viewModel.selectFrame(index, type) {
-                    showFramePicker = false
+                coverVideoId?.let { videoId ->
+                    viewModel.selectFrame(videoId, index, type) {
+                        showFramePicker = false
+                    }
                 }
             }
         )
+    }
+
+    // 编辑元数据弹窗
+    if (showEditMetadata) {
+        uiState.series?.let { series ->
+            EditMetadataSheet(
+                series = series,
+                isSaving = uiState.isSavingMetadata,
+                onDismiss = { showEditMetadata = false },
+                onSave = { body -> viewModel.updateMetadata(series.mediaType == "tv", body) }
+            )
+        }
     }
 
     // 解绑确认弹窗
@@ -221,7 +256,8 @@ private fun VideoDetailContent(
     onSearchTmdb: () -> Unit,
     onRefreshTmdb: () -> Unit,
     onUnbindTmdb: () -> Unit,
-    onSetCover: () -> Unit = {}
+    onSetCover: (Long?) -> Unit = {},
+    onEditMetadata: () -> Unit = {}
 ) {
     // 选集状态：初始 0 表示选中第一集
     var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
@@ -287,7 +323,13 @@ private fun VideoDetailContent(
                     onSearchTmdb = onSearchTmdb,
                     onRefreshTmdb = onRefreshTmdb,
                     onUnbindTmdb = onUnbindTmdb,
-                    onSetCover = onSetCover
+                    onSetCover = {
+                        // 传入当前选中剧集（切季/切集后随之变化）
+                        onSetCover(selectedEpisode?.id ?: currentSeasonEpisodes.firstOrNull()?.id)
+                    },
+                    onEditMetadata = onEditMetadata,
+                    isFavorite = series.favorite ?: series.episodes?.firstOrNull()?.favorite ?: false,
+                    onToggleFavorite = { viewModel.toggleFavorite() }
                 )
             }
 
@@ -385,7 +427,10 @@ private fun HeroSection(
     onSearchTmdb: () -> Unit,
     onRefreshTmdb: () -> Unit,
     onUnbindTmdb: () -> Unit,
-    onSetCover: () -> Unit = {}
+    onSetCover: () -> Unit = {},
+    onEditMetadata: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val bannerUrl = selectedEpisode?.fanartUrl ?: selectedEpisode?.coverUrl
@@ -483,15 +528,25 @@ private fun HeroSection(
 
         // Top-right menu
         Box(modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(Dimens.spacingMd)) {
-            IconButton(
-                onClick = { showMenu = true }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = stringResource(R.string.more),
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // 系列收藏
+                IconButton(onClick = onToggleFavorite) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) stringResource(R.string.favorited) else stringResource(R.string.add_favorite),
+                        tint = if (isFavorite) Color(0xFFFF4D4F) else Color.White
+                    )
+                }
+                IconButton(
+                    onClick = { showMenu = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.more),
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             DropdownMenu(
@@ -523,6 +578,15 @@ private fun HeroSection(
                     icon = Icons.Default.Image,
                     label = stringResource(R.string.set_cover),
                     onClick = { showMenu = false; onSetCover() }
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                TmdbMenuItem(
+                    icon = Icons.Default.Edit,
+                    label = stringResource(R.string.edit_metadata),
+                    onClick = { showMenu = false; onEditMetadata() }
                 )
                 if (series.tmdbId != null) {
                     HorizontalDivider(
@@ -1129,6 +1193,328 @@ private fun SeasonTabRow(
         }
     }
 }
+@Composable
+private fun BindProgressOverlay(
+    progress: ScrapeProgress
+) {
+    val stageLabel = when (progress.stage) {
+        "bind" -> stringResource(R.string.bind_stage_bind)
+        "organize" -> stringResource(R.string.bind_stage_organize)
+        "assets" -> stringResource(R.string.bind_stage_assets)
+        "done" -> stringResource(R.string.bind_stage_done)
+        "error" -> stringResource(R.string.bind_stage_error)
+        else -> null
+    }
+
+    // 全屏遮罩
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Dimens.spacingXxl),
+            shape = RoundedCornerShape(Dimens.radiusMd),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(Dimens.spacingLg),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 大号百分比
+                Text(
+                    text = String.format("%.1f%%", progress.percent),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (progress.stage == "error") MaterialTheme.colorScheme.error
+                    else Primary
+                )
+                Spacer(modifier = Modifier.height(Dimens.spacingXs))
+
+                // 阶段文案
+                if (stageLabel != null) {
+                    Text(
+                        text = stageLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(Dimens.spacingMd))
+
+                // 加粗圆角进度条
+                LinearProgressIndicator(
+                    progress = { (progress.percent / 100.0).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(Dimens.radiusFull)),
+                    color = Primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    drawStopIndicator = {}
+                )
+                Spacer(modifier = Modifier.height(Dimens.spacingMd))
+
+                // 当前项
+                if (!progress.currentItem.isNullOrBlank()) {
+                    Text(
+                        text = progress.currentItem,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditMetadataSheet(
+    series: SeriesDTO,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (UpdateMetadataRequest) -> Unit
+) {
+    val isSeries = series.mediaType == "tv"
+    val firstEpisode = series.episodes?.firstOrNull()
+
+    var title by remember(series.id) { mutableStateOf(series.title) }
+    var overview by remember(series.id) { mutableStateOf(series.overview ?: "") }
+    var rating by remember(series.id) { mutableStateOf(series.rating?.toString() ?: "") }
+    var year by remember(series.id) { mutableStateOf(series.year?.toString() ?: "") }
+    var releaseDate by remember(series.id) { mutableStateOf(series.releaseDate ?: "") }
+    var originalTitle by remember(series.id) { mutableStateOf(series.originalTitle ?: "") }
+    var genre by remember(series.id) { mutableStateOf(firstEpisode?.genre ?: "") }
+    var director by remember(series.id) { mutableStateOf(firstEpisode?.director ?: "") }
+    var actors by remember(series.id) { mutableStateOf(firstEpisode?.actors ?: "") }
+    var tags by remember(series.id) { mutableStateOf("") }
+    var status by remember(series.id) { mutableStateOf(series.status ?: "") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showYearMenu by remember { mutableStateOf(false) }
+    val yearOptions = remember {
+        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        (currentYear downTo currentYear - 80).toList()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Primary)
+                )
+                Spacer(modifier = Modifier.width(Dimens.spacingSm))
+                Text(
+                    text = stringResource(R.string.edit_metadata),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(stringResource(R.string.metadata_title)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = overview,
+                    onValueChange = { overview = it },
+                    label = { Text(stringResource(R.string.overview)) },
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
+                    OutlinedTextField(
+                        value = rating,
+                        onValueChange = { rating = it },
+                        label = { Text(stringResource(R.string.metadata_rating)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // 年份选择器（下拉）
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = year,
+                            onValueChange = {},
+                            label = { Text(stringResource(R.string.metadata_year)) },
+                            readOnly = true,
+                            singleLine = true,
+                            trailingIcon = {
+                                IconButton(onClick = { showYearMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        DropdownMenu(
+                            expanded = showYearMenu,
+                            onDismissRequest = { showYearMenu = false }
+                        ) {
+                            yearOptions.forEach { y ->
+                                DropdownMenuItem(
+                                    text = { Text(y.toString()) },
+                                    onClick = {
+                                        year = y.toString()
+                                        showYearMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = releaseDate,
+                    onValueChange = {},
+                    label = { Text(stringResource(R.string.metadata_release_date)) },
+                    readOnly = true,
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = originalTitle,
+                    onValueChange = { originalTitle = it },
+                    label = { Text(stringResource(R.string.metadata_original_title)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (isSeries) {
+                    OutlinedTextField(
+                        value = status,
+                        onValueChange = { status = it },
+                        label = { Text(stringResource(R.string.metadata_status)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = genre,
+                        onValueChange = { genre = it },
+                        label = { Text(stringResource(R.string.metadata_genre)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = director,
+                        onValueChange = { director = it },
+                        label = { Text(stringResource(R.string.director)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = actors,
+                        onValueChange = { actors = it },
+                        label = { Text(stringResource(R.string.actors)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tags,
+                        onValueChange = { tags = it },
+                        label = { Text(stringResource(R.string.metadata_tags)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val request = UpdateMetadataRequest(
+                        title = title.takeIf { it.isNotBlank() },
+                        overview = overview.takeIf { it.isNotBlank() },
+                        rating = rating.toDoubleOrNull(),
+                        year = year.toIntOrNull(),
+                        releaseDate = releaseDate.takeIf { it.isNotBlank() },
+                        originalTitle = originalTitle.takeIf { it.isNotBlank() },
+                        genre = if (isSeries) null else genre.takeIf { it.isNotBlank() },
+                        director = if (isSeries) null else director.takeIf { it.isNotBlank() },
+                        actors = if (isSeries) null else actors.takeIf { it.isNotBlank() },
+                        tags = if (isSeries) null else tags.takeIf { it.isNotBlank() },
+                        status = if (isSeries) status.takeIf { it.isNotBlank() } else null
+                    )
+                    onSave(request)
+                },
+                enabled = !isSaving
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.save))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+
+    // 上映日期日历选择
+    if (showDatePicker) {
+        val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val initialMillis = releaseDate.takeIf { it.isNotBlank() }?.let {
+            runCatching { dateFormatter.parse(it)?.time }.getOrNull()
+        }
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        releaseDate = dateFormatter.format(Date(millis))
+                    }
+                    showDatePicker = false
+                }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
 @Composable
 private fun FramePickerSheet(
     uiState: VideoDetailUiState,

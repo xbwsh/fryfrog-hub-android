@@ -66,6 +66,9 @@
     <string name="content">内容</string>
     <string name="account">账户</string>
     <string name="theme_mode">主题模式</string>
+    <string name="theme_mode_system">跟随系统</string>
+    <string name="theme_mode_light">浅色</string>
+    <string name="theme_mode_dark">深色</string>
     <string name="dark_theme">暗夜黑</string>
     <string name="light_theme">流光白</string>
     <string name="manage_media_libraries">管理你的媒体库</string>
@@ -146,6 +149,39 @@
     <string name="frame_type_fanart">横屏背景</string>
     <string name="frame_type_series_fanart">系列背景</string>
     <string name="frame_position">%d 秒</string>
+    <string name="bind_stage_bind">绑定元数据</string>
+    <string name="bind_stage_organize">整理文件</string>
+    <string name="bind_stage_assets">生成封面</string>
+    <string name="bind_stage_done">完成</string>
+    <string name="bind_stage_error">失败</string>
+    <string name="edit_metadata">编辑元数据</string>
+    <string name="metadata_title">标题</string>
+    <string name="metadata_rating">评分</string>
+    <string name="metadata_year">年份</string>
+    <string name="metadata_release_date">上映日期</string>
+    <string name="metadata_genre">类型</string>
+    <string name="metadata_original_title">原始标题</string>
+    <string name="metadata_tags">标签</string>
+    <string name="metadata_status">状态</string>
+    <string name="upcoming_calendar">追更日历</string>
+    <string name="favorites_title">我的收藏</string>
+    <string name="no_favorites">暂无收藏</string>
+    <string name="add_favorite">收藏</string>
+    <string name="favorited">已收藏</string>
+    <string name="calendar_month_format">%1$d年%2$d月</string>
+    <string name="calendar_date_title">%1$d年%2$d月%3$d日</string>
+    <string name="no_updates_today">该日无更新</string>
+    <string name="select_date_hint">选择日期查看更新</string>
+    <string name="no_updates_month">本月暂无更新</string>
+    <string-array name="calendar_weekdays">
+        <item>一</item>
+        <item>二</item>
+        <item>三</item>
+        <item>四</item>
+        <item>五</item>
+        <item>六</item>
+        <item>日</item>
+    </string-array>
 
     <!-- Sort -->
     <string name="sort">排序</string>

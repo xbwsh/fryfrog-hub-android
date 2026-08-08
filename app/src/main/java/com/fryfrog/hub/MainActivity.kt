@@ -15,6 +15,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
@@ -42,6 +43,8 @@ import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.ui.home.HomeScreen
 import com.fryfrog.hub.ui.home.HomeViewModel
 import com.fryfrog.hub.ui.home.LibraryOverviewScreen
+import com.fryfrog.hub.ui.calendar.UpcomingCalendarScreen
+import com.fryfrog.hub.ui.favorites.FavoritesScreen
 import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
@@ -64,7 +67,12 @@ class MainActivity : ComponentActivity() {
         val prefs = PrefsManager(this)
 
         setContent {
-            var isDarkTheme by remember { mutableStateOf(prefs.isDarkTheme) }
+            var themeMode by remember { mutableStateOf(prefs.themeMode) }
+            val isDarkTheme = when (themeMode) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
             var isAdultContentHidden by remember { mutableStateOf(prefs.isAdultContentHidden) }
             var isCarouselEnabled by remember { mutableStateOf(prefs.isCarouselEnabled) }
             var homeViewMode by remember { mutableStateOf(prefs.homeViewMode) }
@@ -91,11 +99,12 @@ class MainActivity : ComponentActivity() {
                     if (isLoggedIn) {
                         MainContent(
                             navController = navController,
-                            onThemeChange = { dark ->
-                                isDarkTheme = dark
-                                prefs.isDarkTheme = dark
+                            onThemeModeChange = { mode ->
+                                themeMode = mode
+                                prefs.themeMode = mode
                             },
                             isDarkTheme = isDarkTheme,
+                            themeMode = themeMode,
                             isAdultContentHidden = isAdultContentHidden,
                             onAdultContentHiddenChange = { hidden ->
                                 isAdultContentHidden = hidden
@@ -132,8 +141,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MainContent(
     navController: androidx.navigation.NavHostController,
-    onThemeChange: (Boolean) -> Unit,
+    onThemeModeChange: (String) -> Unit,
     isDarkTheme: Boolean,
+    themeMode: String,
     isAdultContentHidden: Boolean,
     onAdultContentHiddenChange: (Boolean) -> Unit,
     isCarouselEnabled: Boolean,
@@ -181,12 +191,35 @@ private fun MainContent(
                     isCarouselEnabled = isCarouselEnabled,
                     homeViewMode = homeViewMode,
                     onViewModeChange = onViewModeChange,
+                    onCalendarClick = {
+                        navController.navigate("calendar")
+                    },
+                    onFavoritesClick = {
+                        navController.navigate("favorites")
+                    },
                     onVideoClick = { videoId, type ->
                         navController.navigate("video_detail/$videoId?type=$type")
                     },
                     onLibraryClick = { libraryId, libraryName ->
                         val encodedName = android.net.Uri.encode(libraryName)
                         navController.navigate("library_overview/$libraryId?name=$encodedName")
+                    }
+                )
+            }
+
+            // 追更日历
+            composable("calendar") {
+                UpcomingCalendarScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            // 我的收藏
+            composable("favorites") {
+                FavoritesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onVideoClick = { videoId, type ->
+                        navController.navigate("video_detail/$videoId?type=$type")
                     }
                 )
             }
@@ -253,7 +286,8 @@ private fun MainContent(
                 key(isDarkTheme) {
                     MeScreen(
                         isDarkTheme = isDarkTheme,
-                        onThemeChange = onThemeChange,
+                        themeMode = themeMode,
+                        onThemeModeChange = onThemeModeChange,
                         isAdultContentHidden = isAdultContentHidden,
                         onAdultContentHiddenChange = onAdultContentHiddenChange,
                         isCarouselEnabled = isCarouselEnabled,
@@ -302,7 +336,11 @@ private fun MainContent(
                 )
                 VideoDetailScreen(
                     viewModel = viewModel,
-                    onBackClick = { navController.popBackStack() },
+                    onBackClick = {
+                        // 返回列表时刷新，获取绑定/刮削后的最新元数据
+                        homeViewModel.loadHomeData()
+                        navController.popBackStack()
+                    },
                     onPlayClick = { videoId, forceRestart ->
                         val encodedTitle = android.net.Uri.encode(viewModel.uiState.value.series?.title ?: "")
                         val route = if (forceRestart) "player/$videoId/$encodedTitle?forceRestart=true" else "player/$videoId/$encodedTitle"

@@ -16,6 +16,7 @@ class PrefsManager(context: Context) {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_DARK_THEME = "dark_theme"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_ADULT_CONTENT_HIDDEN = "adult_content_hidden"
         private const val KEY_CAROUSEL_ENABLED = "carousel_enabled"
         private const val KEY_HOME_VIEW_MODE = "home_view_mode"
@@ -37,9 +38,10 @@ class PrefsManager(context: Context) {
         get() = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
 
-    var isDarkTheme: Boolean
-        get() = prefs.getBoolean(KEY_DARK_THEME, false)
-        set(value) = prefs.edit().putBoolean(KEY_DARK_THEME, value).apply()
+    // 主题模式：system=跟随系统 / light=浅色 / dark=深色（默认跟随系统）
+    var themeMode: String
+        get() = prefs.getString(KEY_THEME_MODE, "system") ?: "system"
+        set(value) = prefs.edit().putString(KEY_THEME_MODE, value).apply()
 
     var isAdultContentHidden: Boolean
         get() = prefs.getBoolean(KEY_ADULT_CONTENT_HIDDEN, true)

@@ -5,6 +5,7 @@ package com.fryfrog.hub.ui.settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -34,7 +36,8 @@ import com.fryfrog.hub.ui.theme.*
 @Composable
 fun MeScreen(
     isDarkTheme: Boolean,
-    onThemeChange: (Boolean) -> Unit,
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit,
     isAdultContentHidden: Boolean,
     onAdultContentHiddenChange: (Boolean) -> Unit,
     isCarouselEnabled: Boolean,
@@ -90,21 +93,10 @@ fun MeScreen(
                         animationSpec = tween(durationMillis = 300),
                         label = "iconTint"
                     )
-                    var isPressed by remember { mutableStateOf(false) }
-                    val scale by animateFloatAsState(
-                        targetValue = if (isPressed) 0.95f else 1f,
-                        animationSpec = tween(durationMillis = 100),
-                        label = "scale"
-                    )
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .scale(scale)
-                            .clickable {
-                                isPressed = true
-                                onThemeChange(!isDarkTheme)
-                            }
                             .padding(Dimens.spacingLg),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -123,23 +115,44 @@ fun MeScreen(
                             )
                         }
                         Spacer(Modifier.width(Dimens.spacingMd))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.theme_mode),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                if (isDarkTheme) stringResource(R.string.dark_theme) else stringResource(R.string.light_theme),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(Dimens.iconSize)
+                        Text(
+                            stringResource(R.string.theme_mode),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(Modifier.height(Dimens.spacingSm))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = Dimens.spacingLg, end = Dimens.spacingLg, bottom = Dimens.spacingLg),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                    ) {
+                        ThemeModeOption(
+                            mode = "system",
+                            label = stringResource(R.string.theme_mode_system),
+                            icon = Icons.Default.BrightnessAuto,
+                            selected = themeMode == "system",
+                            onClick = { onThemeModeChange("system") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeModeOption(
+                            mode = "light",
+                            label = stringResource(R.string.theme_mode_light),
+                            icon = Icons.Default.LightMode,
+                            selected = themeMode == "light",
+                            onClick = { onThemeModeChange("light") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ThemeModeOption(
+                            mode = "dark",
+                            label = stringResource(R.string.theme_mode_dark),
+                            icon = Icons.Default.DarkMode,
+                            selected = themeMode == "dark",
+                            onClick = { onThemeModeChange("dark") },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -418,6 +431,45 @@ private fun SectionHeader(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@Composable
+private fun ThemeModeOption(
+    mode: String,
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(Dimens.radiusMd),
+        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (selected) Primary else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = Dimens.spacingSm),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(Dimens.iconSize),
+                tint = if (selected) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(Dimens.spacingXs))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

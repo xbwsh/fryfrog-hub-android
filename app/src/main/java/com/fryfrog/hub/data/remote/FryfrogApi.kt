@@ -29,7 +29,13 @@ interface FryfrogApi {
     suspend fun getVideoCover(@Path("id") id: Long): ApiResponse<String>
 
     @GET("/api/v1/video/favorites")
-    suspend fun getVideoFavorites(): ApiResponse<List<SeriesDTO>>
+    suspend fun getVideoFavorites(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): ApiResponse<PageResponse<VideoDTO>>
+
+    @PUT("/api/v1/video/{id}/favorite")
+    suspend fun setVideoFavorite(@Path("id") id: Long, @Query("status") status: Boolean): ApiResponse<Map<String, Any>>
 
     @GET("/api/v1/video/{id}/subtitles")
     suspend fun getVideoSubtitles(@Path("id") id: Long): ApiResponse<List<SubtitleDTO>>
@@ -77,6 +83,24 @@ interface FryfrogApi {
 
     @POST("/api/v1/video/{id}/frames/select")
     suspend fun selectFrame(@Path("id") id: Long, @Body body: SelectFrameRequest): ApiResponse<SelectFrameResponse>
+
+    // ========== Metadata Edit ==========
+    @PUT("/api/v1/video/{id}/metadata")
+    suspend fun updateVideoMetadata(@Path("id") id: Long, @Body body: UpdateMetadataRequest): ApiResponse<VideoDTO>
+
+    @PUT("/api/v1/video/series/{id}/metadata")
+    suspend fun updateSeriesMetadata(@Path("id") id: Long, @Body body: UpdateMetadataRequest): ApiResponse<SeriesDTO>
+
+    // ========== Upcoming Calendar ==========
+    @GET("/api/v1/video/series/calendar")
+    suspend fun getSeriesCalendar(): ApiResponse<List<SeriesCalendarItem>>
+
+    // ========== Series Favorite ==========
+    @PUT("/api/v1/video/series/{id}/favorite")
+    suspend fun setSeriesFavorite(@Path("id") id: Long, @Query("status") status: Boolean): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/video/series/favorites")
+    suspend fun getSeriesFavorites(): ApiResponse<List<SeriesDTO>>
 
     // ========== Auth ==========
     @POST("/api/v1/auth/login")

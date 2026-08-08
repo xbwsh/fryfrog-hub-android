@@ -3,17 +3,24 @@ package com.fryfrog.hub.ui.videos
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.model.FrameCandidate
+import com.fryfrog.hub.data.model.ScrapeProgress
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.TmdbSearchResult
+import com.fryfrog.hub.data.model.UpdateMetadataRequest
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.WatchProgressDTO
 import com.fryfrog.hub.data.remote.ApiClient
 import com.fryfrog.hub.data.repository.MediaRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+
+private const val BIND_POLLING_INTERVAL_MS = 1500L
+private const val BIND_POLLING_TIMEOUT_MS = 5 * 60 * 1000L
+private const val BIND_COMPLETE_PAUSE_MS = 800L
 
 data class VideoDetailUiState(
     val isLoading: Boolean = true,
@@ -26,10 +33,12 @@ data class VideoDetailUiState(
     val isBindingTmdb: Boolean = false,
     val isUnbindingTmdb: Boolean = false,
     val isRefreshingTmdb: Boolean = false,
+    val bindProgress: ScrapeProgress? = null,
     val frameCandidates: List<FrameCandidate> = emptyList(),
     val isGeneratingFrames: Boolean = false,
     val isSubmittingFrame: Boolean = false,
     val frameError: String? = null,
+    val isSavingMetadata: Boolean = false,
     val snackbarMessage: String? = null,
     val shouldNavigateBack: Boolean = false
 )
@@ -156,20 +165,19 @@ class VideoDetailViewModel(
         val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return
         android.util.Log.d("VideoDetailVM", "bindTmdb: videoId=$videoId, tmdbId=$tmdbId, mediaType=$mediaType")
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isBindingTmdb = true)
+            _uiState.value = _uiState.value.copy(isBindingTmdb = true, tmdbSearchResults = emptyList())
+            // 立即显示占位进度条，POST 期间（含后端同步处理）用户可见进度
+            showPlaceholderBindProgress(videoId)
             val result = repository.bindTmdb(videoId, tmdbId, mediaType)
             result.fold(
                 onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isBindingTmdb = false,
-                        snackbarMessage = "绑定成功，正在返回列表…",
-                        tmdbSearchResults = emptyList(),
-                        shouldNavigateBack = true
-                    )
+                    // 后端异步执行，立即返回 started，轮询进度等待完成
+                    pollBindProgress(videoId)
                 },
                 onFailure = { e ->
                     _uiState.value = _uiState.value.copy(
                         isBindingTmdb = false,
+                        bindProgress = null,
                         snackbarMessage = "绑定失败: ${e.message}"
                     )
                 }
@@ -206,18 +214,18 @@ class VideoDetailViewModel(
         android.util.Log.d("VideoDetailVM", "refreshTmdb: videoId=$videoId, seriesId=${_uiState.value.series?.id}, tmdbId=${_uiState.value.series?.tmdbId}")
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isRefreshingTmdb = true)
+            // 立即显示占位进度条
+            showPlaceholderBindProgress(videoId)
             val result = repository.refreshTmdb(videoId)
             result.fold(
                 onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isRefreshingTmdb = false,
-                        snackbarMessage = "刷新刮削已启动，正在返回列表…",
-                        shouldNavigateBack = true
-                    )
+                    // 后端异步执行，立即返回 started，轮询进度等待完成
+                    pollBindProgress(videoId)
                 },
                 onFailure = { e ->
                     _uiState.value = _uiState.value.copy(
                         isRefreshingTmdb = false,
+                        bindProgress = null,
                         snackbarMessage = "刷新失败: ${e.message}"
                     )
                 }
@@ -225,14 +233,149 @@ class VideoDetailViewModel(
         }
     }
 
+    // ===== 绑定/刷新进度轮询（module: bind:{videoId}）=====
+
+    private fun showPlaceholderBindProgress(videoId: Long) {
+        _uiState.value = _uiState.value.copy(
+            bindProgress = ScrapeProgress(
+                module = "bind:$videoId",
+                stage = "bind",
+                running = true,
+                total = 0,
+                completed = 0,
+                failed = 0,
+                skipped = 0,
+                pending = 0,
+                percent = 0.0,
+                currentItem = null,
+                startedAt = null,
+                updatedAt = null
+            )
+        )
+    }
+
+    private var bindPollingJob: Job? = null
+
+    private fun pollBindProgress(videoId: Long) {
+        bindPollingJob?.cancel()
+        val startedAt = System.currentTimeMillis()
+        bindPollingJob = viewModelScope.launch {
+            while (true) {
+                // 兜底：5 分钟未结束强制停止并返回列表
+                if (System.currentTimeMillis() - startedAt > BIND_POLLING_TIMEOUT_MS) {
+                    _uiState.value = _uiState.value.copy(
+                        isBindingTmdb = false,
+                        isRefreshingTmdb = false,
+                        bindProgress = null,
+                        shouldNavigateBack = true
+                    )
+                    break
+                }
+                try {
+                    val api = ApiClient.getApi()
+                    val progress = api.getScrapeProgress("bind:$videoId").data
+                    if (progress != null) {
+                        _uiState.value = _uiState.value.copy(bindProgress = progress)
+                        if (!progress.running) {
+                            val failed = progress.stage == "error"
+                            // 完成态短暂停留，让用户看到最终进度
+                            delay(BIND_COMPLETE_PAUSE_MS)
+                            _uiState.value = _uiState.value.copy(
+                                isBindingTmdb = false,
+                                isRefreshingTmdb = false,
+                                bindProgress = null,
+                                snackbarMessage = if (failed) "绑定/刷新失败" else "完成，正在返回列表…",
+                                shouldNavigateBack = !failed
+                            )
+                            break
+                        }
+                    }
+                } catch (e: Exception) {
+                    // 网络波动时继续轮询
+                }
+                delay(BIND_POLLING_INTERVAL_MS)
+            }
+        }
+    }
+
     fun clearSnackbarMessage() {
         _uiState.value = _uiState.value.copy(snackbarMessage = null)
     }
 
+    // ===== 收藏（剧集走系列接口，独立电影走视频接口）=====
+
+    fun toggleFavorite() {
+        val series = _uiState.value.series ?: return
+        val isSeries = series.mediaType == "tv"
+        val current = series.favorite ?: series.episodes?.firstOrNull()?.favorite ?: false
+        val newStatus = !current
+        viewModelScope.launch {
+            val result = if (isSeries) {
+                repository.setSeriesFavorite(series.id, newStatus)
+            } else {
+                val videoId = series.episodes?.firstOrNull()?.id ?: return@launch
+                repository.setVideoFavorite(videoId, newStatus)
+            }
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        series = _uiState.value.series?.let { s ->
+                            if (isSeries) {
+                                s.copy(favorite = newStatus)
+                            } else {
+                                s.copy(
+                                    favorite = newStatus,
+                                    episodes = s.episodes?.mapIndexed { index, e ->
+                                        if (index == 0) e.copy(favorite = newStatus) else e
+                                    }
+                                )
+                            }
+                        },
+                        snackbarMessage = if (newStatus) "已收藏" else "已取消收藏"
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        snackbarMessage = "操作失败: ${e.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    // ===== 编辑元数据 =====
+
+    fun updateMetadata(isSeries: Boolean, body: UpdateMetadataRequest) {
+        val seriesId = _uiState.value.series?.id ?: return
+        val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSavingMetadata = true)
+            val result = if (isSeries) {
+                repository.updateSeriesMetadata(seriesId, body)
+            } else {
+                repository.updateVideoMetadata(videoId, body)
+            }
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        isSavingMetadata = false,
+                        snackbarMessage = "已保存"
+                    )
+                    loadVideoDetail()
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingMetadata = false,
+                        snackbarMessage = "保存失败: ${e.message}"
+                    )
+                }
+            )
+        }
+    }
+
     // ===== 封面候选帧 =====
 
-    fun generateFrames() {
-        val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return
+    fun generateFrames(videoId: Long) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isGeneratingFrames = true, frameError = null)
             val result = repository.generateFrames(videoId)
@@ -253,8 +396,7 @@ class VideoDetailViewModel(
         }
     }
 
-    fun selectFrame(index: Int, type: String, onSuccess: () -> Unit = {}) {
-        val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return
+    fun selectFrame(videoId: Long, index: Int, type: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmittingFrame = true)
             val result = repository.selectFrame(videoId, index, type)

@@ -72,10 +72,31 @@ class MediaRepository {
     }
 
     suspend fun getVideoFavorites(): Result<List<SeriesDTO>> = safeApiCall {
-        api.getVideoFavorites().data?.map { it.copy(
-            coverUrl = fixUrl(it.coverUrl),
-            fanartUrl = fixUrl(it.fanartUrl)
-        ) } ?: emptyList()
+        api.getVideoFavorites().data?.content?.map { video ->
+            SeriesDTO(
+                id = video.id,
+                type = video.mediaType,
+                title = video.title,
+                coverUrl = fixUrl(video.coverUrl),
+                fanartUrl = fixUrl(video.fanartUrl),
+                originalTitle = video.originalTitle,
+                overview = video.overview,
+                mediaType = video.mediaType,
+                tmdbId = video.tmdbId,
+                rating = video.rating,
+                year = video.year,
+                seasonNumber = null,
+                numberOfSeasons = null,
+                totalEpisodes = null,
+                status = null,
+                isAdult = video.isAdult,
+                favorite = video.favorite,
+                originalFileName = null,
+                episodeCount = null,
+                seasons = null,
+                episodes = null
+            )
+        } ?: emptyList()
     }
 
     // TMDB Scraping
@@ -120,6 +141,38 @@ class MediaRepository {
         android.util.Log.d("MediaRepository", "selectFrame: videoId=$videoId, index=$index, type=$type")
         api.selectFrame(videoId, SelectFrameRequest(index, type)).data
             ?: throw Exception("Failed to select frame")
+    }
+
+    suspend fun updateVideoMetadata(videoId: Long, body: UpdateMetadataRequest): Result<VideoDTO> = safeApiCall {
+        api.updateVideoMetadata(videoId, body).data ?: throw Exception("Failed to update metadata")
+    }
+
+    suspend fun updateSeriesMetadata(seriesId: Long, body: UpdateMetadataRequest): Result<SeriesDTO> = safeApiCall {
+        api.updateSeriesMetadata(seriesId, body).data ?: throw Exception("Failed to update metadata")
+    }
+
+    suspend fun getSeriesCalendar(): Result<List<SeriesCalendarItem>> = safeApiCall {
+        api.getSeriesCalendar().data?.map { item ->
+            item.copy(
+                coverUrl = fixUrl(item.coverUrl),
+                fanartUrl = fixUrl(item.fanartUrl)
+            )
+        } ?: emptyList()
+    }
+
+    suspend fun setSeriesFavorite(seriesId: Long, status: Boolean): Result<Map<String, Any>> = safeApiCall {
+        api.setSeriesFavorite(seriesId, status).data ?: emptyMap()
+    }
+
+    suspend fun getSeriesFavorites(): Result<List<SeriesDTO>> = safeApiCall {
+        api.getSeriesFavorites().data?.map { it.copy(
+            coverUrl = fixUrl(it.coverUrl),
+            fanartUrl = fixUrl(it.fanartUrl)
+        ) } ?: emptyList()
+    }
+
+    suspend fun setVideoFavorite(videoId: Long, status: Boolean): Result<Map<String, Any>> = safeApiCall {
+        api.setVideoFavorite(videoId, status).data ?: emptyMap()
     }
 
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {

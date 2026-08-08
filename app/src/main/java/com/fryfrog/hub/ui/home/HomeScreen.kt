@@ -13,6 +13,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.filled.ViewList
@@ -49,6 +51,8 @@ fun HomeScreen(
     isCarouselEnabled: Boolean = true,
     homeViewMode: String = "grouped",
     onViewModeChange: (String) -> Unit = {},
+    onCalendarClick: () -> Unit = {},
+    onFavoritesClick: () -> Unit = {},
     onVideoClick: (Long, String) -> Unit = { _, _ -> },
     onLibraryClick: (Long?, String) -> Unit = { _, _ -> }
 ) {
@@ -127,6 +131,20 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f).align(Alignment.CenterVertically)
                     )
                     Row(modifier = Modifier.align(Alignment.CenterVertically)) {
+                        IconButton(onClick = onFavoritesClick) {
+                            Icon(
+                                imageVector = Icons.Default.FavoriteBorder,
+                                contentDescription = stringResource(R.string.favorites_title),
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(onClick = onCalendarClick) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = stringResource(R.string.upcoming_calendar),
+                                tint = Color.White
+                            )
+                        }
                         IconButton(onClick = {
                             val newMode = if (homeViewMode == "grouped") "overview" else "grouped"
                             onViewModeChange(newMode)

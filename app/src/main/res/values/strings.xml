@@ -66,6 +66,9 @@
     <string name="content">Content</string>
     <string name="account">Account</string>
     <string name="theme_mode">Theme Mode</string>
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
     <string name="dark_theme">Dark Theme</string>
     <string name="light_theme">Light Theme</string>
     <string name="manage_media_libraries">Manage your media libraries</string>
@@ -146,6 +149,39 @@
     <string name="frame_type_fanart">Landscape Backdrop</string>
     <string name="frame_type_series_fanart">Series Backdrop</string>
     <string name="frame_position">%d s</string>
+    <string name="bind_stage_bind">Binding metadata</string>
+    <string name="bind_stage_organize">Organizing files</string>
+    <string name="bind_stage_assets">Generating covers</string>
+    <string name="bind_stage_done">Done</string>
+    <string name="bind_stage_error">Failed</string>
+    <string name="edit_metadata">Edit Metadata</string>
+    <string name="metadata_title">Title</string>
+    <string name="metadata_rating">Rating</string>
+    <string name="metadata_year">Year</string>
+    <string name="metadata_release_date">Release Date</string>
+    <string name="metadata_genre">Genre</string>
+    <string name="metadata_original_title">Original Title</string>
+    <string name="metadata_tags">Tags</string>
+    <string name="metadata_status">Status</string>
+    <string name="upcoming_calendar">Upcoming Calendar</string>
+    <string name="favorites_title">My Favorites</string>
+    <string name="no_favorites">No favorites yet</string>
+    <string name="add_favorite">Add to Favorites</string>
+    <string name="favorited">Favorited</string>
+    <string name="calendar_month_format">%1$d-%2$d</string>
+    <string name="calendar_date_title">%1$d-%2$d-%3$d</string>
+    <string name="no_updates_today">No updates on this day</string>
+    <string name="select_date_hint">Select a date to see upcoming episodes</string>
+    <string name="no_updates_month">No upcoming episodes this month</string>
+    <string-array name="calendar_weekdays">
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+        <item>Sat</item>
+        <item>Sun</item>
+    </string-array>
 
     <!-- Sort -->
     <string name="sort">Sort</string>

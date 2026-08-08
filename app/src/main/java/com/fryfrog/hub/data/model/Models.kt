@@ -36,11 +36,13 @@ data class SeriesDTO(
     val tmdbTitle: String? = null,
     val rating: Double?,
     val year: Int?,
+    val releaseDate: String? = null,
     val seasonNumber: Int?,
     val numberOfSeasons: Int?,
     val totalEpisodes: Int?,
     val status: String?,
     val isAdult: Boolean?,
+    val favorite: Boolean? = null,
     val originalFileName: String?,
     val episodeCount: Int?,
     val seasons: List<SeasonDTO>?,
@@ -62,6 +64,7 @@ data class VideoDTO(
     val overview: String?,
     val rating: Double?,
     val year: Int?,
+    val releaseDate: String? = null,
     val durationMinutes: Int?,
     val watched: Boolean?,
     val progress: Double?,
@@ -201,6 +204,31 @@ data class SelectFrameResponse(
     val videoId: Long,
     val type: String?,
     val path: String?
+)
+
+// 编辑元数据（局部更新：null 字段不提交，Gson 默认省略）
+data class UpdateMetadataRequest(
+    val title: String? = null,
+    val overview: String? = null,
+    val rating: Double? = null,
+    val year: Int? = null,
+    val releaseDate: String? = null,
+    val originalTitle: String? = null,
+    val genre: String? = null,
+    val director: String? = null,
+    val actors: String? = null,
+    val tags: String? = null,
+    val status: String? = null
+)
+
+// 追更日历条目
+data class SeriesCalendarItem(
+    val seriesId: Long,
+    val title: String,
+    val coverUrl: String?,
+    val fanartUrl: String?,
+    val nextEpisodeDate: String?,
+    val nextEpisodeNumber: String?
 )
 
 // 扫描流水线进度（聚合接口：scan/scrape/actors/assets/done 全阶段）
