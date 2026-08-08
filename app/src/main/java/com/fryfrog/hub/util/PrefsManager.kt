@@ -53,9 +53,13 @@ class PrefsManager(context: Context) {
         get() = prefs.getString(KEY_HOME_VIEW_MODE, "grouped") ?: "grouped"
         set(value) = prefs.edit().putString(KEY_HOME_VIEW_MODE, value).apply()
 
-    var libraryViewMode: String
-        get() = prefs.getString(KEY_LIBRARY_VIEW_MODE, "portrait") ?: "portrait"
-        set(value) = prefs.edit().putString(KEY_LIBRARY_VIEW_MODE, value).apply()
+    // 每个媒体库单独记忆展示形式
+    fun getLibraryViewMode(libraryId: Long): String =
+        prefs.getString("${KEY_LIBRARY_VIEW_MODE}_$libraryId", "portrait") ?: "portrait"
+
+    fun setLibraryViewMode(libraryId: Long, mode: String) {
+        prefs.edit().putString("${KEY_LIBRARY_VIEW_MODE}_$libraryId", mode).apply()
+    }
 
     data class SavedServer(
         val name: String,

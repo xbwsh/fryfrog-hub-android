@@ -37,7 +37,10 @@ fun LibraryOverviewScreen(
 ) {
     val context = LocalContext.current
     val prefs = remember { PrefsManager(context) }
-    var isPortrait by remember { mutableStateOf(prefs.libraryViewMode == "portrait") }
+    val effectiveLibraryId = libraryId ?: 0L
+    var isPortrait by remember(effectiveLibraryId) {
+        mutableStateOf(prefs.getLibraryViewMode(effectiveLibraryId) == "portrait")
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -55,7 +58,7 @@ fun LibraryOverviewScreen(
                 actions = {
                     IconButton(onClick = {
                         isPortrait = !isPortrait
-                        prefs.libraryViewMode = if (isPortrait) "portrait" else "landscape"
+                        prefs.setLibraryViewMode(effectiveLibraryId, if (isPortrait) "portrait" else "landscape")
                     }) {
                         Icon(
                             imageVector = if (isPortrait) Icons.Default.GridView else Icons.AutoMirrored.Filled.ViewList,
