@@ -52,6 +52,9 @@ data class AppDimens(
     val pageHorizontalPadding: Dp = 12.dp,
     val pageVerticalPadding: Dp = 6.dp,
 
+    // Floating Bottom Nav（悬浮导航栏遮挡高度，页面底部预留）
+    val bottomNavReserve: Dp = 72.dp,
+
     // Component Sizes
     val iconSize: Dp = 20.dp,
     val chipIconSize: Dp = 14.dp,
@@ -111,7 +114,10 @@ val TabletDimens = AppDimens(
 
     // Page Padding - 平板加大
     pageHorizontalPadding = 16.dp,
-    pageVerticalPadding = 8.dp
+    pageVerticalPadding = 8.dp,
+
+    // Floating Bottom Nav - 平板加大
+    bottomNavReserve = 88.dp
 )
 
 val LocalDimens = staticCompositionLocalOf { PhoneDimens }
@@ -155,6 +161,8 @@ object Dimens {
 
     val pageHorizontalPadding: Dp @Composable get() = LocalDimens.current.pageHorizontalPadding
     val pageVerticalPadding: Dp @Composable get() = LocalDimens.current.pageVerticalPadding
+
+    val bottomNavReserve: Dp @Composable get() = LocalDimens.current.bottomNavReserve
 
     val iconSize: Dp @Composable get() = LocalDimens.current.iconSize
     val chipIconSize: Dp @Composable get() = LocalDimens.current.chipIconSize

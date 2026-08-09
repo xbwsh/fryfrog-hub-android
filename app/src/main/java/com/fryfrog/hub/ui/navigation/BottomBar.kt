@@ -3,13 +3,14 @@ package com.fryfrog.hub.ui.navigation
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.fryfrog.hub.ui.theme.Dimens
@@ -31,10 +33,22 @@ fun FryfrogBottomBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit
 ) {
+    // 悬浮圆角样式：左右留边 + 底部留边 + 阴影 + 细边框
+    val shape = RoundedCornerShape(Dimens.radiusXl)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
+            .padding(horizontal = Dimens.spacingXl)
+            .navigationBarsPadding()
+            .padding(bottom = Dimens.spacingSm)
+            .shadow(elevation = 8.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                shape = shape
+            )
             .padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs)
     ) {
         Row(

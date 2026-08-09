@@ -68,11 +68,13 @@ fun MeScreen(
             )
         )
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(Dimens.spacingLg),
             contentPadding = PaddingValues(
-                horizontal = Dimens.spacingLg,
-                vertical = Dimens.spacingLg
+                start = Dimens.spacingLg,
+                top = Dimens.spacingLg,
+                end = Dimens.spacingLg,
+                bottom = Dimens.bottomNavReserve
             )
         ) {
             // 外观

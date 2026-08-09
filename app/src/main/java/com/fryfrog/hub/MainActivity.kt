@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -29,7 +28,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
@@ -158,7 +156,6 @@ private fun MainContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute in bottomNavRoutes
-    var bottomBarHeight by remember { mutableIntStateOf(0) }
 
     val isHomeScreen = currentRoute == Screen.Home.route
     // 顶部有深色渐变遮罩的页面：状态栏图标固定为白色
@@ -182,9 +179,7 @@ private fun MainContent(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Home.route,
-                modifier = Modifier.fillMaxSize().padding(
-                    bottom = if (showBottomBar) with(LocalDensity.current) { bottomBarHeight.toDp() } else 0.dp
-                )
+                modifier = Modifier.fillMaxSize()
             ) {
             // 首页 - 视频列表
             composable(Screen.Home.route) {
@@ -346,6 +341,7 @@ private fun MainContent(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(Dimens.spacingLg)
+                                .padding(bottom = Dimens.bottomNavReserve)
                         )
                     }
                 }
@@ -466,9 +462,6 @@ private fun MainContent(
             ) + fadeOut(animationSpec = tween(300)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .onGloballyPositioned { coordinates ->
-                    bottomBarHeight = coordinates.size.height
-                }
         ) {
             FryfrogBottomBar(
                 currentRoute = currentRoute,

@@ -119,12 +119,12 @@ fun MediaLibrariesScreen(
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
                         contentPadding = PaddingValues(
                             start = Dimens.spacingLg,
                             top = Dimens.spacingSm,
                             end = Dimens.spacingLg,
-                            bottom = Dimens.spacingXxl
+                            bottom = Dimens.bottomNavReserve
                         ),
                         verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                     ) {

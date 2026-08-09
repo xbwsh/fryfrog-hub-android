@@ -195,8 +195,8 @@ private fun GroupedContent(
     }
 
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = Dimens.spacingLg)
+        modifier = modifier.fillMaxSize().navigationBarsPadding(),
+        contentPadding = PaddingValues(bottom = Dimens.bottomNavReserve)
     ) {
         // 轮播图
         if (isCarouselEnabled && carouselItems.isNotEmpty()) {
