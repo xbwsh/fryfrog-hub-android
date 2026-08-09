@@ -30,6 +30,11 @@ data class AppDimens(
     val gridMinCardWidth: Dp = 90.dp,
     val posterWidth: Dp = 100.dp,
     val posterHeight: Dp = 143.dp,
+    val logoMaxHeight: Dp = 28.dp,
+    val logoMaxHeightWide: Dp = 36.dp,
+    val logoMaxWidth: Dp = 48.dp,
+    val logoPortraitMaxWidth: Dp = 90.dp,
+    val logoPortraitMaxHeight: Dp = 150.dp,
 
     // Wide Media Card
     val cardWideWidth: Dp = 200.dp,
@@ -143,6 +148,11 @@ object Dimens {
     val gridMinCardWidth: Dp @Composable get() = LocalDimens.current.gridMinCardWidth
     val posterWidth: Dp @Composable get() = LocalDimens.current.posterWidth
     val posterHeight: Dp @Composable get() = LocalDimens.current.posterHeight
+    val logoMaxHeight: Dp @Composable get() = LocalDimens.current.logoMaxHeight
+    val logoMaxHeightWide: Dp @Composable get() = LocalDimens.current.logoMaxHeightWide
+    val logoMaxWidth: Dp @Composable get() = LocalDimens.current.logoMaxWidth
+    val logoPortraitMaxWidth: Dp @Composable get() = LocalDimens.current.logoPortraitMaxWidth
+    val logoPortraitMaxHeight: Dp @Composable get() = LocalDimens.current.logoPortraitMaxHeight
 
     val cardWideWidth: Dp @Composable get() = LocalDimens.current.cardWideWidth
     val cardWideWidthTablet: Dp @Composable get() = LocalDimens.current.cardWideWidthTablet

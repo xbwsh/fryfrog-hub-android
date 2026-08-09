@@ -56,6 +56,7 @@ import com.fryfrog.hub.ui.settings.MediaLibrariesScreen
 import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.util.PrefsManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val VIDEO_DETAIL_ROUTE = "video_detail/{seriesId}?type={type}"
@@ -284,7 +285,48 @@ private fun MainContent(
                 key(isDarkTheme) {
                     val scope = rememberCoroutineScope()
                     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-                    var isRefreshingAll by remember { mutableStateOf(false) }
+                    val logoProgressState = remember { mutableStateOf<com.fryfrog.hub.data.model.ScrapeProgress?>(null) }
+                    val logoPollJobState = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                    val resolutionProgressState = remember { mutableStateOf<com.fryfrog.hub.data.model.ScrapeProgress?>(null) }
+                    val resolutionPollJobState = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                    val actorsProgressState = remember { mutableStateOf<com.fryfrog.hub.data.model.ScrapeProgress?>(null) }
+                    val actorsPollJobState = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                    val seasonCoversProgressState = remember { mutableStateOf<com.fryfrog.hub.data.model.ScrapeProgress?>(null) }
+                    val seasonCoversPollJobState = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+                    // 通用批量提交 + 进度轮询：submit 返回 (module, 总数)
+                    fun submitBatch(
+                        submit: suspend () -> Result<Pair<String?, Int>>,
+                        defaultModule: String,
+                        progressState: androidx.compose.runtime.MutableState<com.fryfrog.hub.data.model.ScrapeProgress?>,
+                        pollJobState: androidx.compose.runtime.MutableState<kotlinx.coroutines.Job?>,
+                        submittedText: (Int) -> String
+                    ) {
+                        if (pollJobState.value?.isActive == true) return
+                        pollJobState.value = scope.launch {
+                            val result = submit()
+                            result.fold(
+                                onSuccess = { (module, total) ->
+                                    snackbarHostState.showSnackbar(submittedText(total))
+                                    val resolvedModule = module ?: defaultModule
+                                    val api = ApiClient.getApi()
+                                    while (true) {
+                                        delay(1500)
+                                        val p = api.getScrapeProgress(resolvedModule).data ?: continue
+                                        progressState.value = p
+                                        if (!p.running) {
+                                            progressState.value = null
+                                            snackbarHostState.showSnackbar("补全完成：成功 ${p.completed}，失败 ${p.failed}，跳过 ${p.skipped}")
+                                            break
+                                        }
+                                    }
+                                },
+                                onFailure = { e ->
+                                    snackbarHostState.showSnackbar("提交失败: ${e.message}")
+                                }
+                            )
+                        }
+                    }
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         MeScreen(
@@ -297,43 +339,59 @@ private fun MainContent(
                             onCarouselEnabledChange = onCarouselEnabledChange,
                             onLogout = onLogout,
                             onRefreshAllSeasonCovers = {
-                                if (!isRefreshingAll) {
-                                    isRefreshingAll = true
-                                    scope.launch {
-                                        val repository = com.fryfrog.hub.data.repository.MediaRepository()
-                                        val result = repository.refreshAllSeasonCovers()
-                                        result.fold(
-                                            onSuccess = { data ->
-                                                val total = (data["totalSeries"] as? Number)?.toInt() ?: 0
-                                                snackbarHostState.showSnackbar("已提交 $total 个系列的刷新任务")
-                                            },
-                                            onFailure = { e ->
-                                                snackbarHostState.showSnackbar("提交失败: ${e.message}")
+                                submitBatch(
+                                    submit = {
+                                        com.fryfrog.hub.data.repository.MediaRepository().refreshAllSeasonCovers()
+                                            .map { data ->
+                                                (data["module"] as? String) to ((data["totalSeries"] as? Number)?.toInt() ?: 0)
                                             }
-                                        )
-                                        isRefreshingAll = false
-                                    }
-                                }
+                                    },
+                                    defaultModule = "season-covers",
+                                    progressState = seasonCoversProgressState,
+                                    pollJobState = seasonCoversPollJobState,
+                                    submittedText = { "已提交 $it 个系列的季海报刷新任务" }
+                                )
                             },
                             onRefreshAllMovieActors = {
-                                if (!isRefreshingAll) {
-                                    isRefreshingAll = true
-                                    scope.launch {
-                                        val repository = com.fryfrog.hub.data.repository.MediaRepository()
-                                        val result = repository.refreshAllMovieActors()
-                                        result.fold(
-                                            onSuccess = { data ->
-                                                val total = (data["totalMovies"] as? Number)?.toInt() ?: 0
-                                                snackbarHostState.showSnackbar("已提交 $total 个电影的演员刷新任务")
-                                            },
-                                            onFailure = { e ->
-                                                snackbarHostState.showSnackbar("提交失败: ${e.message}")
-                                            }
-                                        )
-                                        isRefreshingAll = false
-                                    }
-                                }
-                            }
+                                submitBatch(
+                                    submit = {
+                                        com.fryfrog.hub.data.repository.MediaRepository().refreshAllActors()
+                                            .map { it.module to (it.totalVideos ?: 0) }
+                                    },
+                                    defaultModule = "actors",
+                                    progressState = actorsProgressState,
+                                    pollJobState = actorsPollJobState,
+                                    submittedText = { "已提交 $it 个视频的演员刷新任务" }
+                                )
+                            },
+                            onRefreshAllLogos = {
+                                submitBatch(
+                                    submit = {
+                                        com.fryfrog.hub.data.repository.MediaRepository().refreshAllLogos()
+                                            .map { it.module to (it.total ?: it.totalSeries ?: it.totalMovies ?: 0) }
+                                    },
+                                    defaultModule = "logo:all",
+                                    progressState = logoProgressState,
+                                    pollJobState = logoPollJobState,
+                                    submittedText = { "已提交 $it 个条目的 Logo 补全任务" }
+                                )
+                            },
+                            onRefreshAllResolutions = {
+                                submitBatch(
+                                    submit = {
+                                        com.fryfrog.hub.data.repository.MediaRepository().refreshAllResolutions()
+                                            .map { it.module to (it.pendingVideos ?: it.totalVideos ?: 0) }
+                                    },
+                                    defaultModule = "resolution",
+                                    progressState = resolutionProgressState,
+                                    pollJobState = resolutionPollJobState,
+                                    submittedText = { "已提交 $it 个视频的分辨率补全任务" }
+                                )
+                            },
+                            logoProgress = logoProgressState.value,
+                            resolutionProgress = resolutionProgressState.value,
+                            actorsProgress = actorsProgressState.value,
+                            seasonCoversProgress = seasonCoversProgressState.value
                         )
 
                         androidx.compose.material3.SnackbarHost(

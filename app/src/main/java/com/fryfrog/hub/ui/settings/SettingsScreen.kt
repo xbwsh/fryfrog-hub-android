@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import com.fryfrog.hub.R
+import com.fryfrog.hub.data.model.ScrapeProgress
+import com.fryfrog.hub.ui.components.FryfrogDialog
 import com.fryfrog.hub.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,9 +46,17 @@ fun MeScreen(
     onCarouselEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit = {},
     onRefreshAllSeasonCovers: () -> Unit = {},
-    onRefreshAllMovieActors: () -> Unit = {}
+    onRefreshAllMovieActors: () -> Unit = {},
+    onRefreshAllLogos: () -> Unit = {},
+    onRefreshAllResolutions: () -> Unit = {},
+    logoProgress: ScrapeProgress? = null,
+    resolutionProgress: ScrapeProgress? = null,
+    actorsProgress: ScrapeProgress? = null,
+    seasonCoversProgress: ScrapeProgress? = null
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+    // 待确认的修复操作（二次确认后再执行）
+    var pendingRepairAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val versionName = remember {
         try {
@@ -263,13 +273,22 @@ fun MeScreen(
                 }
             }
 
+            // 修复（新视频入库时自动完成，仅数据缺失/损坏时手动批量修复）
+            item {
+                Spacer(Modifier.height(Dimens.spacingSm))
+                SectionHeader(
+                    title = stringResource(R.string.repair),
+                    icon = Icons.Default.Build
+                )
+            }
+
             // 批量刷新季海报
             item {
                 ModernCard {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onRefreshAllSeasonCovers() }
+                            .clickable { pendingRepairAction = { onRefreshAllSeasonCovers() } }
                             .padding(Dimens.spacingLg),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -306,6 +325,9 @@ fun MeScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    if (seasonCoversProgress?.module == "season-covers") {
+                        seasonCoversProgress?.let { LogoBatchProgress(progress = it) }
+                    }
                 }
             }
 
@@ -315,7 +337,7 @@ fun MeScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onRefreshAllMovieActors() }
+                            .clickable { pendingRepairAction = { onRefreshAllMovieActors() } }
                             .padding(Dimens.spacingLg),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -351,6 +373,107 @@ fun MeScreen(
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    if (actorsProgress?.module == "actors") {
+                        actorsProgress?.let { LogoBatchProgress(progress = it) }
+                    }
+                }
+            }
+
+            // 批量补全 Logo（系列 + 电影合并）
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { pendingRepairAction = { onRefreshAllLogos() } }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(Dimens.avatarSize)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ImageSearch,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(Dimens.avatarIconSize)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.refresh_all_logos),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                stringResource(R.string.refresh_all_logos_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (logoProgress?.module == "logo:all") {
+                        logoProgress?.let { LogoBatchProgress(progress = it) }
+                    }
+                }
+            }
+
+            // 批量补分辨率
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { pendingRepairAction = { onRefreshAllResolutions() } }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(Dimens.avatarSize)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.HighQuality,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(Dimens.avatarIconSize)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.refresh_all_resolutions),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                stringResource(R.string.refresh_all_resolutions_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (resolutionProgress?.module == "resolution") {
+                        resolutionProgress?.let { LogoBatchProgress(progress = it) }
                     }
                 }
             }
@@ -503,6 +626,25 @@ fun MeScreen(
             }
         }
     }
+
+    // 修复操作二次确认（批量刷新触发大量后端任务，误触成本高）
+    pendingRepairAction?.let { action ->
+        FryfrogDialog(
+            onDismissRequest = { pendingRepairAction = null },
+            icon = Icons.Default.Build,
+            iconTint = Primary,
+            iconBackground = Primary.copy(alpha = 0.1f),
+            title = stringResource(R.string.repair_confirm_title),
+            message = stringResource(R.string.repair_confirm_message),
+            confirmText = stringResource(R.string.confirm),
+            confirmColor = Primary,
+            onConfirm = {
+                pendingRepairAction = null
+                action()
+            },
+            onDismiss = { pendingRepairAction = null }
+        )
+    }
 }
 
 @Composable
@@ -582,6 +724,41 @@ private fun ModernCard(
         shape = RoundedCornerShape(Dimens.radiusLg)
     ) {
         Column(content = content)
+    }
+}
+
+@Composable
+private fun LogoBatchProgress(progress: ScrapeProgress) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Dimens.spacingLg, end = Dimens.spacingLg, bottom = Dimens.spacingLg)
+    ) {
+        LinearProgressIndicator(
+            progress = { (progress.percent / 100.0).toFloat().coerceIn(0f, 1f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(Dimens.radiusFull)),
+            color = Primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+        Spacer(Modifier.height(Dimens.spacingXs))
+        val failedText = if (progress.failed > 0) "（失败 ${progress.failed}）" else ""
+        Text(
+            text = "补全中 ${progress.completed}/${progress.total}$failedText",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (!progress.currentItem.isNullOrBlank()) {
+            Text(
+                text = "正在补全：${progress.currentItem}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

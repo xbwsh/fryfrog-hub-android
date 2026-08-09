@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.model.MediaLibrary
 import com.fryfrog.hub.data.model.PipelineProgress
-import com.fryfrog.hub.data.model.ScrapeProgress
 import com.fryfrog.hub.data.remote.ApiClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,9 +14,6 @@ import kotlinx.coroutines.launch
 
 private const val SCAN_POLLING_INTERVAL_MS = 1500L
 private const val SCAN_POLLING_TIMEOUT_MS = 10 * 60 * 1000L
-private const val MODULE_POLLING_INTERVAL_MS = 1500L
-private const val MODULE_POLLING_TIMEOUT_MS = 30 * 60 * 1000L
-private const val ADULT_ALL_KEY = -1L
 
 data class DirectoryItem(
     val name: String,
@@ -31,10 +27,6 @@ data class MediaLibrariesUiState(
     val error: String? = null,
     val scanningLibraryIds: Set<Long> = emptySet(),
     val pipelineProgress: Map<Long, PipelineProgress> = emptyMap(),
-    val supplementingLibraryIds: Set<Long> = emptySet(),
-    val adultScrapingLibraryIds: Set<Long> = emptySet(),
-    val supplementProgress: Map<Long, ScrapeProgress> = emptyMap(),
-    val adultProgress: Map<Long, ScrapeProgress> = emptyMap(),
     val createSuccess: Boolean = false,
     val isSorting: Boolean = false,
     val sortingLibraries: List<MediaLibrary> = emptyList(),
@@ -317,115 +309,6 @@ class MediaLibrariesViewModel : ViewModel() {
                     error = e.message ?: "Unknown error",
                     isLoading = false
                 )
-            }
-        }
-    }
-
-    fun scrapeAdultOnly(libraryId: Long? = null) {
-        // 不传 libraryId 时后端处理所有库，进度模块为 adult:all，用 -1 作 key
-        val key = libraryId ?: ADULT_ALL_KEY
-        val newIds = _uiState.value.adultScrapingLibraryIds + key
-        _uiState.value = _uiState.value.copy(adultScrapingLibraryIds = newIds)
-        viewModelScope.launch {
-            try {
-                val api = ApiClient.getApi()
-                val response = api.scrapeAdultOnly(libraryId)
-                if (response.success) {
-                    startModulePolling()
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        error = response.message ?: "Failed to scrape adult",
-                        adultScrapingLibraryIds = newIds - key
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Unknown error",
-                    adultScrapingLibraryIds = newIds - key
-                )
-            }
-        }
-    }
-
-    fun scrapeSupplement(libraryId: Long, force: Boolean = false) {
-        val newIds = _uiState.value.supplementingLibraryIds + libraryId
-        _uiState.value = _uiState.value.copy(supplementingLibraryIds = newIds)
-        viewModelScope.launch {
-            try {
-                val api = ApiClient.getApi()
-                val response = api.scrapeSupplement(libraryId, force)
-                if (response.success) {
-                    startModulePolling()
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        error = response.message ?: "Failed to supplement scrape",
-                        supplementingLibraryIds = newIds - libraryId
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    error = e.message ?: "Unknown error",
-                    supplementingLibraryIds = newIds - libraryId
-                )
-            }
-        }
-    }
-
-    // ===== 补充/成人刮削进度轮询 =====
-
-    private var modulePollingJob: Job? = null
-
-    private fun startModulePolling() {
-        modulePollingJob?.cancel()
-        val startedAt = System.currentTimeMillis()
-        modulePollingJob = viewModelScope.launch {
-            while (true) {
-                val s = _uiState.value
-                val supplementIds = s.supplementingLibraryIds
-                val adultIds = s.adultScrapingLibraryIds
-                if (supplementIds.isEmpty() && adultIds.isEmpty()) break
-
-                if (System.currentTimeMillis() - startedAt > MODULE_POLLING_TIMEOUT_MS) {
-                    _uiState.value = _uiState.value.copy(
-                        supplementingLibraryIds = emptySet(),
-                        adultScrapingLibraryIds = emptySet(),
-                        supplementProgress = emptyMap(),
-                        adultProgress = emptyMap()
-                    )
-                    break
-                }
-
-                try {
-                    val api = ApiClient.getApi()
-                    val supUpdated = mutableMapOf<Long, ScrapeProgress>()
-                    val supDone = mutableSetOf<Long>()
-                    for (id in supplementIds) {
-                        val p = api.getScrapeProgress("supplement:$id").data
-                        if (p != null) {
-                            supUpdated[id] = p
-                            if (!p.running) supDone.add(id)
-                        }
-                    }
-                    val adultUpdated = mutableMapOf<Long, ScrapeProgress>()
-                    val adultDone = mutableSetOf<Long>()
-                    for (id in adultIds) {
-                        val module = if (id == ADULT_ALL_KEY) "adult:all" else "adult:$id"
-                        val p = api.getScrapeProgress(module).data
-                        if (p != null) {
-                            adultUpdated[id] = p
-                            if (!p.running) adultDone.add(id)
-                        }
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        supplementingLibraryIds = supplementIds - supDone,
-                        adultScrapingLibraryIds = adultIds - adultDone,
-                        supplementProgress = supUpdated - supDone,
-                        adultProgress = adultUpdated - adultDone
-                    )
-                } catch (e: Exception) {
-                    // 网络波动时继续下一轮轮询
-                }
-                delay(MODULE_POLLING_INTERVAL_MS)
             }
         }
     }

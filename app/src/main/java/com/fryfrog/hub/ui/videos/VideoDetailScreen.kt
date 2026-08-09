@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FileCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.ImageSearch
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
@@ -56,12 +57,15 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.FrameCandidate
+import com.fryfrog.hub.data.model.LogoOption
 import com.fryfrog.hub.data.model.ScrapeProgress
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.TmdbSearchResult
 import com.fryfrog.hub.data.model.UpdateMetadataRequest
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
+import com.fryfrog.hub.ui.components.FryfrogDialog
+import com.fryfrog.hub.ui.components.MediaTitle
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.Gold
 import com.fryfrog.hub.ui.theme.Primary
@@ -87,6 +91,7 @@ fun VideoDetailScreen(
     var showFramePicker by remember { mutableStateOf(false) }
     var showEditMetadata by remember { mutableStateOf(false) }
     var showUnbindConfirm by remember { mutableStateOf(false) }
+    var showLogoPicker by remember { mutableStateOf(false) }
     // 设置封面针对的当前选中剧集
     var coverVideoId by remember { mutableStateOf<Long?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -146,7 +151,9 @@ fun VideoDetailScreen(
                         showFramePicker = episodeId != null
                     },
                     onEditMetadata = { showEditMetadata = true },
-                    onRefreshSeasonCovers = { viewModel.refreshSeasonCovers() }
+                    onRefreshSeasonCovers = { viewModel.refreshSeasonCovers() },
+                    onRefreshLogo = { viewModel.refreshLogo() },
+                    onSetLogo = { showLogoPicker = true }
                 )
             }
         }
@@ -205,6 +212,20 @@ fun VideoDetailScreen(
         )
     }
 
+    // 设置 Logo 弹窗（进入时拉取选项列表）
+    if (showLogoPicker) {
+        LogoPickerSheet(
+            uiState = uiState,
+            onDismiss = { showLogoPicker = false },
+            onLoadOptions = { viewModel.loadLogoOptions() },
+            onSelect = { option ->
+                viewModel.setLogo(option) {
+                    showLogoPicker = false
+                }
+            }
+        )
+    }
+
     // 编辑元数据弹窗
     if (showEditMetadata) {
         uiState.series?.let { series ->
@@ -219,28 +240,18 @@ fun VideoDetailScreen(
 
     // 解绑确认弹窗
     if (showUnbindConfirm) {
-        AlertDialog(
+        FryfrogDialog(
             onDismissRequest = { showUnbindConfirm = false },
-            title = { Text(stringResource(R.string.unbind_confirm_title)) },
-            text = { Text(stringResource(R.string.unbind_confirm_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showUnbindConfirm = false
-                        viewModel.unbindTmdb()
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.confirm))
-                }
+            icon = Icons.Default.LinkOff,
+            title = stringResource(R.string.unbind_confirm_title),
+            message = stringResource(R.string.unbind_confirm_message),
+            confirmText = stringResource(R.string.confirm),
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = {
+                showUnbindConfirm = false
+                viewModel.unbindTmdb()
             },
-            dismissButton = {
-                TextButton(onClick = { showUnbindConfirm = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+            onDismiss = { showUnbindConfirm = false }
         )
     }
 }
@@ -259,7 +270,9 @@ private fun VideoDetailContent(
     onUnbindTmdb: () -> Unit,
     onSetCover: (Long?) -> Unit = {},
     onEditMetadata: () -> Unit = {},
-    onRefreshSeasonCovers: () -> Unit = {}
+    onRefreshSeasonCovers: () -> Unit = {},
+    onRefreshLogo: () -> Unit = {},
+    onSetLogo: () -> Unit = {}
 ) {
     // 选集状态：初始 0 表示选中第一集
     var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
@@ -341,6 +354,8 @@ private fun VideoDetailContent(
                     },
                     onEditMetadata = onEditMetadata,
                     onRefreshSeasonCovers = onRefreshSeasonCovers,
+                    onRefreshLogo = onRefreshLogo,
+                    onSetLogo = onSetLogo,
                     isFavorite = series.favorite ?: series.episodes?.firstOrNull()?.favorite ?: false,
                     onToggleFavorite = { viewModel.toggleFavorite() }
                 )
@@ -445,6 +460,8 @@ private fun HeroSection(
     onSetCover: () -> Unit = {},
     onEditMetadata: () -> Unit = {},
     onRefreshSeasonCovers: () -> Unit = {},
+    onRefreshLogo: () -> Unit = {},
+    onSetLogo: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {}
 ) {
@@ -617,6 +634,30 @@ private fun HeroSection(
                         onClick = { showMenu = false; onRefreshSeasonCovers() }
                     )
                 }
+                // 补全 Logo（需已绑定 TMDB）
+                if (series.tmdbId != null) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    TmdbMenuItem(
+                        icon = Icons.Default.ImageSearch,
+                        label = stringResource(R.string.refresh_logo),
+                        onClick = { showMenu = false; onRefreshLogo() }
+                    )
+                }
+                // 设置 Logo（手动选择）
+                if (series.tmdbId != null) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    TmdbMenuItem(
+                        icon = Icons.Default.Image,
+                        label = stringResource(R.string.set_logo),
+                        onClick = { showMenu = false; onSetLogo() }
+                    )
+                }
                 if (series.tmdbId != null) {
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = Dimens.spacingMd),
@@ -698,15 +739,34 @@ private fun HeroSection(
                         )
                     }
                 }
+
+                // 分辨率标签（当前选中剧集，如 "4K"），null = 未探测到
+                selectedEpisode?.resolutionLabel?.let { label ->
+                    Surface(
+                        color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                        shape = RoundedCornerShape(Dimens.radiusSm)
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            // 标题
-            Text(
-                text = series.title,
-                style = MaterialTheme.typography.headlineMedium,
+            // 标题（有 logo 时用图片替代文字）
+            MediaTitle(
+                title = series.title,
+                logoUrl = series.logoUrl,
+                textStyle = MaterialTheme.typography.headlineMedium,
                 color = Color.White,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                logoMaxHeight = Dimens.logoMaxHeightWide,
+                logoPortraitMaxWidth = Dimens.logoPortraitMaxWidth,
+                logoPortraitMaxHeight = Dimens.logoPortraitMaxHeight
             )
 
             series.originalTitle?.let { originalTitle ->
@@ -1336,26 +1396,10 @@ private fun EditMetadataSheet(
         (currentYear downTo currentYear - 80).toList()
     }
 
-    AlertDialog(
+    FryfrogDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(20.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Primary)
-                )
-                Spacer(modifier = Modifier.width(Dimens.spacingSm))
-                Text(
-                    text = stringResource(R.string.edit_metadata),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        },
-        text = {
+        title = stringResource(R.string.edit_metadata),
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1481,38 +1525,25 @@ private fun EditMetadataSheet(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val request = UpdateMetadataRequest(
-                        title = title.takeIf { it.isNotBlank() },
-                        overview = overview.takeIf { it.isNotBlank() },
-                        rating = rating.toDoubleOrNull(),
-                        year = year.toIntOrNull(),
-                        releaseDate = releaseDate.takeIf { it.isNotBlank() },
-                        originalTitle = originalTitle.takeIf { it.isNotBlank() },
-                        genre = if (isSeries) null else genre.takeIf { it.isNotBlank() },
-                        director = if (isSeries) null else director.takeIf { it.isNotBlank() },
-                        actors = if (isSeries) null else actors.takeIf { it.isNotBlank() },
-                        tags = if (isSeries) null else tags.takeIf { it.isNotBlank() },
-                        status = if (isSeries) status.takeIf { it.isNotBlank() } else null
-                    )
-                    onSave(request)
-                },
-                enabled = !isSaving
-            ) {
-                if (isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(R.string.save))
-                }
-            }
+        confirmText = stringResource(R.string.save),
+        confirmEnabled = !isSaving,
+        onConfirm = {
+            val request = UpdateMetadataRequest(
+                title = title.takeIf { it.isNotBlank() },
+                overview = overview.takeIf { it.isNotBlank() },
+                rating = rating.toDoubleOrNull(),
+                year = year.toIntOrNull(),
+                releaseDate = releaseDate.takeIf { it.isNotBlank() },
+                originalTitle = originalTitle.takeIf { it.isNotBlank() },
+                genre = if (isSeries) null else genre.takeIf { it.isNotBlank() },
+                director = if (isSeries) null else director.takeIf { it.isNotBlank() },
+                actors = if (isSeries) null else actors.takeIf { it.isNotBlank() },
+                tags = if (isSeries) null else tags.takeIf { it.isNotBlank() },
+                status = if (isSeries) status.takeIf { it.isNotBlank() } else null
+            )
+            onSave(request)
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSaving) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
+        onDismiss = onDismiss
     )
 
     // 上映日期日历选择
@@ -1560,10 +1591,10 @@ private fun FramePickerSheet(
     // 进入弹窗即生成候选帧
     LaunchedEffect(Unit) { onGenerate() }
 
-    AlertDialog(
+    FryfrogDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.set_cover)) },
-        text = {
+        title = stringResource(R.string.set_cover),
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1662,24 +1693,239 @@ private fun FramePickerSheet(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = { onSelect(selectedIndex, selectedType) },
-                enabled = selectedIndex >= 0 && !uiState.isSubmittingFrame && !uiState.isGeneratingFrames
+        confirmText = stringResource(R.string.confirm),
+        confirmEnabled = selectedIndex >= 0 && !uiState.isSubmittingFrame && !uiState.isGeneratingFrames,
+        onConfirm = { onSelect(selectedIndex, selectedType) },
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+private fun LogoPickerSheet(
+    uiState: VideoDetailUiState,
+    onDismiss: () -> Unit,
+    onLoadOptions: () -> Unit,
+    onSelect: (LogoOption) -> Unit
+) {
+    // 进入弹窗即拉取 logo 选项
+    LaunchedEffect(Unit) { onLoadOptions() }
+
+    val options = uiState.logoOptions
+    // 语言分类：中文 > 日文 > 英文 > 其他语言 > 无语言
+    val categories = remember(options) {
+        val codes = options.mapNotNull { it.iso6391?.lowercase() }.distinct().toMutableList()
+        codes.removeAll(listOf("zh", "ja", "en"))
+        codes.sort()
+        buildList {
+            if (options.any { it.iso6391?.lowercase() == "zh" }) add("zh")
+            if (options.any { it.iso6391?.lowercase() == "ja" }) add("ja")
+            if (options.any { it.iso6391?.lowercase() == "en" }) add("en")
+            codes.forEach { add(it) }
+            if (options.any { it.iso6391.isNullOrBlank() }) add(null)
+        }
+    }
+    // 默认选中中文分类，无中文则选第一个
+    var selectedLang by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(categories) {
+        if (selectedLang == null) {
+            selectedLang = categories.firstOrNull { it == "zh" } ?: categories.firstOrNull()
+        }
+    }
+    val visibleOptions = remember(options, selectedLang) {
+        options.filter { option ->
+            val code = option.iso6391?.lowercase()
+            if (selectedLang == null) code.isNullOrBlank() else code == selectedLang
+        }
+    }
+
+    FryfrogDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.set_logo),
+        content = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
-                if (uiState.isSubmittingFrame) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(R.string.confirm))
+                when {
+                    uiState.isLoadingLogoOptions -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+
+                    uiState.logoOptions.isEmpty() -> {
+                        Text(
+                            text = stringResource(R.string.no_logo_options),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    else -> {
+                        // 语言分类 Tab
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+                        ) {
+                            items(categories) { lang ->
+                                LogoLangChip(
+                                    label = lang?.let { langLabel(it) } ?: stringResource(R.string.logo_lang_none),
+                                    selected = lang == selectedLang,
+                                    onClick = { selectedLang = lang }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(Dimens.spacingXs))
+
+                        visibleOptions.forEach { option ->
+                            LogoOptionRow(
+                                option = option,
+                                enabled = !uiState.isSettingLogo,
+                                onClick = { onSelect(option) }
+                            )
+                        }
+                    }
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !uiState.isSubmittingFrame) {
-                Text(stringResource(R.string.cancel))
+        confirmText = null,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+private fun LogoLangChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(Dimens.radiusSm),
+        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (selected) Primary else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingXs),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun LogoOptionRow(
+    option: LogoOption,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Dimens.radiusMd))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(Dimens.spacingMd),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+    ) {
+        // Logo 预览（宽高比不定，横竖都可能，用固定高度框 + Fit）
+        // 中灰底板：白字/黑字 logo 都能显示（纯黑底会杀死黑字 logo）
+        Box(
+            modifier = Modifier
+                .width(96.dp)
+                .height(56.dp)
+                .clip(RoundedCornerShape(Dimens.radiusSm))
+                .background(Color(0xFF808080)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (option.url != null) {
+                AsyncImage(
+                    model = option.url,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(Dimens.spacingXs),
+                    contentScale = ContentScale.Fit
+                )
             }
         }
-    )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = option.iso6391?.let { langLabel(it) } ?: stringResource(R.string.logo_lang_none),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val sizeText = buildString {
+                if (option.width != null && option.height != null) {
+                    append("${option.width}×${option.height}")
+                }
+                option.voteCount?.let { votes ->
+                    if (isNotEmpty()) append(" · ")
+                    append("${votes} ${stringResource(R.string.logo_votes)}")
+                }
+            }
+            if (sizeText.isNotEmpty()) {
+                Text(
+                    text = sizeText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+// 语言标签：常见语言显示中文名，其余显示原 code
+private fun langLabel(code: String): String = when (code.lowercase()) {
+    "zh" -> "中文"
+    "ja" -> "日文"
+    "en" -> "英文"
+    "ko" -> "韩文"
+    "de" -> "德语"
+    "es" -> "西班牙语"
+    "fr" -> "法语"
+    "hu" -> "匈牙利语"
+    "it" -> "意大利语"
+    "ru" -> "俄语"
+    "pt" -> "葡萄牙语"
+    "ar" -> "阿拉伯语"
+    "th" -> "泰语"
+    "vi" -> "越南语"
+    "id" -> "印尼语"
+    "tr" -> "土耳其语"
+    "pl" -> "波兰语"
+    "uk" -> "乌克兰语"
+    "sv" -> "瑞典语"
+    "da" -> "丹麦语"
+    "no" -> "挪威语"
+    "fi" -> "芬兰语"
+    "nl" -> "荷兰语"
+    "cs" -> "捷克语"
+    "el" -> "希腊语"
+    "he" -> "希伯来语"
+    else -> code
 }
 
 @Composable
@@ -1762,26 +2008,10 @@ private fun TmdbScrapeSheet(
 ) {
     var searchQuery by remember { mutableStateOf(uiState.series?.originalFileName ?: uiState.series?.title ?: "") }
 
-    AlertDialog(
+    FryfrogDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(20.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Primary)
-                )
-                Spacer(modifier = Modifier.width(Dimens.spacingSm))
-                Text(
-                    text = stringResource(R.string.tmdb_scrape),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        },
-        text = {
+        title = stringResource(R.string.tmdb_scrape),
+        content = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // Current binding card
                 uiState.series?.let { series ->
@@ -2004,46 +2234,54 @@ private fun TmdbScrapeSheet(
                         }
                     }
                 }
-            }
-        },
-        confirmButton = {
-            if (uiState.series?.tmdbId != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
-                    TextButton(
-                        onClick = onRefresh,
-                        enabled = !uiState.isRefreshingTmdb
+
+                // 已绑定时提供刷新/解绑操作
+                if (uiState.series?.tmdbId != null) {
+                    Spacer(Modifier.height(Dimens.spacingMd))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                     ) {
-                        if (uiState.isRefreshingTmdb) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(Dimens.spacingXs))
-                            Text(stringResource(R.string.tmdb_refresh))
+                        OutlinedButton(
+                            onClick = onRefresh,
+                            enabled = !uiState.isRefreshingTmdb,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(Dimens.radiusMd),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            if (uiState.isRefreshingTmdb) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(Dimens.spacingXs))
+                                Text(stringResource(R.string.tmdb_refresh))
+                            }
                         }
-                    }
-                    TextButton(
-                        onClick = onUnbind,
-                        enabled = !uiState.isUnbindingTmdb,
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        if (uiState.isUnbindingTmdb) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
-                        } else {
-                            Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(Dimens.spacingXs))
-                            Text(stringResource(R.string.tmdb_unbind))
+                        OutlinedButton(
+                            onClick = onUnbind,
+                            enabled = !uiState.isUnbindingTmdb,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(Dimens.radiusMd),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            if (uiState.isUnbindingTmdb) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
+                            } else {
+                                Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(Dimens.spacingXs))
+                                Text(stringResource(R.string.tmdb_unbind))
+                            }
                         }
                     }
                 }
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
+        confirmText = null,
+        onDismiss = onDismiss
     )
 }
 

@@ -64,6 +64,9 @@
     <!-- Settings -->
     <string name="appearance">外观</string>
     <string name="content">内容</string>
+    <string name="repair">修复</string>
+    <string name="repair_confirm_title">开始修复任务？</string>
+    <string name="repair_confirm_message">将在后台扫描并刷新大量视频的元数据，可能需要较长时间并消耗网络资源。</string>
     <string name="account">账户</string>
     <string name="theme_mode">主题模式</string>
     <string name="theme_mode_system">跟随系统</string>
@@ -144,8 +147,17 @@
     <string name="refresh_season_covers">刷新季海报</string>
     <string name="refresh_all_season_covers">批量刷新季海报</string>
     <string name="refresh_all_season_covers_desc">后台刷新所有系列的季海报</string>
-    <string name="refresh_all_movie_actors">批量刷新电影演员</string>
-    <string name="refresh_all_movie_actors_desc">刷新所有电影的演员信息</string>
+    <string name="refresh_all_movie_actors">批量刷新演员</string>
+    <string name="refresh_all_movie_actors_desc">刷新所有已绑定 TMDB 的视频演员信息</string>
+    <string name="refresh_logo">补全 Logo</string>
+    <string name="set_logo">手动设置 Logo</string>
+    <string name="no_logo_options">该条目暂无可用 Logo</string>
+    <string name="logo_lang_none">无语言</string>
+    <string name="logo_votes">票</string>
+    <string name="refresh_all_logos">批量补全 Logo</string>
+    <string name="refresh_all_logos_desc">为所有已绑定 TMDB 的系列和电影补全缺失的 Logo</string>
+    <string name="refresh_all_resolutions">批量补分辨率</string>
+    <string name="refresh_all_resolutions_desc">后台探测缺失的视频分辨率</string>
     <string name="more">更多</string>
     <string name="set_cover">设置封面</string>
     <string name="generating_frames">正在生成候选帧…</string>
@@ -214,8 +226,4 @@
     <string name="adult_library_on">成人</string>
     <string name="adult_library_off">成人关</string>
     <string name="scrape_adult">补全分级</string>
-    <string name="scrape_adult_short">补全分级</string>
-    <string name="scrape_adult_desc">批量将所有库中的内容标记为成人内容</string>
-    <string name="scrape_adult_result">已更新 %d 项</string>
-    <string name="supplement">补全资源</string>
 </resources>

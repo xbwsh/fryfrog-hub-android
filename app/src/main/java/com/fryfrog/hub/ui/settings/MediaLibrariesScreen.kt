@@ -3,7 +3,6 @@
 package com.fryfrog.hub.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,7 +26,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.MediaLibrary
 import com.fryfrog.hub.data.model.PipelineProgress
-import com.fryfrog.hub.data.model.ScrapeProgress
+import com.fryfrog.hub.ui.components.FryfrogDialog
 import com.fryfrog.hub.ui.theme.*
 
 private val mediaTypes = listOf("VIDEO", "MUSIC", "COMIC", "EBOOK")
@@ -133,20 +132,14 @@ fun MediaLibrariesScreen(
                             MediaLibraryItem(
                                 library = library,
                                 isScanning = library.id in uiState.scanningLibraryIds,
-                                isSupplementing = library.id in uiState.supplementingLibraryIds,
-                                isAdultScraping = library.id in uiState.adultScrapingLibraryIds,
                                 pipelineProgress = uiState.pipelineProgress[library.id],
-                                supplementProgress = uiState.supplementProgress[library.id],
-                                adultProgress = uiState.adultProgress[library.id],
                                 isSorting = uiState.isSorting,
                                 canMoveUp = index > 0,
                                 canMoveDown = index < displayLibraries.lastIndex,
                                 onMoveUp = { viewModel.moveLibrary(index, -1) },
                                 onMoveDown = { viewModel.moveLibrary(index, 1) },
                                 onScan = { viewModel.scanLibrary(library) },
-                                onSupplement = { viewModel.scrapeSupplement(library.id) },
                                 onDelete = { showDeleteDialog = library },
-                                onScrapeAdult = { viewModel.scrapeAdultOnly(library.id) },
                                 onEdit = { showEditDialog = library }
                             )
                         }
@@ -175,18 +168,18 @@ fun MediaLibrariesScreen(
 
     // 删除对话框
     showDeleteDialog?.let { library ->
-        AlertDialog(
+        FryfrogDialog(
             onDismissRequest = { showDeleteDialog = null },
-            title = { Text(stringResource(R.string.delete_library)) },
-            text = { Text(stringResource(R.string.delete_library_confirm, library.name)) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.deleteLibrary(library); showDeleteDialog = null }) {
-                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
-                }
+            icon = Icons.Default.Delete,
+            title = stringResource(R.string.delete_library),
+            message = stringResource(R.string.delete_library_confirm, library.name),
+            confirmText = stringResource(R.string.delete),
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = {
+                viewModel.deleteLibrary(library)
+                showDeleteDialog = null
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) { Text(stringResource(R.string.cancel)) }
-            }
+            onDismiss = { showDeleteDialog = null }
         )
     }
 
@@ -214,44 +207,6 @@ fun MediaLibrariesScreen(
             }
         )
     }
-}
-
-@Composable
-private fun OperationProgressBlock(
-    progress: ScrapeProgress
-) {
-    LinearProgressIndicator(
-        progress = { (progress.percent / 100.0).toFloat().coerceIn(0f, 1f) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(Dimens.radiusXs)),
-        drawStopIndicator = {}
-    )
-    Spacer(Modifier.height(Dimens.spacingXs))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = "${progress.completed}/${progress.total}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        if (progress.failed > 0) {
-            Spacer(Modifier.width(Dimens.spacingSm))
-            Text(
-                text = stringResource(R.string.progress_failed, progress.failed),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-    }
-    Spacer(Modifier.height(Dimens.spacingXxs))
-    Text(
-        text = progress.currentItem ?: "",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
-    )
-    Spacer(Modifier.height(Dimens.spacingMd))
 }
 
 @Composable
@@ -301,20 +256,14 @@ private fun LibraryActionRow(
 private fun MediaLibraryItem(
     library: MediaLibrary,
     isScanning: Boolean,
-    isSupplementing: Boolean,
-    isAdultScraping: Boolean = false,
     pipelineProgress: PipelineProgress? = null,
-    supplementProgress: ScrapeProgress? = null,
-    adultProgress: ScrapeProgress? = null,
     isSorting: Boolean = false,
     canMoveUp: Boolean = true,
     canMoveDown: Boolean = true,
     onMoveUp: () -> Unit = {},
     onMoveDown: () -> Unit = {},
     onScan: () -> Unit,
-    onSupplement: () -> Unit,
     onDelete: () -> Unit,
-    onScrapeAdult: () -> Unit,
     onEdit: () -> Unit
 ) {
     Card(
@@ -440,12 +389,33 @@ private fun MediaLibraryItem(
                         )
                     }
                 } else {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = stringResource(R.string.edit),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    // 扫描 / 编辑 / 删除 图标（一行）
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onScan, enabled = !isScanning) {
+                            if (isScanning) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Primary)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.scan),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        IconButton(onClick = onEdit) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = stringResource(R.string.edit),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = onDelete, enabled = !isScanning) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.delete),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
@@ -485,89 +455,6 @@ private fun MediaLibraryItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(Dimens.spacingMd))
-            }
-
-            // 补充刮削进度
-            if (isSupplementing && supplementProgress != null) {
-                OperationProgressBlock(progress = supplementProgress)
-            }
-
-            // 成人刮削进度
-            if (isAdultScraping && adultProgress != null) {
-                OperationProgressBlock(progress = adultProgress)
-            }
-
-            // 操作按钮
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
-            ) {
-                OutlinedButton(
-                    onClick = onScan,
-                    enabled = !isScanning && !isSupplementing,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
-                    shape = RoundedCornerShape(Dimens.radiusSm)
-                ) {
-                    if (isScanning) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Primary)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                    Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(stringResource(R.string.scan), style = MaterialTheme.typography.labelMedium)
-                }
-
-                OutlinedButton(
-                    onClick = onSupplement,
-                    enabled = !isScanning && !isSupplementing,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
-                    shape = RoundedCornerShape(Dimens.radiusSm),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Info),
-                    border = BorderStroke(1.dp, Info.copy(alpha = 0.5f))
-                ) {
-                    if (isSupplementing) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Info)
-                    } else {
-                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                    Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(stringResource(R.string.supplement), style = MaterialTheme.typography.labelMedium)
-                }
-
-                OutlinedButton(
-                    onClick = onScrapeAdult,
-                    enabled = !isScanning && !isSupplementing && !isAdultScraping,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
-                    shape = RoundedCornerShape(Dimens.radiusSm),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Warning),
-                    border = BorderStroke(1.dp, Warning.copy(alpha = 0.5f))
-                ) {
-                    if (isAdultScraping) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Warning)
-                    } else {
-                        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                    Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(stringResource(R.string.scrape_adult_short), style = MaterialTheme.typography.labelMedium)
-                }
-
-                OutlinedButton(
-                    onClick = onDelete,
-                    enabled = !isScanning && !isSupplementing,
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = Dimens.spacingSm),
-                    shape = RoundedCornerShape(Dimens.radiusSm),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(Dimens.spacingXs))
-                    Text(stringResource(R.string.delete), style = MaterialTheme.typography.labelMedium)
-                }
             }
         }
     }
@@ -592,11 +479,14 @@ private fun CreateLibraryDialog(
     var subTypeExpanded by remember { mutableStateOf(false) }
     var showDirectoryPicker by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    FryfrogDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.create_library)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)) {
+        title = stringResource(R.string.create_library),
+        content = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -759,17 +649,10 @@ private fun CreateLibraryDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = { onCreate(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping, isAdult) },
-                enabled = name.isNotBlank() && selectedPath.isNotBlank()
-            ) {
-                Text(stringResource(R.string.create))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        }
+        confirmText = stringResource(R.string.create),
+        confirmEnabled = name.isNotBlank() && selectedPath.isNotBlank(),
+        onConfirm = { onCreate(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping, isAdult) },
+        onDismiss = onDismiss
     )
 
     if (showDirectoryPicker) {
@@ -806,11 +689,14 @@ private fun EditLibraryDialog(
     var subTypeExpanded by remember { mutableStateOf(false) }
     var showDirectoryPicker by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    FryfrogDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_library)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)) {
+        title = stringResource(R.string.edit_library),
+        content = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -995,17 +881,10 @@ private fun EditLibraryDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = { onSave(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping, isAdult, enabled) },
-                enabled = name.isNotBlank() && selectedPath.isNotBlank()
-            ) {
-                Text(stringResource(R.string.save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        }
+        confirmText = stringResource(R.string.save),
+        confirmEnabled = name.isNotBlank() && selectedPath.isNotBlank(),
+        onConfirm = { onSave(name, selectedPath, type, subType.ifEmpty { null }, description.ifEmpty { null }, enableScraping, isAdult, enabled) },
+        onDismiss = onDismiss
     )
 
     if (showDirectoryPicker) {
@@ -1029,10 +908,10 @@ private fun DirectoryPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit
 ) {
-    AlertDialog(
+    FryfrogDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.select_directory)) },
-        text = {
+        title = stringResource(R.string.select_directory),
+        content = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -1093,8 +972,7 @@ private fun DirectoryPickerDialog(
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        }
+        confirmText = null,
+        onDismiss = onDismiss
     )
 }

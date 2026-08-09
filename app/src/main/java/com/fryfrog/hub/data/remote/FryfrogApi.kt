@@ -25,8 +25,32 @@ interface FryfrogApi {
     @POST("/api/v1/video/series/refresh-all-season-covers")
     suspend fun refreshAllSeasonCovers(): ApiResponse<Map<String, Any>>
 
-    @POST("/api/v1/video/refresh-all-movie-actors")
-    suspend fun refreshAllMovieActors(): ApiResponse<Map<String, Any>>
+    @POST("/api/v1/video/series/{id}/refresh-logo")
+    suspend fun refreshSeriesLogo(@Path("id") id: Long): ApiResponse<RefreshLogoResponse>
+
+    @POST("/api/v1/video/refresh-all-logos")
+    suspend fun refreshAllLogos(): ApiResponse<RefreshAllLogosResponse>
+
+    @POST("/api/v1/video/{id}/refresh-logo")
+    suspend fun refreshVideoLogo(@Path("id") id: Long): ApiResponse<RefreshLogoResponse>
+
+    @POST("/api/v1/video/refresh-all-resolutions")
+    suspend fun refreshAllResolutions(): ApiResponse<RefreshAllResolutionsResponse>
+
+    @GET("/api/v1/video/series/{id}/logo-options")
+    suspend fun getSeriesLogoOptions(@Path("id") id: Long): ApiResponse<List<LogoOption>>
+
+    @POST("/api/v1/video/series/{id}/logo")
+    suspend fun setSeriesLogo(@Path("id") id: Long, @Body body: LogoSetRequest): ApiResponse<RefreshLogoResponse>
+
+    @GET("/api/v1/video/{id}/logo-options")
+    suspend fun getVideoLogoOptions(@Path("id") id: Long): ApiResponse<List<LogoOption>>
+
+    @POST("/api/v1/video/{id}/logo")
+    suspend fun setVideoLogo(@Path("id") id: Long, @Body body: LogoSetRequest): ApiResponse<RefreshLogoResponse>
+
+    @POST("/api/v1/video/refresh-all-actors")
+    suspend fun refreshAllActors(): ApiResponse<RefreshAllActorsResponse>
 
     @GET("/api/v1/video/{id}")
     suspend fun getVideoDetail(@Path("id") id: Long): ApiResponse<VideoDTO>

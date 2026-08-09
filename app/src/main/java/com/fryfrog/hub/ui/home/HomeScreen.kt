@@ -234,6 +234,7 @@ private fun GroupedContent(
                                 subtitle = series.year?.toString(),
                                 coverUrl = series.coverUrl,
                                 rating = series.rating,
+                                resolutions = series.resolutions,
                                 onClick = { onVideoClick(series.id, series.type ?: "series") }
                             )
                         }
@@ -293,6 +294,7 @@ private fun OverviewContent(
                     subtitle = series.year?.toString(),
                     coverUrl = series.coverUrl,
                     rating = series.rating,
+                    resolutions = series.resolutions,
                     onClick = { onVideoClick(series.id, series.type ?: "series") }
                 )
             }

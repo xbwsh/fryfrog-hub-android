@@ -439,6 +439,26 @@ private fun VideoCard(
                     )
                 }
             }
+
+            // 分辨率徽标 - 右下角（如 "4K" 或 "4K · 1080p"）
+            if (!series.resolutions.isNullOrEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .padding(Dimens.spacingSm)
+                        .align(Alignment.BottomEnd),
+                    color = Color.Black.copy(alpha = Dimens.alphaOverlay),
+                    shape = RoundedCornerShape(Dimens.radiusSm)
+                ) {
+                    Text(
+                        text = series.resolutions.joinToString(" · "),
+                        modifier = Modifier.padding(horizontal = Dimens.spacingXs, vertical = Dimens.spacingXxs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(Dimens.spacingSm))

@@ -143,6 +143,7 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-svg:2.7.0")
 
     // Gson
     implementation("com.google.code.gson:gson:2.11.0")

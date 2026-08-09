@@ -358,6 +358,10 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
     private val _seekDelta = mutableLongStateOf(0L)
     val seekDelta: Long by _seekDelta
 
+    // 拖动后的目标时间（ms），用于指示器展示
+    private val _seekTargetMs = mutableLongStateOf(0L)
+    val seekTargetMs: Long by _seekTargetMs
+
     // Speed
     private val _currentSpeed = mutableFloatStateOf(1.0f)
     val currentSpeed: Float by _currentSpeed
@@ -367,6 +371,9 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
 
     fun showSeekIndicator(deltaMs: Long) {
         _seekDelta.longValue = deltaMs
+        val duration = _totalDuration.value
+        val target = (_currentPos.value + deltaMs).coerceIn(0, duration)
+        _seekTargetMs.longValue = target
         _showSeekIndicator.value = true
         _indicatorType.value = IndicatorType.SEEK
     }
@@ -856,6 +863,12 @@ fun PlayerScreen(
                                 text = "${if (seconds > 0) "+" else ""}${seconds}s",
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge
+                            )
+                            // 拖动后的目标时间
+                            Text(
+                                text = "${fmtTime(vm.seekTargetMs)} / ${fmtTime(vm.totalDuration)}",
+                                color = Color.White.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                         else -> {

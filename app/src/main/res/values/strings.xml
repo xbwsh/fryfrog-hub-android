@@ -64,6 +64,9 @@
     <!-- Settings -->
     <string name="appearance">Appearance</string>
     <string name="content">Content</string>
+    <string name="repair">Repair</string>
+    <string name="repair_confirm_title">Start repair task?</string>
+    <string name="repair_confirm_message">This will scan and refresh metadata for many videos in the background. This may take a while and consume network resources.</string>
     <string name="account">Account</string>
     <string name="theme_mode">Theme Mode</string>
     <string name="theme_mode_system">System</string>
@@ -144,8 +147,17 @@
     <string name="refresh_season_covers">Refresh Season Covers</string>
     <string name="refresh_all_season_covers">Batch Refresh Season Covers</string>
     <string name="refresh_all_season_covers_desc">Refresh all series season posters in background</string>
-    <string name="refresh_all_movie_actors">Batch Refresh Movie Actors</string>
-    <string name="refresh_all_movie_actors_desc">Refresh actors info for all movies</string>
+    <string name="refresh_all_movie_actors">Batch Refresh Actors</string>
+    <string name="refresh_all_movie_actors_desc">Refresh actors for all TMDB-bound videos</string>
+    <string name="refresh_logo">Refresh Logo</string>
+    <string name="set_logo">Set Logo Manually</string>
+    <string name="no_logo_options">No logo options available for this title</string>
+    <string name="logo_lang_none">No language</string>
+    <string name="logo_votes">votes</string>
+    <string name="refresh_all_logos">Batch Refresh Logos</string>
+    <string name="refresh_all_logos_desc">Download missing logos for all TMDB-bound series and movies</string>
+    <string name="refresh_all_resolutions">Batch Refresh Resolutions</string>
+    <string name="refresh_all_resolutions_desc">Detect missing video resolutions in background</string>
     <string name="more">More</string>
     <string name="set_cover">Set Cover</string>
     <string name="generating_frames">Generating frames…</string>
@@ -214,9 +226,4 @@
     <string name="adult_library_on">Adult</string>
     <string name="adult_library_off">Adult Off</string>
     <string name="scrape_adult">Scrape Adult Rating</string>
-    <string name="scrape_adult_short">Scrape</string>
-    <string name="scrape_adult_desc">Batch mark content in all libraries as adult</string>
-    <string name="scrape_adult_result">Updated %d items</string>
-    <string name="scrape_adult_off">Scrape Off</string>
-    <string name="supplement">Supplement</string>
 </resources>

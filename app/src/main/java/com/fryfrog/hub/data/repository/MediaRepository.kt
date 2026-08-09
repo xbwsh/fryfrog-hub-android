@@ -21,7 +21,8 @@ class MediaRepository {
         val data = response.data ?: PageResponse(emptyList(), 0, 20, 0, 0)
         data.copy(content = data.content.map { it.copy(
             coverUrl = fixUrl(it.coverUrl),
-            fanartUrl = fixUrl(it.fanartUrl)
+            fanartUrl = fixUrl(it.fanartUrl),
+            logoUrl = fixUrl(it.logoUrl)
         ) })
     }
 
@@ -31,11 +32,13 @@ class MediaRepository {
             group.copy(
                 series = group.series.map { it.copy(
                     coverUrl = fixUrl(it.coverUrl),
-                    fanartUrl = fixUrl(it.fanartUrl)
+                    fanartUrl = fixUrl(it.fanartUrl),
+                    logoUrl = fixUrl(it.logoUrl)
                 ) },
                 standaloneVideos = group.standaloneVideos.map { it.copy(
                     coverUrl = fixUrl(it.coverUrl),
-                    fanartUrl = fixUrl(it.fanartUrl)
+                    fanartUrl = fixUrl(it.fanartUrl),
+                    logoUrl = fixUrl(it.logoUrl)
                 ) }
             )
         } ?: emptyList()
@@ -51,12 +54,14 @@ class MediaRepository {
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
                 fanartUrl = fixUrl(series.fanartUrl),
+                logoUrl = fixUrl(series.logoUrl),
                 seasons = series.seasons?.map { season ->
                     season.copy(coverUrl = fixUrl(season.coverUrl))
                 },
                 episodes = (flatEpisodes ?: series.episodes)?.map { it.copy(
                     coverUrl = fixUrl(it.coverUrl),
-                    fanartUrl = fixUrl(it.fanartUrl)
+                    fanartUrl = fixUrl(it.fanartUrl),
+                    logoUrl = fixUrl(it.logoUrl)
                 ) }
             )
         } ?: throw Exception("Series not found")
@@ -72,9 +77,53 @@ class MediaRepository {
         api.refreshAllSeasonCovers().data ?: emptyMap()
     }
 
-    suspend fun refreshAllMovieActors(): Result<Map<String, Any>> = safeApiCall {
-        android.util.Log.d("MediaRepository", "refreshAllMovieActors")
-        api.refreshAllMovieActors().data ?: emptyMap()
+    suspend fun refreshAllActors(): Result<RefreshAllActorsResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshAllActors")
+        api.refreshAllActors().data ?: throw Exception("No data")
+    }
+
+    suspend fun refreshSeriesLogo(seriesId: Long): Result<RefreshLogoResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshSeriesLogo: seriesId=$seriesId")
+        val data = api.refreshSeriesLogo(seriesId).data ?: throw Exception("No data")
+        data.copy(logoUrl = fixUrl(data.logoUrl))
+    }
+
+    suspend fun refreshVideoLogo(videoId: Long): Result<RefreshLogoResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshVideoLogo: videoId=$videoId")
+        val data = api.refreshVideoLogo(videoId).data ?: throw Exception("No data")
+        data.copy(logoUrl = fixUrl(data.logoUrl))
+    }
+
+    suspend fun refreshAllLogos(): Result<RefreshAllLogosResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshAllLogos")
+        api.refreshAllLogos().data ?: throw Exception("No data")
+    }
+
+    suspend fun refreshAllResolutions(): Result<RefreshAllResolutionsResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshAllResolutions")
+        api.refreshAllResolutions().data ?: throw Exception("No data")
+    }
+
+    suspend fun getSeriesLogoOptions(seriesId: Long): Result<List<LogoOption>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "getSeriesLogoOptions: seriesId=$seriesId")
+        api.getSeriesLogoOptions(seriesId).data?.map { it.copy(url = fixUrl(it.url)) } ?: emptyList()
+    }
+
+    suspend fun setSeriesLogo(seriesId: Long, filePath: String): Result<RefreshLogoResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "setSeriesLogo: seriesId=$seriesId, filePath=$filePath")
+        val data = api.setSeriesLogo(seriesId, LogoSetRequest(filePath)).data ?: throw Exception("No data")
+        data.copy(logoUrl = fixUrl(data.logoUrl))
+    }
+
+    suspend fun getVideoLogoOptions(videoId: Long): Result<List<LogoOption>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "getVideoLogoOptions: videoId=$videoId")
+        api.getVideoLogoOptions(videoId).data?.map { it.copy(url = fixUrl(it.url)) } ?: emptyList()
+    }
+
+    suspend fun setVideoLogo(videoId: Long, filePath: String): Result<RefreshLogoResponse> = safeApiCall {
+        android.util.Log.d("MediaRepository", "setVideoLogo: videoId=$videoId, filePath=$filePath")
+        val data = api.setVideoLogo(videoId, LogoSetRequest(filePath)).data ?: throw Exception("No data")
+        data.copy(logoUrl = fixUrl(data.logoUrl))
     }
 
     suspend fun getVideoFanart(videoId: Long): Result<String?> = safeApiCall {
@@ -103,6 +152,7 @@ class MediaRepository {
                 title = video.title,
                 coverUrl = fixUrl(video.coverUrl),
                 fanartUrl = fixUrl(video.fanartUrl),
+                logoUrl = fixUrl(video.logoUrl),
                 originalTitle = video.originalTitle,
                 overview = video.overview,
                 mediaType = video.mediaType,
@@ -191,7 +241,8 @@ class MediaRepository {
     suspend fun getSeriesFavorites(): Result<List<SeriesDTO>> = safeApiCall {
         api.getSeriesFavorites().data?.map { it.copy(
             coverUrl = fixUrl(it.coverUrl),
-            fanartUrl = fixUrl(it.fanartUrl)
+            fanartUrl = fixUrl(it.fanartUrl),
+            logoUrl = fixUrl(it.logoUrl)
         ) } ?: emptyList()
     }
 

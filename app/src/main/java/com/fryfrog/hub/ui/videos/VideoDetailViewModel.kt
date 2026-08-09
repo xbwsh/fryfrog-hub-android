@@ -3,6 +3,7 @@ package com.fryfrog.hub.ui.videos
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fryfrog.hub.data.model.FrameCandidate
+import com.fryfrog.hub.data.model.LogoOption
 import com.fryfrog.hub.data.model.ScrapeProgress
 import com.fryfrog.hub.data.model.SeriesDTO
 import com.fryfrog.hub.data.model.TmdbSearchResult
@@ -34,6 +35,10 @@ data class VideoDetailUiState(
     val isUnbindingTmdb: Boolean = false,
     val isRefreshingTmdb: Boolean = false,
     val isRefreshingSeasonCovers: Boolean = false,
+    val isRefreshingLogo: Boolean = false,
+    val logoOptions: List<LogoOption> = emptyList(),
+    val isLoadingLogoOptions: Boolean = false,
+    val isSettingLogo: Boolean = false,
     val bindProgress: ScrapeProgress? = null,
     val frameCandidates: List<FrameCandidate> = emptyList(),
     val isGeneratingFrames: Boolean = false,
@@ -254,6 +259,133 @@ class VideoDetailViewModel(
                     _uiState.value = _uiState.value.copy(
                         isRefreshingSeasonCovers = false,
                         snackbarMessage = "刷新季海报失败: ${e.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    fun refreshLogo() {
+        val series = _uiState.value.series ?: return
+        val isSeries = series.mediaType == "tv"
+        android.util.Log.d("VideoDetailVM", "refreshLogo: seriesId=${series.id}, isSeries=$isSeries")
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRefreshingLogo = true)
+            val result = if (isSeries) {
+                repository.refreshSeriesLogo(series.id)
+            } else {
+                val videoId = series.episodes?.firstOrNull()?.id ?: run {
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshingLogo = false,
+                        snackbarMessage = "补全 Logo 失败: 未找到对应视频"
+                    )
+                    return@launch
+                }
+                repository.refreshVideoLogo(videoId)
+            }
+            result.fold(
+                onSuccess = { data ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshingLogo = false,
+                        // downloaded 只表示本次是否下载成功，false = TMDB 无 logo 或获取失败
+                        snackbarMessage = if (data.downloaded) "补全成功" else "该条目没有找到 Logo"
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshingLogo = false,
+                        snackbarMessage = "补全 Logo 失败: ${e.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    // ===== 设置 Logo（查询选项 → 预览 → 选择 → 设置）=====
+
+    // 语言优先级：中文 > 日文 > 英文 > 其他
+    private fun languagePriority(code: String?): Int = when (code?.lowercase()) {
+        "zh" -> 0
+        "ja" -> 1
+        "en" -> 2
+        else -> 3
+    }
+
+    private val logoOptionComparator = compareBy<LogoOption>(
+        { languagePriority(it.iso6391) },
+        { -(it.width?.times(it.height ?: 0) ?: 0) },
+        { -(it.voteCount ?: 0) }
+    )
+
+    fun loadLogoOptions() {
+        val series = _uiState.value.series ?: return
+        val isSeries = series.mediaType == "tv"
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingLogoOptions = true)
+            val result = if (isSeries) {
+                repository.getSeriesLogoOptions(series.id)
+            } else {
+                val videoId = series.episodes?.firstOrNull()?.id
+                if (videoId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingLogoOptions = false,
+                        snackbarMessage = "获取 Logo 选项失败: 未找到对应视频"
+                    )
+                    return@launch
+                }
+                repository.getVideoLogoOptions(videoId)
+            }
+            result.fold(
+                onSuccess = { options ->
+                    _uiState.value = _uiState.value.copy(
+                        // 排序：中文 > 日文 > 英文 > 其他语言，再按分辨率、票数降序
+                        logoOptions = options.sortedWith(logoOptionComparator),
+                        isLoadingLogoOptions = false
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        logoOptions = emptyList(),
+                        isLoadingLogoOptions = false,
+                        snackbarMessage = "获取 Logo 选项失败: ${e.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    fun setLogo(option: LogoOption, onSuccess: () -> Unit = {}) {
+        val series = _uiState.value.series ?: return
+        val isSeries = series.mediaType == "tv"
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSettingLogo = true)
+            val result = if (isSeries) {
+                repository.setSeriesLogo(series.id, option.filePath)
+            } else {
+                val videoId = series.episodes?.firstOrNull()?.id ?: run {
+                    _uiState.value = _uiState.value.copy(
+                        isSettingLogo = false,
+                        snackbarMessage = "设置 Logo 失败: 未找到对应视频"
+                    )
+                    return@launch
+                }
+                repository.setVideoLogo(videoId, option.filePath)
+            }
+            result.fold(
+                onSuccess = { data ->
+                    _uiState.value = _uiState.value.copy(
+                        isSettingLogo = false,
+                        logoOptions = emptyList(),
+                        snackbarMessage = if (data.downloaded) "标志设置成功" else "设置失败，请重试"
+                    )
+                    // 刷新详情拿到新的 logoUrl
+                    loadVideoDetail()
+                    onSuccess()
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSettingLogo = false,
+                        snackbarMessage = "设置 Logo 失败: ${e.message}"
                     )
                 }
             )

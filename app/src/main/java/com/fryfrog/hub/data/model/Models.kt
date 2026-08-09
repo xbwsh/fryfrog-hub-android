@@ -29,6 +29,7 @@ data class SeriesDTO(
     val title: String,
     val coverUrl: String?,
     val fanartUrl: String?,
+    val logoUrl: String? = null,
     val originalTitle: String?,
     val overview: String?,
     val mediaType: String?,
@@ -46,7 +47,9 @@ data class SeriesDTO(
     val originalFileName: String?,
     val episodeCount: Int?,
     val seasons: List<SeasonDTO>?,
-    val episodes: List<VideoDTO>?
+    val episodes: List<VideoDTO>?,
+    // 系列/电影的分辨率标签（去重 + 清晰度降序，如 ["4K", "1080p"]）
+    val resolutions: List<String>? = null
 )
 
 data class SeasonDTO(
@@ -71,6 +74,7 @@ data class VideoDTO(
     val progress: Double?,
     val coverUrl: String?,
     val fanartUrl: String?,
+    val logoUrl: String? = null,
     val originalTitle: String?,
     val director: String?,
     val actors: String?,
@@ -80,6 +84,8 @@ data class VideoDTO(
     val videoCodec: String?,
     val audioCodec: String?,
     val resolution: String?,
+    // 展示标签（如 "4K"），null = 未探测到分辨率
+    val resolutionLabel: String? = null,
     val frameRate: Double?,
     val bitrateKbps: Int?,
     val format: String?,
@@ -230,6 +236,52 @@ data class SeriesCalendarItem(
     val fanartUrl: String?,
     val nextEpisodeDate: String?,
     val nextEpisodeNumber: String?
+)
+
+// 单系列 Logo 补全（downloaded=false 表示本地已有或未找到）
+data class RefreshLogoResponse(
+    val downloaded: Boolean,
+    val logoUrl: String?
+)
+
+// Logo 可选列表（logo-options 接口），url 直接用于预览
+data class LogoOption(
+    val filePath: String,
+    val iso6391: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val voteCount: Int? = null,
+    val url: String? = null
+)
+
+// 设置选中 Logo（POST /logo，body: {filePath}）
+data class LogoSetRequest(
+    val filePath: String
+)
+
+// 批量 Logo 补全（异步提交，module 固定 "logo:all"，total = 系列+电影合并总数）
+data class RefreshAllLogosResponse(
+    val totalSeries: Int? = null,
+    val totalMovies: Int? = null,
+    val total: Int? = null,
+    val status: String?,
+    val module: String? = null
+)
+
+// 批量补分辨率（异步提交，module 形如 "resolution"）
+data class RefreshAllResolutionsResponse(
+    val totalVideos: Int? = null,
+    val pendingVideos: Int? = null,
+    val status: String?,
+    val module: String? = null
+)
+
+// 批量刷新演员（电影 + 剧集，异步提交，module 形如 "actors"）
+data class RefreshAllActorsResponse(
+    val totalVideos: Int? = null,
+    val status: String?,
+    val module: String? = null,
+    val message: String? = null
 )
 
 // 扫描流水线进度（聚合接口：scan/scrape/actors/assets/done 全阶段）

@@ -150,6 +150,7 @@ private fun PortraitGrid(
                     subtitle = series.year?.toString(),
                     coverUrl = series.coverUrl,
                     rating = series.rating,
+                    resolutions = series.resolutions,
                     onClick = { onVideoClick(series.id, series.type ?: "series") }
                 )
             }
@@ -178,6 +179,7 @@ private fun LandscapeList(
                 title = series.title,
                 subtitle = series.year?.toString(),
                 coverUrl = series.fanartUrl ?: series.coverUrl,
+                resolutions = series.resolutions,
                 onClick = { onVideoClick(series.id, series.type ?: "series") },
                 fixedSize = false,
                 modifier = Modifier
