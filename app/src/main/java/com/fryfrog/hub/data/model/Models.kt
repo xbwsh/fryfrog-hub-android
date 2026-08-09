@@ -51,6 +51,7 @@ data class SeriesDTO(
 
 data class SeasonDTO(
     val seasonNumber: Int,
+    val coverUrl: String? = null,
     val episodes: List<VideoDTO>?
 )
 

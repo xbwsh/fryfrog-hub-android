@@ -33,6 +33,7 @@ data class VideoDetailUiState(
     val isBindingTmdb: Boolean = false,
     val isUnbindingTmdb: Boolean = false,
     val isRefreshingTmdb: Boolean = false,
+    val isRefreshingSeasonCovers: Boolean = false,
     val bindProgress: ScrapeProgress? = null,
     val frameCandidates: List<FrameCandidate> = emptyList(),
     val isGeneratingFrames: Boolean = false,
@@ -227,6 +228,32 @@ class VideoDetailViewModel(
                         isRefreshingTmdb = false,
                         bindProgress = null,
                         snackbarMessage = "刷新失败: ${e.message}"
+                    )
+                }
+            )
+        }
+    }
+
+    fun refreshSeasonCovers() {
+        val seriesId = _uiState.value.series?.id ?: return
+        android.util.Log.d("VideoDetailVM", "refreshSeasonCovers: seriesId=$seriesId")
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isRefreshingSeasonCovers = true)
+            val result = repository.refreshSeasonCovers(seriesId)
+            result.fold(
+                onSuccess = { data ->
+                    val seasonPosters = (data["refreshedSeasonPosters"] as? Number)?.toInt() ?: 0
+                    val episodeCovers = (data["refreshedEpisodeCovers"] as? Number)?.toInt() ?: 0
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshingSeasonCovers = false,
+                        snackbarMessage = "已刷新 $seasonPosters 个季海报，$episodeCovers 个集封面"
+                    )
+                    loadVideoDetail()
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isRefreshingSeasonCovers = false,
+                        snackbarMessage = "刷新季海报失败: ${e.message}"
                     )
                 }
             )

@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -49,6 +50,7 @@ import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.navigation.bottomNavScreens
+import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
 import com.fryfrog.hub.ui.player.PlayerScreen
 import com.fryfrog.hub.ui.settings.MeScreen
@@ -56,6 +58,7 @@ import com.fryfrog.hub.ui.settings.MediaLibrariesScreen
 import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.util.PrefsManager
+import kotlinx.coroutines.launch
 
 private const val VIDEO_DETAIL_ROUTE = "video_detail/{seriesId}?type={type}"
 
@@ -284,16 +287,67 @@ private fun MainContent(
             // 我的
             composable(Screen.Me.route) {
                 key(isDarkTheme) {
-                    MeScreen(
-                        isDarkTheme = isDarkTheme,
-                        themeMode = themeMode,
-                        onThemeModeChange = onThemeModeChange,
-                        isAdultContentHidden = isAdultContentHidden,
-                        onAdultContentHiddenChange = onAdultContentHiddenChange,
-                        isCarouselEnabled = isCarouselEnabled,
-                        onCarouselEnabledChange = onCarouselEnabledChange,
-                        onLogout = onLogout
-                    )
+                    val scope = rememberCoroutineScope()
+                    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+                    var isRefreshingAll by remember { mutableStateOf(false) }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MeScreen(
+                            isDarkTheme = isDarkTheme,
+                            themeMode = themeMode,
+                            onThemeModeChange = onThemeModeChange,
+                            isAdultContentHidden = isAdultContentHidden,
+                            onAdultContentHiddenChange = onAdultContentHiddenChange,
+                            isCarouselEnabled = isCarouselEnabled,
+                            onCarouselEnabledChange = onCarouselEnabledChange,
+                            onLogout = onLogout,
+                            onRefreshAllSeasonCovers = {
+                                if (!isRefreshingAll) {
+                                    isRefreshingAll = true
+                                    scope.launch {
+                                        val repository = com.fryfrog.hub.data.repository.MediaRepository()
+                                        val result = repository.refreshAllSeasonCovers()
+                                        result.fold(
+                                            onSuccess = { data ->
+                                                val total = (data["totalSeries"] as? Number)?.toInt() ?: 0
+                                                snackbarHostState.showSnackbar("已提交 $total 个系列的刷新任务")
+                                            },
+                                            onFailure = { e ->
+                                                snackbarHostState.showSnackbar("提交失败: ${e.message}")
+                                            }
+                                        )
+                                        isRefreshingAll = false
+                                    }
+                                }
+                            },
+                            onRefreshAllMovieActors = {
+                                if (!isRefreshingAll) {
+                                    isRefreshingAll = true
+                                    scope.launch {
+                                        val repository = com.fryfrog.hub.data.repository.MediaRepository()
+                                        val result = repository.refreshAllMovieActors()
+                                        result.fold(
+                                            onSuccess = { data ->
+                                                val total = (data["totalMovies"] as? Number)?.toInt() ?: 0
+                                                snackbarHostState.showSnackbar("已提交 $total 个电影的演员刷新任务")
+                                            },
+                                            onFailure = { e ->
+                                                snackbarHostState.showSnackbar("提交失败: ${e.message}")
+                                            }
+                                        )
+                                        isRefreshingAll = false
+                                    }
+                                }
+                            }
+                        )
+
+                        androidx.compose.material3.SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(Dimens.spacingLg)
+                        )
+                    }
                 }
             }
 

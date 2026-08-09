@@ -42,7 +42,9 @@ fun MeScreen(
     onAdultContentHiddenChange: (Boolean) -> Unit,
     isCarouselEnabled: Boolean,
     onCarouselEnabledChange: (Boolean) -> Unit,
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onRefreshAllSeasonCovers: () -> Unit = {},
+    onRefreshAllMovieActors: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -254,6 +256,98 @@ fun MeScreen(
                         UniformSwitch(
                             checked = isAdultContentHidden,
                             onCheckedChange = onAdultContentHiddenChange
+                        )
+                    }
+                }
+            }
+
+            // 批量刷新季海报
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onRefreshAllSeasonCovers() }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(Dimens.avatarSize)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(Dimens.avatarIconSize)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.refresh_all_season_covers),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                stringResource(R.string.refresh_all_season_covers_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // 批量刷新电影演员
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onRefreshAllMovieActors() }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(Dimens.avatarSize)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(Dimens.avatarIconSize)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.refresh_all_movie_actors),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                stringResource(R.string.refresh_all_movie_actors_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

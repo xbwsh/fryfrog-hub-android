@@ -19,6 +19,15 @@ interface FryfrogApi {
     @GET("/api/v1/video/series/{id}")
     suspend fun getVideoSeriesDetail(@Path("id") id: Long, @Query("type") type: String? = null): ApiResponse<SeriesDTO>
 
+    @POST("/api/v1/video/series/{id}/refresh-season-covers")
+    suspend fun refreshSeasonCovers(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @POST("/api/v1/video/series/refresh-all-season-covers")
+    suspend fun refreshAllSeasonCovers(): ApiResponse<Map<String, Any>>
+
+    @POST("/api/v1/video/refresh-all-movie-actors")
+    suspend fun refreshAllMovieActors(): ApiResponse<Map<String, Any>>
+
     @GET("/api/v1/video/{id}")
     suspend fun getVideoDetail(@Path("id") id: Long): ApiResponse<VideoDTO>
 
@@ -27,6 +36,9 @@ interface FryfrogApi {
 
     @GET("/api/v1/video/{id}/cover")
     suspend fun getVideoCover(@Path("id") id: Long): ApiResponse<String>
+
+    @GET("/api/v1/video/{id}/fanart")
+    suspend fun getVideoFanart(@Path("id") id: Long): ApiResponse<String>
 
     @GET("/api/v1/video/favorites")
     suspend fun getVideoFavorites(

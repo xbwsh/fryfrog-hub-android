@@ -145,7 +145,8 @@ fun VideoDetailScreen(
                         coverVideoId = episodeId
                         showFramePicker = episodeId != null
                     },
-                    onEditMetadata = { showEditMetadata = true }
+                    onEditMetadata = { showEditMetadata = true },
+                    onRefreshSeasonCovers = { viewModel.refreshSeasonCovers() }
                 )
             }
         }
@@ -257,7 +258,8 @@ private fun VideoDetailContent(
     onRefreshTmdb: () -> Unit,
     onUnbindTmdb: () -> Unit,
     onSetCover: (Long?) -> Unit = {},
-    onEditMetadata: () -> Unit = {}
+    onEditMetadata: () -> Unit = {},
+    onRefreshSeasonCovers: () -> Unit = {}
 ) {
     // 选集状态：初始 0 表示选中第一集
     var selectedEpisodeIndex by remember { mutableIntStateOf(0) }
@@ -293,6 +295,15 @@ private fun VideoDetailContent(
         selectedEpisodeIndex = 0
     }
 
+    // 当前季的封面 URL
+    val currentSeasonCoverUrl = remember(series.seasons, selectedSeason, isSeries) {
+        if (isSeries) {
+            series.seasons?.find { it.seasonNumber == selectedSeason }?.coverUrl
+        } else {
+            null
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize()
@@ -303,6 +314,7 @@ private fun VideoDetailContent(
                     series = series,
                     isSeries = isSeries,
                     selectedEpisode = selectedEpisode,
+                    seasonCoverUrl = currentSeasonCoverUrl,
                     progress = progress,
                     onBackClick = onBackClick,
                     onPlayClick = {
@@ -328,6 +340,7 @@ private fun VideoDetailContent(
                         onSetCover(selectedEpisode?.id ?: currentSeasonEpisodes.firstOrNull()?.id)
                     },
                     onEditMetadata = onEditMetadata,
+                    onRefreshSeasonCovers = onRefreshSeasonCovers,
                     isFavorite = series.favorite ?: series.episodes?.firstOrNull()?.favorite ?: false,
                     onToggleFavorite = { viewModel.toggleFavorite() }
                 )
@@ -337,7 +350,8 @@ private fun VideoDetailContent(
             item {
                 VideoInfoSection(
                     series = series,
-                    selectedEpisode = selectedEpisode
+                    selectedEpisode = selectedEpisode,
+                    seasonCoverUrl = currentSeasonCoverUrl
                 )
             }
 
@@ -420,6 +434,7 @@ private fun HeroSection(
     series: SeriesDTO,
     isSeries: Boolean = false,
     selectedEpisode: VideoDTO? = null,
+    seasonCoverUrl: String? = null,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
     onBackClick: () -> Unit = {},
     onPlayClick: () -> Unit,
@@ -429,12 +444,14 @@ private fun HeroSection(
     onUnbindTmdb: () -> Unit,
     onSetCover: () -> Unit = {},
     onEditMetadata: () -> Unit = {},
+    onRefreshSeasonCovers: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val bannerUrl = selectedEpisode?.fanartUrl ?: selectedEpisode?.coverUrl
-        ?: series.fanartUrl ?: series.coverUrl
+    // 优先使用季封面，然后是剧集封面，最后是系列封面
+    val bannerUrl = selectedEpisode?.fanartUrl ?: seasonCoverUrl
+        ?: selectedEpisode?.coverUrl ?: series.fanartUrl ?: series.coverUrl
     // 无横屏剧照时，竖屏封面模糊铺满作为背景
     val hasFanart = selectedEpisode?.fanartUrl != null || series.fanartUrl != null
     val useBlurredPoster = bannerUrl != null && !hasFanart
@@ -588,6 +605,18 @@ private fun HeroSection(
                     label = stringResource(R.string.edit_metadata),
                     onClick = { showMenu = false; onEditMetadata() }
                 )
+                // 刷新季海报（仅电视剧显示）
+                if (isSeries) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = Dimens.spacingMd),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    TmdbMenuItem(
+                        icon = Icons.Default.Refresh,
+                        label = stringResource(R.string.refresh_season_covers),
+                        onClick = { showMenu = false; onRefreshSeasonCovers() }
+                    )
+                }
                 if (series.tmdbId != null) {
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = Dimens.spacingMd),
@@ -803,9 +832,12 @@ private fun HeroSection(
 @Composable
 private fun VideoInfoSection(
     series: SeriesDTO,
-    selectedEpisode: VideoDTO? = null
+    selectedEpisode: VideoDTO? = null,
+    seasonCoverUrl: String? = null
 ) {
     val episode = selectedEpisode ?: series.episodes?.firstOrNull()
+    // 优先使用季封面，然后是系列封面
+    val posterUrl = seasonCoverUrl ?: series.coverUrl
 
     Row(
         modifier = Modifier
@@ -821,9 +853,9 @@ private fun VideoInfoSection(
             .height(Dimens.posterHeight)
             .clip(RoundedCornerShape(Dimens.radiusMd))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-        if (series.coverUrl != null) {
+        if (posterUrl != null) {
             AsyncImage(
-                model = series.coverUrl,
+                model = posterUrl,
                 contentDescription = series.title,
                 modifier = posterModifier,
                 contentScale = ContentScale.Crop,
@@ -916,7 +948,7 @@ private fun ActorsRow(actors: List<VideoActor>) {
     ) {
         items(
             items = actors,
-            key = { it.name }
+            key = { it.id }
         ) { actor ->
             ActorCard(actor = actor)
         }

@@ -51,12 +51,36 @@ class MediaRepository {
             series.copy(
                 coverUrl = fixUrl(series.coverUrl),
                 fanartUrl = fixUrl(series.fanartUrl),
+                seasons = series.seasons?.map { season ->
+                    season.copy(coverUrl = fixUrl(season.coverUrl))
+                },
                 episodes = (flatEpisodes ?: series.episodes)?.map { it.copy(
                     coverUrl = fixUrl(it.coverUrl),
                     fanartUrl = fixUrl(it.fanartUrl)
                 ) }
             )
         } ?: throw Exception("Series not found")
+    }
+
+    suspend fun refreshSeasonCovers(seriesId: Long): Result<Map<String, Any>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshSeasonCovers: seriesId=$seriesId")
+        api.refreshSeasonCovers(seriesId).data ?: emptyMap()
+    }
+
+    suspend fun refreshAllSeasonCovers(): Result<Map<String, Any>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshAllSeasonCovers")
+        api.refreshAllSeasonCovers().data ?: emptyMap()
+    }
+
+    suspend fun refreshAllMovieActors(): Result<Map<String, Any>> = safeApiCall {
+        android.util.Log.d("MediaRepository", "refreshAllMovieActors")
+        api.refreshAllMovieActors().data ?: emptyMap()
+    }
+
+    suspend fun getVideoFanart(videoId: Long): Result<String?> = safeApiCall {
+        android.util.Log.d("MediaRepository", "getVideoFanart: videoId=$videoId")
+        val response = api.getVideoFanart(videoId)
+        fixUrl(response.data)
     }
 
     suspend fun getVideoActors(videoId: Long): Result<List<VideoActor>> = safeApiCall {

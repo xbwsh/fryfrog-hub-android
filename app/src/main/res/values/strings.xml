@@ -141,6 +141,11 @@
     <string name="tmdb_not_bound">Not bound</string>
     <string name="tmdb_unbind">Unbind</string>
     <string name="tmdb_refresh">Refresh</string>
+    <string name="refresh_season_covers">Refresh Season Covers</string>
+    <string name="refresh_all_season_covers">Batch Refresh Season Covers</string>
+    <string name="refresh_all_season_covers_desc">Refresh all series season posters in background</string>
+    <string name="refresh_all_movie_actors">Batch Refresh Movie Actors</string>
+    <string name="refresh_all_movie_actors_desc">Refresh actors info for all movies</string>
     <string name="more">More</string>
     <string name="set_cover">Set Cover</string>
     <string name="generating_frames">Generating frames…</string>

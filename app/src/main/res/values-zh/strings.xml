@@ -141,6 +141,11 @@
     <string name="tmdb_not_bound">未绑定</string>
     <string name="tmdb_unbind">解绑</string>
     <string name="tmdb_refresh">刷新</string>
+    <string name="refresh_season_covers">刷新季海报</string>
+    <string name="refresh_all_season_covers">批量刷新季海报</string>
+    <string name="refresh_all_season_covers_desc">后台刷新所有系列的季海报</string>
+    <string name="refresh_all_movie_actors">批量刷新电影演员</string>
+    <string name="refresh_all_movie_actors_desc">刷新所有电影的演员信息</string>
     <string name="more">更多</string>
     <string name="set_cover">设置封面</string>
     <string name="generating_frames">正在生成候选帧…</string>
