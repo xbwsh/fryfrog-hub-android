@@ -101,28 +101,40 @@ class VideoDetailViewModel(
     private val _episodeProgressMap = androidx.compose.runtime.mutableStateMapOf<Long, com.fryfrog.hub.data.model.WatchProgressDTO>()
     val episodeProgress: Map<Long, com.fryfrog.hub.data.model.WatchProgressDTO> get() = _episodeProgressMap
 
+    /**
+     * 从 SeriesDTO 中内嵌的 watchPosition / watchProgressPercent / watched 构建
+     * 轻量 WatchProgressDTO，不再逐集调 N+1 getVideoProgress。
+     * 仅对第一集（当前选中集）保留一次精确 getVideoProgress 调用以获取 updatedAt。
+     */
+    private fun buildProgressFromDto(video: com.fryfrog.hub.data.model.VideoDTO): WatchProgressDTO {
+        val positionSeconds = video.watchPosition ?: 0.0
+        val durationSeconds = (video.durationMinutes ?: 0) * 60.0
+        val progressPercent = video.watchProgressPercent
+            ?: if (durationSeconds > 0) (positionSeconds / durationSeconds * 100).coerceIn(0.0, 100.0) else 0.0
+        return WatchProgressDTO(
+            videoId = video.id,
+            positionSeconds = positionSeconds,
+            durationSeconds = durationSeconds,
+            completed = video.watched ?: (progressPercent >= 95.0),
+            progressPercent = progressPercent,
+            updatedAt = null
+        )
+    }
+
     private fun loadProgress() {
         viewModelScope.launch {
             try {
                 val episodes = _uiState.value.series?.episodes ?: return@launch
                 if (episodes.isEmpty()) return@launch
-                val api = ApiClient.getApi()
 
-                // Load progress for first episode to determine initial state
-                val firstEp = episodes.first()
-                val response = api.getVideoProgress(firstEp.id)
-                if (response.success && response.data != null) {
-                    _episodeProgressMap[firstEp.id] = response.data
-                    _uiState.value = _uiState.value.copy(progress = response.data)
-                }
-
-                // Load progress for remaining episodes (background)
-                for (ep in episodes.drop(1)) {
-                    val epResponse = api.getVideoProgress(ep.id)
-                    if (epResponse.success && epResponse.data != null) {
-                        _episodeProgressMap[ep.id] = epResponse.data
+                // 从 DTO 内嵌字段构建所有集的进度；已有精确进度（播放中/刚操作过）不被旧 DTO 覆盖
+                for (ep in episodes) {
+                    if (_episodeProgressMap[ep.id] == null) {
+                        _episodeProgressMap[ep.id] = buildProgressFromDto(ep)
                     }
                 }
+                // 设置第一集的 UI progress（控制播放按钮文案）
+                _uiState.value = _uiState.value.copy(progress = _episodeProgressMap[episodes.first().id])
             } catch (e: Exception) {
                 android.util.Log.e("VideoDetailVM", "Failed to load progress", e)
             }
@@ -130,6 +142,12 @@ class VideoDetailViewModel(
     }
 
     fun loadEpisodeProgress(episodeId: Long) {
+        // 先从已有映射中快速获取
+        val cached = _episodeProgressMap[episodeId]
+        if (cached != null) {
+            _uiState.value = _uiState.value.copy(progress = cached)
+        }
+        // 同时从后端精确获取（更新 updatedAt 等）
         viewModelScope.launch {
             try {
                 val api = ApiClient.getApi()
@@ -584,17 +602,39 @@ class VideoDetailViewModel(
         viewModelScope.launch {
             try {
                 val videoId = _uiState.value.series?.episodes?.firstOrNull()?.id ?: return@launch
-                val api = ApiClient.getApi()
-                val newPos = if (currentProgress.completed) 0.0 else currentProgress.positionSeconds
-                val request = com.fryfrog.hub.data.model.WatchProgressRequest(position = newPos)
-                val response = api.saveVideoProgress(videoId, request)
-                if (response.success) {
-                    _uiState.value = _uiState.value.copy(progress = response.data)
-                }
+                val newCompleted = !currentProgress.completed
+                val result = repository.setWatched(videoId, newCompleted)
+                result.fold(
+                    onSuccess = { updatedProgress ->
+                        _episodeProgressMap[videoId] = updatedProgress
+                        _uiState.value = _uiState.value.copy(progress = updatedProgress)
+                    },
+                    onFailure = { e ->
+                        android.util.Log.e("VideoDetailVM", "Failed to toggle watched", e)
+                    }
+                )
             } catch (e: Exception) {
                 android.util.Log.e("VideoDetailVM", "Failed to toggle watched", e)
             }
             onComplete?.invoke()
+        }
+    }
+
+    /**
+     * 从头播放：标记未看 + 清除服务端进度，随后进入播放器（forceRestart）。
+     * 失败不阻塞播放（进度清除失败仅记录日志）。
+     */
+    fun playFromStart(videoId: Long, onNavigate: (Long) -> Unit) {
+        viewModelScope.launch {
+            repository.setWatched(videoId, false)
+                .onFailure { e -> android.util.Log.e("VideoDetailVM", "playFromStart: setWatched failed", e) }
+            repository.deleteVideoProgress(videoId)
+                .onFailure { e -> android.util.Log.e("VideoDetailVM", "playFromStart: deleteProgress failed", e) }
+            // 本地立即置为未看状态，避免返回详情时被旧 DTO 值覆盖
+            val fresh = WatchProgressDTO(videoId, 0.0, 0.0, completed = false, progressPercent = 0.0, updatedAt = null)
+            _episodeProgressMap[videoId] = fresh
+            _uiState.value = _uiState.value.copy(progress = fresh)
+            onNavigate(videoId)
         }
     }
 

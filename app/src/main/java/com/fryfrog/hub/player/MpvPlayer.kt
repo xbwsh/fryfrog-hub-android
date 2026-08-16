@@ -160,9 +160,13 @@ class MpvPlayer(private val context: Context) {
         }
     }
 
-    fun open(url: String) {
+    fun open(url: String, authToken: String? = null) {
         Log.d(TAG, "open($url)")
         try {
+            // 多用户后端要求所有请求携带 Bearer token，流地址无法走 query 参数，只能通过 header 传递
+            if (!authToken.isNullOrBlank()) {
+                MPVLib.setOptionString("http-header-fields", "Authorization: Bearer $authToken")
+            }
             MPVLib.command(arrayOf("loadfile", url))
             Log.d(TAG, "loadfile command sent")
         } catch (e: Exception) {

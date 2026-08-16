@@ -1,6 +1,8 @@
 package com.fryfrog.hub.data.remote
 
 import com.fryfrog.hub.data.model.*
+import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface FryfrogApi {
@@ -58,12 +60,6 @@ interface FryfrogApi {
     @GET("/api/v1/video/{id}/actors")
     suspend fun getVideoActors(@Path("id") id: Long): ApiResponse<List<VideoActor>>
 
-    @GET("/api/v1/video/{id}/cover")
-    suspend fun getVideoCover(@Path("id") id: Long): ApiResponse<String>
-
-    @GET("/api/v1/video/{id}/fanart")
-    suspend fun getVideoFanart(@Path("id") id: Long): ApiResponse<String>
-
     @GET("/api/v1/video/favorites")
     suspend fun getVideoFavorites(
         @Query("page") page: Int = 0,
@@ -71,7 +67,7 @@ interface FryfrogApi {
     ): ApiResponse<PageResponse<VideoDTO>>
 
     @PUT("/api/v1/video/{id}/favorite")
-    suspend fun setVideoFavorite(@Path("id") id: Long, @Query("status") status: Boolean): ApiResponse<Map<String, Any>>
+    suspend fun setVideoFavorite(@Path("id") id: Long, @Query("status") status: Boolean): ApiResponse<VideoDTO>
 
     @GET("/api/v1/video/{id}/subtitles")
     suspend fun getVideoSubtitles(@Path("id") id: Long): ApiResponse<List<SubtitleDTO>>
@@ -88,6 +84,28 @@ interface FryfrogApi {
     @PUT("/api/v1/video/{id}/progress")
     suspend fun saveVideoProgress(@Path("id") id: Long, @Body request: WatchProgressRequest): ApiResponse<WatchProgressDTO>
 
+    @DELETE("/api/v1/video/{id}/progress")
+    suspend fun deleteVideoProgress(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    // 标记已看/未看（看完与否由后端统一维护）
+    @PUT("/api/v1/video/{id}/watched")
+    suspend fun updateWatched(@Path("id") id: Long, @Body body: UpdateWatchedRequest): ApiResponse<WatchProgressDTO>
+
+    // ========== Video Search ==========
+    @GET("/api/v1/video/search/title")
+    suspend fun searchByTitle(
+        @Query("q") query: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): ApiResponse<PageResponse<VideoDTO>>
+
+    @GET("/api/v1/video/search/director")
+    suspend fun searchByDirector(
+        @Query("q") query: String,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 20
+    ): ApiResponse<PageResponse<VideoDTO>>
+
     // ========== TMDB Scraping ==========
     @GET("/api/v1/video/tmdb/search")
     suspend fun searchTmdb(@Query("q") query: String): ApiResponse<List<TmdbSearchResult>>
@@ -101,17 +119,12 @@ interface FryfrogApi {
     @POST("/api/v1/video/{id}/tmdb/refresh")
     suspend fun refreshTmdb(@Path("id") id: Long): ApiResponse<Map<String, Any>>
 
+    // 按资源库重新刮削：解绑指定库所有视频后按库类型重新搜索绑定（取代旧的 supplement 接口）
+    @POST("/api/v1/video/tmdb/rescrape-library/{libraryId}")
+    suspend fun rescrapeByLibrary(@Path("libraryId") libraryId: Long): ApiResponse<String>
+
     @GET("/api/v1/video/scrape/progress")
     suspend fun getScrapeProgress(@Query("module") module: String? = null): ApiResponse<ScrapeProgress>
-
-    @POST("/api/v1/video/scrape/adult-only")
-    suspend fun scrapeAdultOnly(@Query("libraryId") libraryId: Long? = null): ApiResponse<Map<String, Any>>
-
-    @POST("/api/v1/video/scrape/supplement/{libraryId}")
-    suspend fun scrapeSupplement(
-        @Path("libraryId") libraryId: Long,
-        @Query("force") force: Boolean = false
-    ): ApiResponse<Map<String, Any>>
 
     // ========== Frame Cover ==========
     @POST("/api/v1/video/{id}/frames")
@@ -119,6 +132,10 @@ interface FryfrogApi {
 
     @POST("/api/v1/video/{id}/frames/select")
     suspend fun selectFrame(@Path("id") id: Long, @Body body: SelectFrameRequest): ApiResponse<SelectFrameResponse>
+
+    // 从单集截帧设置系列横屏背景图
+    @POST("/api/v1/video/series/{id}/frames/select")
+    suspend fun selectSeriesFanart(@Path("id") id: Long, @Body body: SeriesFrameSelectRequest): ApiResponse<Map<String, Any>>
 
     // ========== Metadata Edit ==========
     @PUT("/api/v1/video/{id}/metadata")
@@ -133,17 +150,58 @@ interface FryfrogApi {
 
     // ========== Series Favorite ==========
     @PUT("/api/v1/video/series/{id}/favorite")
-    suspend fun setSeriesFavorite(@Path("id") id: Long, @Query("status") status: Boolean): ApiResponse<Map<String, Any>>
+    suspend fun setSeriesFavorite(@Path("id") id: Long, @Query("status") status: Boolean): ApiResponse<SeriesDTO>
 
     @GET("/api/v1/video/series/favorites")
     suspend fun getSeriesFavorites(): ApiResponse<List<SeriesDTO>>
 
-    // ========== Auth ==========
+    // ========== Auth（多用户） ==========
     @POST("/api/v1/auth/login")
     suspend fun login(@Body body: Map<String, String>): LoginResponse
 
+    // 注销当前 token（失败不阻塞本地登出）
+    @POST("/api/v1/auth/logout")
+    suspend fun logout(): ApiResponse<Map<String, Any>>
+
     @GET("/api/v1/auth/status")
     suspend fun authStatus(): ApiResponse<Map<String, Any>>
+
+    // ========== Users ==========
+    @GET("/api/v1/users/me")
+    suspend fun getCurrentUser(): ApiResponse<UserDTO>
+
+    @GET("/api/v1/users/me/preferences")
+    suspend fun myPreferences(): ApiResponse<Map<String, String>>
+
+    @PUT("/api/v1/users/me/preferences")
+    suspend fun updateMyPreferences(@Body body: UserPreferenceUpdateRequest): ApiResponse<Map<String, String>>
+
+    @PUT("/api/v1/users/me/password")
+    suspend fun changeMyPassword(@Body body: ChangePasswordRequest): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/users")
+    suspend fun getUsers(): ApiResponse<List<UserDTO>>
+
+    @POST("/api/v1/users")
+    suspend fun createUser(@Body body: UserCreateRequest): ApiResponse<UserDTO>
+
+    @GET("/api/v1/users/{id}")
+    suspend fun getUser(@Path("id") id: Long): ApiResponse<UserDTO>
+
+    @PUT("/api/v1/users/{id}")
+    suspend fun updateUser(@Path("id") id: Long, @Body body: UserUpdateRequest): ApiResponse<UserDTO>
+
+    @DELETE("/api/v1/users/{id}")
+    suspend fun deleteUser(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @PUT("/api/v1/users/{id}/password")
+    suspend fun resetUserPassword(@Path("id") id: Long, @Body body: ChangePasswordRequest): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/users/{id}/libraries")
+    suspend fun getUserLibraries(@Path("id") id: Long): ApiResponse<List<Long>>
+
+    @PUT("/api/v1/users/{id}/libraries")
+    suspend fun setUserLibraries(@Path("id") id: Long, @Body body: UserLibraryUpdateRequest): ApiResponse<List<Long>>
 
     // ========== Media Libraries ==========
     @GET("/api/v1/media-libraries")
@@ -172,5 +230,20 @@ interface FryfrogApi {
 
     // ========== Settings ==========
     @GET("/api/v1/settings")
-    suspend fun getSettings(): ApiResponse<List<Map<String, Any>>>
+    suspend fun getSettings(): ApiResponse<List<SystemSetting>>
+
+    @GET("/api/v1/settings/{key}")
+    suspend fun getSetting(@Path("key") key: String): ApiResponse<SystemSetting>
+
+    @PUT("/api/v1/settings/{key}")
+    suspend fun updateSetting(@Path("key") key: String, @Body body: SettingUpdateRequest): ApiResponse<SystemSetting>
+
+    // ========== Logs ==========
+    @GET("/api/v1/logs")
+    suspend fun listLogs(): ApiResponse<List<Map<String, Any>>>
+
+    // 日志为二进制文件，流式下载
+    @Streaming
+    @GET("/api/v1/logs/{fileName}")
+    suspend fun exportLog(@Path("fileName") fileName: String): Response<ResponseBody>
 }

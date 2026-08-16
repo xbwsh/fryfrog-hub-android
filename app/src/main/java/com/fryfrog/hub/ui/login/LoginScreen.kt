@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -50,6 +51,7 @@ data class LoginUiState(
     val protocol: String = "http",
     val serverHost: String = "",
     val serverPort: String = "20058",
+    val username: String = "",
     val password: String = "",
     val isLoading: Boolean = false,
     val errorResId: Int? = null,
@@ -84,6 +86,7 @@ class LoginViewModel : ViewModel() {
                 protocol = parsed.protocol,
                 serverHost = parsed.host,
                 serverPort = parsed.port,
+                username = prefs.username,
                 savedServers = servers,
                 selectedServerUrl = servers.firstOrNull { it.url == lastUrl }?.url
             )
@@ -109,6 +112,10 @@ class LoginViewModel : ViewModel() {
     }
 
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    fun updateUsername(username: String) {
+        _uiState.value = _uiState.value.copy(username = username)
+    }
 
     fun updateProtocol(protocol: String) {
         _uiState.value = _uiState.value.copy(
@@ -147,6 +154,7 @@ class LoginViewModel : ViewModel() {
             protocol = parsed.protocol,
             serverHost = parsed.host,
             serverPort = parsed.port,
+            username = server.username,
             selectedServerUrl = server.url
         )
         val context = com.fryfrog.hub.FryfrogHubApplication.instance
@@ -206,17 +214,22 @@ class LoginViewModel : ViewModel() {
                     .build()
 
                 val tempApi = tempRetrofit.create(FryfrogApi::class.java)
-                val response = tempApi.login(mapOf("password" to state.password))
+                // 多用户登录：不传 username 时后端按 admin 兼容旧单密码登录
+                val body = mutableMapOf<String, String>("password" to state.password)
+                if (state.username.isNotBlank()) body["username"] = state.username
+                val response = tempApi.login(body)
 
                 if (response.success) {
-                    val token = response.token ?: ""
+                    val token = response.effectiveToken ?: ""
 
                     val context = com.fryfrog.hub.FryfrogHubApplication.instance
                     val prefs = PrefsManager(context)
                     prefs.saveLogin(baseUrl, token)
+                    // 保存用户名到本地（下次登录回填）
+                    prefs.username = state.username
 
                     val serverName = extractHostName(baseUrl)
-                    prefs.saveServer(serverName, baseUrl, token)
+                    prefs.saveServer(serverName, baseUrl, token, state.username)
 
                     ApiClient.updateServer(baseUrl, token)
 
@@ -301,7 +314,7 @@ fun LoginScreen(
                 modifier = Modifier.padding(bottom = Dimens.spacingXxl)
             )
 
-            // Saved servers chips
+            // Saved servers chips（无边框，选中态用背景色区分）
             if (uiState.savedServers.isNotEmpty()) {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -309,43 +322,62 @@ fun LoginScreen(
                 ) {
                     items(uiState.savedServers, key = { it.url }) { server ->
                         val isSelected = uiState.selectedServerUrl == server.url
-                        InputChip(
-                            selected = isSelected,
-                            onClick = { viewModel.selectServer(server) },
-                            label = { Text(server.name, maxLines = 1) },
-                            trailingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(Dimens.radiusFull))
+                                .background(
+                                    if (isSelected) Primary.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable { viewModel.selectServer(server) }
+                                .padding(start = Dimens.spacingMd, end = Dimens.spacingXs, top = Dimens.spacingXs, bottom = Dimens.spacingXs)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = server.name,
+                                    color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1
+                                )
                                 IconButton(
                                     onClick = { viewModel.removeServer(server) },
-                                    modifier = Modifier.size(Dimens.chipIconSize)
+                                    modifier = Modifier.size(Dimens.chipIconSize + 10.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = stringResource(R.string.delete),
+                                        tint = if (isSelected) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(Dimens.chipCloseIconSize)
                                     )
                                 }
-                            },
-                            colors = InputChipDefaults.inputChipColors(
-                                selectedContainerColor = Primary.copy(alpha = 0.15f),
-                                selectedLabelColor = Primary,
-                                selectedLeadingIconColor = Primary,
-                                selectedTrailingIconColor = Primary
-                            )
-                        )
+                            }
+                        }
                     }
                     item {
-                        InputChip(
-                            selected = false,
-                            onClick = { viewModel.addNewServer() },
-                            label = { Text(stringResource(R.string.add)) },
-                            leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(Dimens.radiusFull))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { viewModel.addNewServer() }
+                                .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingXs)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     Icons.Default.Add,
                                     contentDescription = stringResource(R.string.add),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(Dimens.chipIconSize)
                                 )
+                                Spacer(Modifier.width(Dimens.spacingXs))
+                                Text(
+                                    text = stringResource(R.string.add),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
-                        )
+                        }
                     }
                 }
             }
@@ -408,40 +440,51 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-                    // 服务器地址
-                    OutlinedTextField(
+                    // 服务器地址（无边框输入框）
+                    TextField(
                         value = uiState.serverHost,
                         onValueChange = { viewModel.updateServerHost(it) },
                         label = { Text(stringResource(R.string.server_address)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
-                            focusedLabelColor = Primary
-                        )
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = loginFieldColors()
                     )
 
                     Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-                    // 端口
-                    OutlinedTextField(
+                    // 端口（无边框输入框）
+                    TextField(
                         value = uiState.serverPort,
                         onValueChange = { viewModel.updateServerPort(it) },
                         label = { Text("端口") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
-                            focusedLabelColor = Primary
-                        )
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = loginFieldColors()
                     )
 
                     Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-                    // 密码
-                    OutlinedTextField(
+                    // 用户名（多用户登录，留空则按 admin 兼容旧单密码模式）
+                    TextField(
+                        value = uiState.username,
+                        onValueChange = { viewModel.updateUsername(it) },
+                        label = { Text(stringResource(R.string.username)) },
+                        supportingText = { Text(stringResource(R.string.username_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = loginFieldColors()
+                    )
+
+                    Spacer(modifier = Modifier.height(Dimens.spacingMd))
+
+                    // 密码（无边框输入框）
+                    TextField(
                         value = uiState.password,
                         onValueChange = { viewModel.updatePassword(it) },
                         label = { Text(stringResource(R.string.password)) },
@@ -449,10 +492,8 @@ fun LoginScreen(
                         singleLine = true,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
-                            focusedLabelColor = Primary
-                        ),
+                        shape = RoundedCornerShape(Dimens.radiusMd),
+                        colors = loginFieldColors(),
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
@@ -496,3 +537,16 @@ fun LoginScreen(
         }
     }
 }
+
+// 登录页输入框样式：无边框、浅灰圆角底 + 透明指示线（现代简洁风）
+@Composable
+private fun loginFieldColors(): TextFieldColors = TextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+    focusedLabelColor = Primary,
+    cursorColor = Primary
+)

@@ -258,7 +258,7 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
                 Log.d(TAG, "Progress loaded, savedProgressPosition=$savedProgressPosition")
                 val url = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
                 Log.d(TAG, "Opening: $url")
-                player?.open(url)
+                player?.open(url, ApiClient.getToken())
             }
         }
     }
@@ -300,10 +300,10 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
                 if (pos <= 0 || dur <= 0) return@launch
 
                 val api = ApiClient.getApi()
+                // 是否看完由后端根据位置自动判定，客户端只上报位置与总时长
                 val request = WatchProgressRequest(
                     position = pos / 1000.0,
-                    duration = dur / 1000.0,
-                    completed = pos >= dur * 0.95 // Consider 95% as completed
+                    duration = dur / 1000.0
                 )
                 api.saveVideoProgress(videoId, request)
                 Log.d(TAG, "Progress saved: ${pos / 1000}s / ${dur / 1000}s")
@@ -501,6 +501,12 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
     private val _isLoadingSubtitles = mutableStateOf(false)
     val isLoadingSubtitles: Boolean by _isLoadingSubtitles
 
+    // 需要后端转码烧录的字幕文件名（ASS/PGS/VobSub 等 mpv 无法直接渲染的格式兜底）
+    private var burnedSubtitleFile: String? = null
+
+    // mpv 无法直接渲染、需要转码烧录的字幕格式（小写扩展名）
+    private val burnInFormats = setOf("ass", "ssa", "pgs", "sup", "vobsub", "idx", "sub", "dvdsub")
+
     fun toggleSubtitleMenu() {
         if (!_showSubtitleMenu.value && _subtitleList.value.isEmpty()) {
             loadSubtitles()
@@ -549,11 +555,27 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
                         }
                     }
                     Log.d(TAG, "Subtitle downloaded to: ${localFile.absolutePath}, size=${localFile.length()}")
-                    withContext(Dispatchers.Main) {
-                        Log.d(TAG, "Calling addSubtitle with local path")
-                        player?.addSubtitle(localFile.absolutePath)
-                        // 更新选中的字幕索引为非 -1（表示有字幕选中）
-                        _selectedSubtitleIndex.intValue = 0
+                    // 判断是否需要后端转码烧录（ASS/PGS/VobSub 等 mpv 无法直接渲染的格式）
+                    val ext = subtitle.filename.substringAfterLast('.', "").lowercase()
+                    val needsBurnIn = burnInFormats.contains(ext)
+                    if (needsBurnIn) {
+                        withContext(Dispatchers.Main) {
+                            Log.d(TAG, "Burn-in subtitle format detected ($ext), reloading transcode stream with subtitle=$subtitle.filename")
+                            burnedSubtitleFile = subtitle.filename
+                            _selectedSubtitleIndex.intValue = 0
+                            // 通过转码流烧录字幕（original 直连流不支持烧录，保持无字幕）
+                            if (_currentQuality.value != "original") {
+                                val url = buildStreamUrl()
+                                player?.open(url, ApiClient.getToken())
+                            }
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Log.d(TAG, "Calling addSubtitle with local path")
+                            player?.addSubtitle(localFile.absolutePath)
+                            // 更新选中的字幕索引为非 -1（表示有字幕选中）
+                            _selectedSubtitleIndex.intValue = 0
+                        }
                     }
                 } else {
                     Log.e(TAG, "Failed to download subtitle: ${response.code}")
@@ -594,7 +616,7 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
         val currentPosition = player?.getPosition() ?: 0L
         val url = buildStreamUrl()
         Log.d(TAG, "Changing quality to $quality, reloading: $url")
-        player?.open(url)
+        player?.open(url, ApiClient.getToken())
         // Seek to previous position after quality change
         if (currentPosition > 0) {
             player?.seekTo(currentPosition)
@@ -603,10 +625,18 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
 
     private fun buildStreamUrl(): String {
         val baseUrl = "${ApiClient.getBaseUrl()}/api/v1/video/$videoId/stream"
-        return if (_currentQuality.value == "original") {
+        val url = if (_currentQuality.value == "original") {
             baseUrl
         } else {
             "$baseUrl/transcode?quality=${_currentQuality.value}"
+        }
+        // 转码流支持烧录字幕：subtitle=<文件名>（直连流不支持，忽略）
+        val burned = burnedSubtitleFile
+        return if (burned != null && _currentQuality.value != "original") {
+            val encoded = java.net.URLEncoder.encode(burned, "UTF-8")
+            "$url&subtitle=$encoded"
+        } else {
+            url
         }
     }
 
@@ -619,8 +649,7 @@ class PlayerViewModel(private val videoId: Long, private val context: android.co
                 val api = ApiClient.getApi()
                 val request = WatchProgressRequest(
                     position = pos / 1000.0,
-                    duration = dur / 1000.0,
-                    completed = pos >= dur * 0.95
+                    duration = dur / 1000.0
                 )
                 kotlinx.coroutines.runBlocking {
                     saveMutex.withLock {

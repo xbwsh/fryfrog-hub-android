@@ -57,10 +57,14 @@ class MemoryWatchdogReceiver : IBinder.DeathRecipient {
                 mHandler = Handler(handlerThread.looper)
 
                 val filter = IntentFilter(ITGSA_ACTION)
+                // Android 14+ 要求显式声明接收者导出状态；该广播来自系统内存调度进程，需 EXPORTED
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     context.registerReceiver(mReceiver, filter, null, mHandler, Context.RECEIVER_EXPORTED)
                 } else {
-                    context.registerReceiver(mReceiver, filter, null, mHandler)
+                    androidx.core.content.ContextCompat.registerReceiver(
+                        context, mReceiver, filter, null, mHandler,
+                        androidx.core.content.ContextCompat.RECEIVER_EXPORTED
+                    )
                 }
 
                 mInitialized = true

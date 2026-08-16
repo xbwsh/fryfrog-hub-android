@@ -22,6 +22,8 @@
     <string name="connection_failed">Connection failed: %s</string>
     <string name="hide_password">Hide password</string>
     <string name="show_password">Show password</string>
+    <string name="username">Username</string>
+    <string name="username_hint">Leave blank for admin</string>
 
     <!-- Navigation -->
     <string name="section_home">Home</string>
@@ -226,4 +228,68 @@
     <string name="adult_library_on">Adult</string>
     <string name="adult_library_off">Adult Off</string>
     <string name="scrape_adult">Scrape Adult Rating</string>
+
+    <!-- Search -->
+    <string name="search">Search</string>
+    <string name="search_hint">Search title or director…</string>
+    <string name="search_by_title">By Title</string>
+    <string name="search_by_director">By Director</string>
+    <string name="search_no_results">No results found</string>
+    <string name="search_initial_hint">Type to search your video library</string>
+
+    <!-- Home Filter -->
+    <string name="filter_all">All</string>
+    <string name="filter_movie">Movies</string>
+    <string name="filter_tv">TV</string>
+    <string name="filter_other">Other</string>
+
+    <!-- Account -->
+    <string name="change_password">Change Password</string>
+    <string name="old_password">Current Password</string>
+    <string name="new_password">New Password</string>
+    <string name="confirm_new_password">Confirm New Password</string>
+    <string name="password_mismatch">Passwords do not match</string>
+    <string name="password_updated">Password updated</string>
+    <string name="password_change_failed">Failed to change password: %s</string>
+    <string name="role_admin">Administrator</string>
+    <string name="role_user">User</string>
+    <string name="current_user">Current User</string>
+    <string name="nickname">Nickname</string>
+    <string name="not_logged_in">Not logged in</string>
+
+    <!-- Admin: Users -->
+    <string name="user_management">User Management</string>
+    <string name="add_user">Add User</string>
+    <string name="edit_user">Edit User</string>
+    <string name="reset_password">Reset Password</string>
+    <string name="assign_libraries">Assign Libraries</string>
+    <string name="user_enabled">Enabled</string>
+    <string name="user_created">User created</string>
+    <string name="user_updated">User updated</string>
+    <string name="user_deleted">User deleted</string>
+    <string name="password_reset_done">Password reset</string>
+    <string name="delete_user_confirm">Delete user \"%s\"? This cannot be undone.</string>
+    <string name="libraries_assigned">Library access updated</string>
+    <string name="load_failed">Failed to load data: %s</string>
+    <string name="save_failed">Failed to save: %s</string>
+    <string name="no_users">No users yet</string>
+
+    <!-- Admin: System Settings -->
+    <string name="system_settings">System Settings</string>
+    <string name="setting_value">Value</string>
+    <string name="setting_saved">Setting saved</string>
+    <string name="no_settings">No settings available</string>
+
+    <!-- Admin: Logs -->
+    <string name="logs">Server Logs</string>
+    <string name="share_log">Share</string>
+    <string name="no_logs">No log files</string>
+    <string name="log_download_failed">Failed to download log: %s</string>
+    <string name="log_share_failed">Failed to share log: %s</string>
+    <string name="log_size">%1$s KB</string>
+
+    <!-- Media Libraries -->
+    <string name="rescrape_library">Rescrape Library</string>
+    <string name="rescrape_library_confirm">Rescrape all videos in \"%s\"? Existing TMDB bindings will be re-evaluated in the background.</string>
+    <string name="rescrape_submitted">Rescrape task submitted</string>
 </resources>

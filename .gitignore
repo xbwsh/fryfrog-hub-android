@@ -20,6 +20,13 @@ release/
 .gradle/
 build/
 
+# Local gradle home (sandbox build cache inside workspace)
+.gradle-home/
+
+# API docs probe (dev tooling)
+.api-docs.json
+.login-test.json
+
 # Local configuration file (sdk path, etc)
 local.properties
 
@@ -47,6 +54,7 @@ captures/
 # AI Assistant configs
 .mimocode/
 .opencode/
+.zcode/
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild

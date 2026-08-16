@@ -1,9 +1,7 @@
 package com.fryfrog.hub.ui.videos
 
 import android.app.Activity
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -65,6 +63,7 @@ import com.fryfrog.hub.data.model.UpdateMetadataRequest
 import com.fryfrog.hub.data.model.VideoActor
 import com.fryfrog.hub.data.model.VideoDTO
 import com.fryfrog.hub.ui.components.FryfrogDialog
+import com.fryfrog.hub.ui.components.FryfrogTextField
 import com.fryfrog.hub.ui.components.MediaTitle
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.Gold
@@ -83,6 +82,7 @@ import java.util.TimeZone
 @Composable
 fun VideoDetailScreen(
     viewModel: VideoDetailViewModel,
+    isAdmin: Boolean = true,
     onBackClick: () -> Unit,
     onPlayClick: (Long, Boolean) -> Unit = { _, _ -> }
 ) {
@@ -140,9 +140,11 @@ fun VideoDetailScreen(
                     series = series,
                     actors = uiState.actors,
                     progress = uiState.progress,
+                    isAdmin = isAdmin,
                     viewModel = viewModel,
                     onBackClick = onBackClick,
                     onPlayEpisode = onPlayClick,
+                    onToggleWatched = { viewModel.toggleWatched() },
                     onSearchTmdb = { showScrapeSheet = true },
                     onRefreshTmdb = { viewModel.refreshTmdb() },
                     onUnbindTmdb = { showUnbindConfirm = true },
@@ -261,6 +263,7 @@ private fun VideoDetailContent(
     series: SeriesDTO,
     actors: List<VideoActor>,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
+    isAdmin: Boolean = true,
     viewModel: VideoDetailViewModel,
     onBackClick: () -> Unit,
     onPlayEpisode: (Long, Boolean) -> Unit = { _, _ -> },
@@ -326,6 +329,7 @@ private fun VideoDetailContent(
                 HeroSection(
                     series = series,
                     isSeries = isSeries,
+                    isAdmin = isAdmin,
                     selectedEpisode = selectedEpisode,
                     seasonCoverUrl = currentSeasonCoverUrl,
                     progress = progress,
@@ -336,8 +340,9 @@ private fun VideoDetailContent(
                             val epProgress = viewModel.episodeProgress[it.id]
                             val isCompleted = epProgress?.completed == true
                             if (isCompleted) {
-                                viewModel.toggleWatched {
-                                    onPlayEpisode(it.id, true)
+                                // 从头播放：先标记未看并清除服务端进度，再以 forceRestart 进入播放器
+                                viewModel.playFromStart(it.id) { videoId ->
+                                    onPlayEpisode(videoId, true)
                                 }
                             } else {
                                 onPlayEpisode(it.id, false)
@@ -423,6 +428,7 @@ private fun VideoDetailContent(
                             EpisodeGrid(
                                 episodes = currentSeasonEpisodes,
                                 selectedIndex = selectedEpisodeIndex,
+                                episodeProgress = viewModel.episodeProgress,
                                 onEpisodeClick = { index ->
                                     if (selectedEpisodeIndex == index) {
                                         onPlayEpisode(currentSeasonEpisodes[index].id, false)
@@ -448,6 +454,7 @@ private fun VideoDetailContent(
 private fun HeroSection(
     series: SeriesDTO,
     isSeries: Boolean = false,
+    isAdmin: Boolean = true,
     selectedEpisode: VideoDTO? = null,
     seasonCoverUrl: String? = null,
     progress: com.fryfrog.hub.data.model.WatchProgressDTO? = null,
@@ -571,25 +578,29 @@ private fun HeroSection(
                         tint = if (isFavorite) Color(0xFFFF4D4F) else Color.White
                     )
                 }
-                IconButton(
-                    onClick = { showMenu = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.more),
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
+                // 管理操作菜单（仅管理员可见；普通用户只有收藏）
+                if (isAdmin) {
+                    IconButton(
+                        onClick = { showMenu = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.more),
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                modifier = Modifier
-                    .width(180.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
-            ) {
+            if (isAdmin) {
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier
+                        .width(180.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(Dimens.radiusMd))
+                ) {
                 TmdbMenuItem(
                     icon = Icons.Default.Search,
                     label = stringResource(R.string.tmdb_search),
@@ -669,6 +680,7 @@ private fun HeroSection(
                         tint = MaterialTheme.colorScheme.error,
                         onClick = { showMenu = false; onUnbindTmdb() }
                     )
+                }
                 }
             }
         }
@@ -1406,14 +1418,14 @@ private fun EditMetadataSheet(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
             ) {
-                OutlinedTextField(
+                FryfrogTextField(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text(stringResource(R.string.metadata_title)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                FryfrogTextField(
                     value = overview,
                     onValueChange = { overview = it },
                     label = { Text(stringResource(R.string.overview)) },
@@ -1421,7 +1433,7 @@ private fun EditMetadataSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = rating,
                         onValueChange = { rating = it },
                         label = { Text(stringResource(R.string.metadata_rating)) },
@@ -1430,7 +1442,7 @@ private fun EditMetadataSheet(
                     )
                     // 年份选择器（下拉）
                     Box(modifier = Modifier.weight(1f)) {
-                        OutlinedTextField(
+                        FryfrogTextField(
                             value = year,
                             onValueChange = {},
                             label = { Text(stringResource(R.string.metadata_year)) },
@@ -1462,7 +1474,7 @@ private fun EditMetadataSheet(
                         }
                     }
                 }
-                OutlinedTextField(
+                FryfrogTextField(
                     value = releaseDate,
                     onValueChange = {},
                     label = { Text(stringResource(R.string.metadata_release_date)) },
@@ -1478,7 +1490,7 @@ private fun EditMetadataSheet(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                FryfrogTextField(
                     value = originalTitle,
                     onValueChange = { originalTitle = it },
                     label = { Text(stringResource(R.string.metadata_original_title)) },
@@ -1486,7 +1498,7 @@ private fun EditMetadataSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (isSeries) {
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = status,
                         onValueChange = { status = it },
                         label = { Text(stringResource(R.string.metadata_status)) },
@@ -1494,28 +1506,28 @@ private fun EditMetadataSheet(
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = genre,
                         onValueChange = { genre = it },
                         label = { Text(stringResource(R.string.metadata_genre)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = director,
                         onValueChange = { director = it },
                         label = { Text(stringResource(R.string.director)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = actors,
                         onValueChange = { actors = it },
                         label = { Text(stringResource(R.string.actors)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = tags,
                         onValueChange = { tags = it },
                         label = { Text(stringResource(R.string.metadata_tags)) },
@@ -1809,11 +1821,7 @@ private fun LogoLangChip(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(Dimens.radiusSm),
-        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (selected) Primary else MaterialTheme.colorScheme.outlineVariant
-        )
+        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent
     ) {
         Text(
             text = label,
@@ -1940,11 +1948,6 @@ private fun FrameThumb(
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(Dimens.radiusSm))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(
-                width = 2.dp,
-                color = if (isSelected) Primary else Color.Transparent,
-                shape = RoundedCornerShape(Dimens.radiusSm)
-            )
             .clickable(onClick = onClick)
     ) {
         if (candidate.url != null) {
@@ -1953,6 +1956,14 @@ private fun FrameThumb(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
+            )
+        }
+        // 选中态用主题色半透明遮罩区分，替代边框
+        if (isSelected) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Primary.copy(alpha = 0.25f))
             )
         }
         Text(
@@ -1980,11 +1991,7 @@ private fun FrameTypeChip(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(Dimens.radiusSm),
-        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (selected) Primary else MaterialTheme.colorScheme.outlineVariant
-        )
+        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent
     ) {
         Text(
             text = label,
@@ -2155,7 +2162,7 @@ private fun TmdbScrapeSheet(
 
                 Spacer(modifier = Modifier.height(Dimens.spacingMd))
 
-                OutlinedTextField(
+                FryfrogTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
@@ -2242,14 +2249,11 @@ private fun TmdbScrapeSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
                     ) {
-                        OutlinedButton(
+                        FilledTonalButton(
                             onClick = onRefresh,
                             enabled = !uiState.isRefreshingTmdb,
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(Dimens.radiusMd),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
+                            shape = RoundedCornerShape(Dimens.radiusMd)
                         ) {
                             if (uiState.isRefreshingTmdb) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -2259,12 +2263,12 @@ private fun TmdbScrapeSheet(
                                 Text(stringResource(R.string.tmdb_refresh))
                             }
                         }
-                        OutlinedButton(
+                        FilledTonalButton(
                             onClick = onUnbind,
                             enabled = !uiState.isUnbindingTmdb,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(Dimens.radiusMd),
-                            colors = ButtonDefaults.outlinedButtonColors(
+                            colors = ButtonDefaults.filledTonalButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
                             )
                         ) {
@@ -2330,7 +2334,7 @@ private fun TmdbSearchResultItem(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = result.title,
+                    text = result.title ?: "",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,

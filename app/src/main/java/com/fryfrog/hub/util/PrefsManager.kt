@@ -22,6 +22,7 @@ class PrefsManager(context: Context) {
         private const val KEY_HOME_VIEW_MODE = "home_view_mode"
         private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
         private const val KEY_SAVED_SERVERS = "saved_servers"
+        private const val KEY_USERNAME = "last_username"
 
         private const val DEFAULT_SERVER_URL = ""
     }
@@ -38,9 +39,9 @@ class PrefsManager(context: Context) {
         get() = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
 
-    // 主题模式：system=跟随系统 / light=浅色 / dark=深色（默认跟随系统）
+    // 主题模式：system=跟随系统 / light=浅色 / dark=深色（默认深色）
     var themeMode: String
-        get() = prefs.getString(KEY_THEME_MODE, "system") ?: "system"
+        get() = prefs.getString(KEY_THEME_MODE, "dark") ?: "dark"
         set(value) = prefs.edit().putString(KEY_THEME_MODE, value).apply()
 
     var isAdultContentHidden: Boolean
@@ -55,6 +56,11 @@ class PrefsManager(context: Context) {
         get() = prefs.getString(KEY_HOME_VIEW_MODE, "grouped") ?: "grouped"
         set(value) = prefs.edit().putString(KEY_HOME_VIEW_MODE, value).apply()
 
+    // 上次登录的用户名（下次回填用）
+    var username: String
+        get() = prefs.getString(KEY_USERNAME, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
+
     // 每个媒体库单独记忆展示形式
     fun getLibraryViewMode(libraryId: Long): String =
         prefs.getString("${KEY_LIBRARY_VIEW_MODE}_$libraryId", "portrait") ?: "portrait"
@@ -66,7 +72,8 @@ class PrefsManager(context: Context) {
     data class SavedServer(
         val name: String,
         val url: String,
-        val token: String
+        val token: String,
+        val username: String = ""
     )
 
     fun getSavedServers(): List<SavedServer> {
@@ -79,13 +86,13 @@ class PrefsManager(context: Context) {
         }
     }
 
-    fun saveServer(name: String, url: String, token: String) {
+    fun saveServer(name: String, url: String, token: String, username: String = "") {
         val servers = getSavedServers().toMutableList()
         val existingIndex = servers.indexOfFirst { it.url == url }
         if (existingIndex >= 0) {
-            servers[existingIndex] = SavedServer(name, url, token)
+            servers[existingIndex] = SavedServer(name, url, token, username)
         } else {
-            servers.add(SavedServer(name, url, token))
+            servers.add(SavedServer(name, url, token, username))
         }
         prefs.edit().putString(KEY_SAVED_SERVERS, gson.toJson(servers)).apply()
     }

@@ -3,7 +3,6 @@ package com.fryfrog.hub.ui.navigation
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,9 +30,16 @@ import com.fryfrog.hub.ui.theme.Primary
 @Composable
 fun FryfrogBottomBar(
     currentRoute: String?,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    isAdmin: Boolean = true
 ) {
-    // 悬浮圆角样式：左右留边 + 底部留边 + 阴影 + 细边框
+    // 普通用户不显示媒体库 tab
+    val visibleScreens = if (isAdmin) {
+        bottomNavScreens
+    } else {
+        bottomNavScreens.filter { it != Screen.MediaLibraries }
+    }
+    // 悬浮圆角样式：左右留边 + 底部留边 + 阴影
     val shape = RoundedCornerShape(Dimens.radiusXl)
     Box(
         modifier = Modifier
@@ -44,11 +50,6 @@ fun FryfrogBottomBar(
             .shadow(elevation = 8.dp, shape = shape, clip = false)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                shape = shape
-            )
             .padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXs)
     ) {
         Row(
@@ -56,7 +57,7 @@ fun FryfrogBottomBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            bottomNavScreens.forEach { screen ->
+            visibleScreens.forEach { screen ->
                 val isSelected = currentRoute == screen.route
 
                 val iconColor by animateColorAsState(

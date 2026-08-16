@@ -5,7 +5,6 @@ package com.fryfrog.hub.ui.settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,12 +25,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.ScrapeProgress
+import com.fryfrog.hub.data.model.UserDTO
 import com.fryfrog.hub.ui.components.FryfrogDialog
+import com.fryfrog.hub.ui.components.FryfrogTextField
 import com.fryfrog.hub.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,12 +53,17 @@ fun MeScreen(
     onRefreshAllMovieActors: () -> Unit = {},
     onRefreshAllLogos: () -> Unit = {},
     onRefreshAllResolutions: () -> Unit = {},
+    onOpenUserManagement: () -> Unit = {},
+    onOpenSystemSettings: () -> Unit = {},
+    onOpenLogs: () -> Unit = {},
+    isAdmin: Boolean = true,
     logoProgress: ScrapeProgress? = null,
     resolutionProgress: ScrapeProgress? = null,
     actorsProgress: ScrapeProgress? = null,
     seasonCoversProgress: ScrapeProgress? = null
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
     // 待确认的修复操作（二次确认后再执行）
     var pendingRepairAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -66,6 +75,19 @@ fun MeScreen(
         }
     }
 
+    // 当前用户 / 修改密码
+    val meViewModel: MeViewModel = viewModel()
+    val meUiState by meViewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val meSnackbarText = meUiState.snackbarResId?.let { resId ->
+        meUiState.snackbarArg?.let { stringResource(resId, it) } ?: stringResource(resId)
+    }
+    LaunchedEffect(meUiState.snackbarResId) {
+        meSnackbarText?.let { snackbarHostState.showSnackbar(it) }
+        meViewModel.clearSnackbar()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -273,7 +295,8 @@ fun MeScreen(
                 }
             }
 
-            // 修复（新视频入库时自动完成，仅数据缺失/损坏时手动批量修复）
+            // 修复（新视频入库时自动完成，仅数据缺失/损坏时手动批量修复；仅管理员可见）
+            if (isAdmin) {
             item {
                 Spacer(Modifier.height(Dimens.spacingSm))
                 SectionHeader(
@@ -477,13 +500,134 @@ fun MeScreen(
                     }
                 }
             }
+            } // end admin repair section
+
+            // 账户信息
+            item {
+                Spacer(Modifier.height(Dimens.spacingSm))
+                SectionHeader(
+                    title = stringResource(R.string.current_user),
+                    icon = Icons.Default.Person
+                )
+            }
+
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(Dimens.avatarSize)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(Dimens.avatarIconSize)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        when {
+                            meUiState.isLoadingUser -> {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(Dimens.iconSize),
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                            meUiState.currentUser != null -> {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = meUiState.currentUser!!.displayName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "@${meUiState.currentUser!!.username}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Surface(
+                                    color = if (meUiState.currentUser!!.isAdmin) Warning.copy(alpha = 0.15f)
+                                    else Primary.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(Dimens.radiusXs)
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            if (meUiState.currentUser!!.isAdmin) R.string.role_admin else R.string.role_user
+                                        ),
+                                        modifier = Modifier.padding(horizontal = Dimens.spacingSm, vertical = Dimens.spacingXxs),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (meUiState.currentUser!!.isAdmin) Warning else Primary
+                                    )
+                                }
+                            }
+                            else -> {
+                                Text(
+                                    text = stringResource(R.string.not_logged_in),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 修改密码
+            item {
+                ModernCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showChangePasswordDialog = true }
+                            .padding(Dimens.spacingLg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(Dimens.avatarSize)
+                                .clip(CircleShape)
+                                .background(Primary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.size(Dimens.avatarIconSize)
+                            )
+                        }
+                        Spacer(Modifier.width(Dimens.spacingMd))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.change_password),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             // 账户
             item {
                 Spacer(Modifier.height(Dimens.spacingSm))
                 SectionHeader(
                     title = stringResource(R.string.account),
-                    icon = Icons.Default.Person
+                    icon = Icons.Default.Lock
                 )
             }
 
@@ -528,6 +672,140 @@ fun MeScreen(
                 }
             }
 
+            // 管理员功能区（仅 ADMIN 角色显示）
+            if (isAdmin) {
+                item {
+                    Spacer(Modifier.height(Dimens.spacingSm))
+                    SectionHeader(
+                        title = stringResource(R.string.system_settings),
+                        icon = Icons.Default.AdminPanelSettings
+                    )
+                }
+
+                // 用户管理
+                item {
+                    ModernCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenUserManagement() }
+                                .padding(Dimens.spacingLg),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(Dimens.avatarSize)
+                                    .clip(CircleShape)
+                                    .background(Primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Group,
+                                    contentDescription = null,
+                                    tint = Primary,
+                                    modifier = Modifier.size(Dimens.avatarIconSize)
+                                )
+                            }
+                            Spacer(Modifier.width(Dimens.spacingMd))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.user_management),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // 系统设置
+                item {
+                    ModernCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenSystemSettings() }
+                                .padding(Dimens.spacingLg),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(Dimens.avatarSize)
+                                    .clip(CircleShape)
+                                    .background(Primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = Primary,
+                                    modifier = Modifier.size(Dimens.avatarIconSize)
+                                )
+                            }
+                            Spacer(Modifier.width(Dimens.spacingMd))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.system_settings),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // 服务器日志
+                item {
+                    ModernCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenLogs() }
+                                .padding(Dimens.spacingLg),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(Dimens.avatarSize)
+                                    .clip(CircleShape)
+                                    .background(Primary.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = Primary,
+                                    modifier = Modifier.size(Dimens.avatarIconSize)
+                                )
+                            }
+                            Spacer(Modifier.width(Dimens.spacingMd))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.logs),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
             // 版本
             item {
                 Spacer(Modifier.height(Dimens.spacingSm))
@@ -540,6 +818,16 @@ fun MeScreen(
                 )
             }
         }
+    }
+
+        // 账户/管理员操作反馈
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(Dimens.spacingLg)
+                .padding(bottom = Dimens.bottomNavReserve)
+        )
     }
 
     // 退出登录对话框
@@ -597,11 +885,10 @@ fun MeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                     ) {
-                        OutlinedButton(
+                        TextButton(
                             onClick = { showLogoutDialog = false },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(Dimens.radiusMd),
-                            colors = ButtonDefaults.outlinedButtonColors(
+                            colors = ButtonDefaults.textButtonColors(
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
@@ -645,6 +932,158 @@ fun MeScreen(
             onDismiss = { pendingRepairAction = null }
         )
     }
+
+    // 修改密码对话框
+    if (showChangePasswordDialog) {
+        ChangePasswordDialog(
+            isSaving = meUiState.isChangingPassword,
+            onDismiss = { showChangePasswordDialog = false },
+            onSubmit = { oldPassword, newPassword ->
+                meViewModel.changePassword(oldPassword, newPassword) {
+                    showChangePasswordDialog = false
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ChangePasswordDialog(
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (oldPassword: String, newPassword: String) -> Unit
+) {
+    var oldPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var oldVisible by remember { mutableStateOf(false) }
+    var newVisible by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val mismatchText = stringResource(R.string.password_mismatch)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Dimens.spacingLg),
+            shape = RoundedCornerShape(Dimens.radiusXl),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Dimens.spacingXl),
+                verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+            ) {
+                Text(
+                    text = stringResource(R.string.change_password),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                FryfrogTextField(
+                    value = oldPassword,
+                    onValueChange = { oldPassword = it; errorMessage = null },
+                    label = { Text(stringResource(R.string.old_password)) },
+                    singleLine = true,
+                    visualTransformation = if (oldVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { oldVisible = !oldVisible }) {
+                            Icon(
+                                imageVector = if (oldVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                FryfrogTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it; errorMessage = null },
+                    label = { Text(stringResource(R.string.new_password)) },
+                    singleLine = true,
+                    visualTransformation = if (newVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { newVisible = !newVisible }) {
+                            Icon(
+                                imageVector = if (newVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                FryfrogTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it; errorMessage = null },
+                    label = { Text(stringResource(R.string.confirm_new_password)) },
+                    singleLine = true,
+                    visualTransformation = if (confirmVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { confirmVisible = !confirmVisible }) {
+                            Icon(
+                                imageVector = if (confirmVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+
+                    Button(
+                        onClick = {
+                            if (newPassword != confirmPassword) {
+                                errorMessage = mismatchText
+                                return@Button
+                            }
+                            onSubmit(oldPassword, newPassword)
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving && oldPassword.isNotBlank() && newPassword.isNotBlank(),
+                        shape = RoundedCornerShape(Dimens.radiusMd)
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(Dimens.iconSize),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text(stringResource(R.string.confirm))
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -685,11 +1124,7 @@ private fun ThemeModeOption(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(Dimens.radiusMd),
-        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (selected) Primary else MaterialTheme.colorScheme.outlineVariant
-        )
+        color = if (selected) Primary.copy(alpha = 0.15f) else Color.Transparent
     ) {
         Column(
             modifier = Modifier.padding(vertical = Dimens.spacingSm),

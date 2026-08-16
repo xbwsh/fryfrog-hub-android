@@ -27,6 +27,7 @@ import com.fryfrog.hub.R
 import com.fryfrog.hub.data.model.MediaLibrary
 import com.fryfrog.hub.data.model.PipelineProgress
 import com.fryfrog.hub.ui.components.FryfrogDialog
+import com.fryfrog.hub.ui.components.FryfrogTextField
 import com.fryfrog.hub.ui.theme.*
 
 private val mediaTypes = listOf("VIDEO", "MUSIC", "COMIC", "EBOOK")
@@ -42,11 +43,19 @@ fun MediaLibrariesScreen(
     var showDeleteDialog by remember { mutableStateOf<MediaLibrary?>(null) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf<MediaLibrary?>(null) }
+    var showRescrapeDialog by remember { mutableStateOf<MediaLibrary?>(null) }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             kotlinx.coroutines.delay(3000)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.noticeResId) {
+        uiState.noticeResId?.let {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearNotice()
         }
     }
 
@@ -139,6 +148,7 @@ fun MediaLibrariesScreen(
                                 onMoveUp = { viewModel.moveLibrary(index, -1) },
                                 onMoveDown = { viewModel.moveLibrary(index, 1) },
                                 onScan = { viewModel.scanLibrary(library) },
+                                onRescrape = { showRescrapeDialog = library },
                                 onDelete = { showDeleteDialog = library },
                                 onEdit = { showEditDialog = library }
                             )
@@ -160,6 +170,26 @@ fun MediaLibrariesScreen(
                         Icon(Icons.Default.Error, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(Dimens.spacingSm))
                         Text(error, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+
+            // 操作成功提示
+            uiState.noticeResId?.let { noticeResId ->
+                val noticeText = uiState.noticeArg?.let { stringResource(noticeResId, it) }
+                    ?: stringResource(noticeResId)
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(Dimens.spacingLg)
+                        .padding(bottom = if (uiState.error != null) Dimens.spacingXxl else 0.dp),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
+                        Spacer(Modifier.width(Dimens.spacingSm))
+                        Text(noticeText, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -207,6 +237,23 @@ fun MediaLibrariesScreen(
             }
         )
     }
+
+    // 按库重新刮削确认对话框
+    showRescrapeDialog?.let { library ->
+        FryfrogDialog(
+            onDismissRequest = { showRescrapeDialog = null },
+            icon = Icons.Default.AutoAwesome,
+            title = stringResource(R.string.rescrape_library),
+            message = stringResource(R.string.rescrape_library_confirm, library.name),
+            confirmText = stringResource(R.string.confirm),
+            confirmColor = Primary,
+            onConfirm = {
+                viewModel.rescrapeLibrary(library)
+                showRescrapeDialog = null
+            },
+            onDismiss = { showRescrapeDialog = null }
+        )
+    }
 }
 
 @Composable
@@ -221,7 +268,7 @@ private fun LibraryActionRow(
             .padding(horizontal = Dimens.spacingLg, vertical = Dimens.spacingSm),
         horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
     ) {
-        OutlinedButton(
+        FilledTonalButton(
             onClick = onAddClick,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(vertical = Dimens.spacingSm),
@@ -232,7 +279,7 @@ private fun LibraryActionRow(
             Text(stringResource(R.string.add_library), style = MaterialTheme.typography.labelMedium)
         }
 
-        OutlinedButton(
+        FilledTonalButton(
             onClick = onSortClick,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(vertical = Dimens.spacingSm),
@@ -263,6 +310,7 @@ private fun MediaLibraryItem(
     onMoveUp: () -> Unit = {},
     onMoveDown: () -> Unit = {},
     onScan: () -> Unit,
+    onRescrape: () -> Unit = {},
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
@@ -402,6 +450,16 @@ private fun MediaLibraryItem(
                                 )
                             }
                         }
+                        // 按库重新刮削（仅视频库，替代已删除的 supplement 接口）
+                        if (library.type == "VIDEO") {
+                            IconButton(onClick = onRescrape, enabled = !isScanning) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = stringResource(R.string.rescrape_library),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         IconButton(onClick = onEdit) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
@@ -487,7 +545,7 @@ private fun CreateLibraryDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
             ) {
-                OutlinedTextField(
+                FryfrogTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(R.string.library_name)) },
@@ -495,7 +553,7 @@ private fun CreateLibraryDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                FryfrogTextField(
                     value = selectedPath,
                     onValueChange = {},
                     label = { Text(stringResource(R.string.library_path)) },
@@ -522,7 +580,7 @@ private fun CreateLibraryDialog(
                         "EBOOK" -> stringResource(R.string.type_ebook)
                         else -> type
                     }
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = typeLabel,
                         onValueChange = {},
                         label = { Text(stringResource(R.string.library_type)) },
@@ -562,7 +620,7 @@ private fun CreateLibraryDialog(
                             "MIXED" -> stringResource(R.string.subtype_mixed)
                             else -> subType
                         }
-                        OutlinedTextField(
+                        FryfrogTextField(
                             value = subTypeLabel,
                             onValueChange = {},
                             label = { Text(stringResource(R.string.video_sub_type)) },
@@ -590,7 +648,7 @@ private fun CreateLibraryDialog(
                     }
                 }
 
-                OutlinedTextField(
+                FryfrogTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text(stringResource(R.string.description)) },
@@ -719,7 +777,7 @@ private fun EditLibraryDialog(
                     )
                 }
 
-                OutlinedTextField(
+                FryfrogTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(R.string.library_name)) },
@@ -727,7 +785,7 @@ private fun EditLibraryDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                FryfrogTextField(
                     value = selectedPath,
                     onValueChange = {},
                     label = { Text(stringResource(R.string.library_path)) },
@@ -754,7 +812,7 @@ private fun EditLibraryDialog(
                         "EBOOK" -> stringResource(R.string.type_ebook)
                         else -> type
                     }
-                    OutlinedTextField(
+                    FryfrogTextField(
                         value = typeLabel,
                         onValueChange = {},
                         label = { Text(stringResource(R.string.library_type)) },
@@ -794,7 +852,7 @@ private fun EditLibraryDialog(
                             "MIXED" -> stringResource(R.string.subtype_mixed)
                             else -> subType
                         }
-                        OutlinedTextField(
+                        FryfrogTextField(
                             value = subTypeLabel,
                             onValueChange = {},
                             label = { Text(stringResource(R.string.video_sub_type)) },
@@ -822,7 +880,7 @@ private fun EditLibraryDialog(
                     }
                 }
 
-                OutlinedTextField(
+                FryfrogTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text(stringResource(R.string.description)) },

@@ -22,6 +22,8 @@
     <string name="connection_failed">连接失败: %s</string>
     <string name="hide_password">隐藏密码</string>
     <string name="show_password">显示密码</string>
+    <string name="username">用户名</string>
+    <string name="username_hint">留空按管理员登录</string>
 
     <!-- Navigation -->
     <string name="section_home">首页</string>
@@ -226,4 +228,68 @@
     <string name="adult_library_on">成人</string>
     <string name="adult_library_off">成人关</string>
     <string name="scrape_adult">补全分级</string>
+
+    <!-- Search -->
+    <string name="search">搜索</string>
+    <string name="search_hint">搜索片名或导演…</string>
+    <string name="search_by_title">按片名</string>
+    <string name="search_by_director">按导演</string>
+    <string name="search_no_results">未找到结果</string>
+    <string name="search_initial_hint">输入关键字搜索视频库</string>
+
+    <!-- Home Filter -->
+    <string name="filter_all">全部</string>
+    <string name="filter_movie">电影</string>
+    <string name="filter_tv">电视剧</string>
+    <string name="filter_other">其他</string>
+
+    <!-- Account -->
+    <string name="change_password">修改密码</string>
+    <string name="old_password">当前密码</string>
+    <string name="new_password">新密码</string>
+    <string name="confirm_new_password">确认新密码</string>
+    <string name="password_mismatch">两次输入的密码不一致</string>
+    <string name="password_updated">密码修改成功</string>
+    <string name="password_change_failed">修改密码失败: %s</string>
+    <string name="role_admin">管理员</string>
+    <string name="role_user">普通用户</string>
+    <string name="current_user">当前用户</string>
+    <string name="nickname">昵称</string>
+    <string name="not_logged_in">未登录</string>
+
+    <!-- Admin: Users -->
+    <string name="user_management">用户管理</string>
+    <string name="add_user">新增用户</string>
+    <string name="edit_user">编辑用户</string>
+    <string name="reset_password">重置密码</string>
+    <string name="assign_libraries">分配媒体库</string>
+    <string name="user_enabled">启用</string>
+    <string name="user_created">用户已创建</string>
+    <string name="user_updated">用户已更新</string>
+    <string name="user_deleted">用户已删除</string>
+    <string name="password_reset_done">密码已重置</string>
+    <string name="delete_user_confirm">确定删除用户「%s」吗？此操作不可撤销。</string>
+    <string name="libraries_assigned">媒体库权限已更新</string>
+    <string name="load_failed">加载失败: %s</string>
+    <string name="save_failed">保存失败: %s</string>
+    <string name="no_users">暂无用户</string>
+
+    <!-- Admin: System Settings -->
+    <string name="system_settings">系统设置</string>
+    <string name="setting_value">值</string>
+    <string name="setting_saved">设置已保存</string>
+    <string name="no_settings">暂无设置项</string>
+
+    <!-- Admin: Logs -->
+    <string name="logs">服务器日志</string>
+    <string name="share_log">分享</string>
+    <string name="no_logs">暂无日志文件</string>
+    <string name="log_download_failed">下载日志失败: %s</string>
+    <string name="log_share_failed">分享日志失败: %s</string>
+    <string name="log_size">%1$s KB</string>
+
+    <!-- Media Libraries -->
+    <string name="rescrape_library">按库重刮</string>
+    <string name="rescrape_library_confirm">确定重新刮削「%s」中的所有视频吗？将在后台重新评估已有 TMDB 绑定。</string>
+    <string name="rescrape_submitted">重刮任务已提交</string>
 </resources>

@@ -126,12 +126,6 @@ class MediaRepository {
         data.copy(logoUrl = fixUrl(data.logoUrl))
     }
 
-    suspend fun getVideoFanart(videoId: Long): Result<String?> = safeApiCall {
-        android.util.Log.d("MediaRepository", "getVideoFanart: videoId=$videoId")
-        val response = api.getVideoFanart(videoId)
-        fixUrl(response.data)
-    }
-
     suspend fun getVideoActors(videoId: Long): Result<List<VideoActor>> = safeApiCall {
         android.util.Log.d("MediaRepository", "getVideoActors: videoId=$videoId, url=GET /api/v1/video/$videoId/actors")
         val response = api.getVideoActors(videoId)
@@ -144,33 +138,44 @@ class MediaRepository {
         ) } ?: emptyList()
     }
 
+    // 搜索结果/收藏中的单视频映射为列表卡片用的轻量系列条目（独立电影 id 即视频ID）
+    private fun videoToSeries(video: VideoDTO): SeriesDTO = SeriesDTO(
+        id = video.id,
+        type = if (video.isSeries == true) "series" else "standalone",
+        title = video.title,
+        coverUrl = fixUrl(video.coverUrl),
+        fanartUrl = fixUrl(video.fanartUrl),
+        logoUrl = fixUrl(video.logoUrl),
+        originalTitle = video.originalTitle,
+        overview = video.overview,
+        mediaType = video.mediaType,
+        tmdbId = video.tmdbId,
+        rating = video.rating,
+        year = video.year,
+        releaseDate = video.releaseDate,
+        seasonNumber = video.seasonNumber,
+        numberOfSeasons = null,
+        totalEpisodes = null,
+        status = video.status,
+        isAdult = video.isAdult,
+        favorite = video.favorite,
+        originalFileName = null,
+        episodeCount = null,
+        seasons = null,
+        episodes = null
+    )
+
     suspend fun getVideoFavorites(): Result<List<SeriesDTO>> = safeApiCall {
-        api.getVideoFavorites().data?.content?.map { video ->
-            SeriesDTO(
-                id = video.id,
-                type = video.mediaType,
-                title = video.title,
-                coverUrl = fixUrl(video.coverUrl),
-                fanartUrl = fixUrl(video.fanartUrl),
-                logoUrl = fixUrl(video.logoUrl),
-                originalTitle = video.originalTitle,
-                overview = video.overview,
-                mediaType = video.mediaType,
-                tmdbId = video.tmdbId,
-                rating = video.rating,
-                year = video.year,
-                seasonNumber = null,
-                numberOfSeasons = null,
-                totalEpisodes = null,
-                status = null,
-                isAdult = video.isAdult,
-                favorite = video.favorite,
-                originalFileName = null,
-                episodeCount = null,
-                seasons = null,
-                episodes = null
-            )
-        } ?: emptyList()
+        api.getVideoFavorites().data?.content?.map(::videoToSeries) ?: emptyList()
+    }
+
+    // 按标题/导演搜索视频
+    suspend fun searchVideosByTitle(query: String, page: Int = 0, size: Int = 50): Result<List<SeriesDTO>> = safeApiCall {
+        api.searchByTitle(query, page, size).data?.content?.map(::videoToSeries) ?: emptyList()
+    }
+
+    suspend fun searchVideosByDirector(query: String, page: Int = 0, size: Int = 50): Result<List<SeriesDTO>> = safeApiCall {
+        api.searchByDirector(query, page, size).data?.content?.map(::videoToSeries) ?: emptyList()
     }
 
     // TMDB Scraping
@@ -194,11 +199,10 @@ class MediaRepository {
         api.refreshTmdb(videoId).data ?: emptyMap()
     }
 
-    suspend fun scrapeSupplement(libraryId: Long, force: Boolean = false): Result<Map<String, Any>> = safeApiCall {
-        android.util.Log.d("MediaRepository", "scrapeSupplement: libraryId=$libraryId, force=$force")
-        val response = api.scrapeSupplement(libraryId, force)
-        android.util.Log.d("MediaRepository", "scrapeSupplement response: ${response.data}")
-        response.data ?: throw Exception("No data")
+    // 按资源库重新刮削（解绑后按库类型重新绑定，异步执行）
+    suspend fun rescrapeLibrary(libraryId: Long): Result<String> = safeApiCall {
+        android.util.Log.d("MediaRepository", "rescrapeLibrary: libraryId=$libraryId")
+        api.rescrapeByLibrary(libraryId).data ?: throw Exception("No data")
     }
 
     suspend fun generateFrames(videoId: Long): Result<GenerateFramesResponse> = safeApiCall {
@@ -234,8 +238,8 @@ class MediaRepository {
         } ?: emptyList()
     }
 
-    suspend fun setSeriesFavorite(seriesId: Long, status: Boolean): Result<Map<String, Any>> = safeApiCall {
-        api.setSeriesFavorite(seriesId, status).data ?: emptyMap()
+    suspend fun setSeriesFavorite(seriesId: Long, status: Boolean): Result<SeriesDTO> = safeApiCall {
+        api.setSeriesFavorite(seriesId, status).data ?: throw Exception("Failed to set favorite")
     }
 
     suspend fun getSeriesFavorites(): Result<List<SeriesDTO>> = safeApiCall {
@@ -246,8 +250,107 @@ class MediaRepository {
         ) } ?: emptyList()
     }
 
-    suspend fun setVideoFavorite(videoId: Long, status: Boolean): Result<Map<String, Any>> = safeApiCall {
-        api.setVideoFavorite(videoId, status).data ?: emptyMap()
+    // ===== 媒体库 =====
+
+    suspend fun getMediaLibraries(): Result<List<MediaLibrary>> = safeApiCall {
+        api.getMediaLibraries().data ?: emptyList()
+    }
+
+    suspend fun setVideoFavorite(videoId: Long, status: Boolean): Result<VideoDTO> = safeApiCall {
+        api.setVideoFavorite(videoId, status).data ?: throw Exception("Failed to set favorite")
+    }
+
+    // ===== 观看状态 =====
+
+    // 标记已看/未看
+    suspend fun setWatched(videoId: Long, completed: Boolean): Result<WatchProgressDTO> = safeApiCall {
+        api.updateWatched(videoId, UpdateWatchedRequest(completed)).data
+            ?: throw Exception("Failed to update watched")
+    }
+
+    // 清除观看进度（从头观看时使用）
+    suspend fun deleteVideoProgress(videoId: Long): Result<Unit> = safeApiCall {
+        api.deleteVideoProgress(videoId).let { response ->
+            if (!response.success) throw Exception(response.message ?: "Failed to delete progress")
+        }
+    }
+
+    // ===== 账号（多用户） =====
+
+    // 注销当前 token（失败不阻塞本地登出）
+    suspend fun logout(): Boolean = try {
+        api.logout()
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        android.util.Log.e("MediaRepository", "logout failed", e)
+        false
+    }
+
+    suspend fun getCurrentUser(): Result<UserDTO> = safeApiCall {
+        api.getCurrentUser().data ?: throw Exception("Failed to get current user")
+    }
+
+    suspend fun changeMyPassword(oldPassword: String, newPassword: String): Result<Unit> = safeApiCall {
+        val response = api.changeMyPassword(ChangePasswordRequest(oldPassword, newPassword))
+        if (!response.success) throw Exception(response.message ?: "Failed to change password")
+    }
+
+    // ===== 用户管理（管理员） =====
+
+    suspend fun getUsers(): Result<List<UserDTO>> = safeApiCall {
+        api.getUsers().data ?: emptyList()
+    }
+
+    suspend fun createUser(body: UserCreateRequest): Result<UserDTO> = safeApiCall {
+        api.createUser(body).data ?: throw Exception("Failed to create user")
+    }
+
+    suspend fun updateUser(id: Long, body: UserUpdateRequest): Result<UserDTO> = safeApiCall {
+        api.updateUser(id, body).data ?: throw Exception("Failed to update user")
+    }
+
+    suspend fun deleteUser(id: Long): Result<Unit> = safeApiCall {
+        val response = api.deleteUser(id)
+        if (!response.success) throw Exception(response.message ?: "Failed to delete user")
+    }
+
+    suspend fun resetUserPassword(id: Long, newPassword: String): Result<Unit> = safeApiCall {
+        val response = api.resetUserPassword(id, ChangePasswordRequest("", newPassword))
+        if (!response.success) throw Exception(response.message ?: "Failed to reset password")
+    }
+
+    suspend fun getUserLibraries(id: Long): Result<List<Long>> = safeApiCall {
+        api.getUserLibraries(id).data ?: emptyList()
+    }
+
+    suspend fun setUserLibraries(id: Long, libraryIds: List<Long>): Result<List<Long>> = safeApiCall {
+        api.setUserLibraries(id, UserLibraryUpdateRequest(libraryIds)).data ?: emptyList()
+    }
+
+    // ===== 系统设置 =====
+
+    suspend fun getSettings(): Result<List<SystemSetting>> = safeApiCall {
+        api.getSettings().data ?: emptyList()
+    }
+
+    suspend fun updateSetting(key: String, value: String): Result<SystemSetting> = safeApiCall {
+        api.updateSetting(key, SettingUpdateRequest(value)).data ?: throw Exception("Failed to update setting")
+    }
+
+    // ===== 日志 =====
+
+    suspend fun listLogs(): Result<List<Map<String, Any>>> = safeApiCall {
+        api.listLogs().data ?: emptyList()
+    }
+
+    suspend fun downloadLog(fileName: String, sink: java.io.OutputStream): Result<Unit> = safeApiCall {
+        val response = api.exportLog(fileName)
+        if (!response.isSuccessful) throw Exception("Failed to download log: ${response.code()}")
+        response.body()?.byteStream()?.use { input ->
+            sink.use { output -> input.copyTo(output) }
+        } ?: throw Exception("Empty log body")
     }
 
     private suspend fun <T> safeApiCall(call: suspend () -> T): Result<T> {

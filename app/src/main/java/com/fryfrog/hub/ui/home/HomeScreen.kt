@@ -1,6 +1,7 @@
 package com.fryfrog.hub.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -12,10 +13,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.*
@@ -28,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fryfrog.hub.R
@@ -51,6 +55,7 @@ fun HomeScreen(
     isCarouselEnabled: Boolean = true,
     homeViewMode: String = "grouped",
     onViewModeChange: (String) -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onCalendarClick: () -> Unit = {},
     onFavoritesClick: () -> Unit = {},
     onVideoClick: (Long, String) -> Unit = { _, _ -> },
@@ -88,6 +93,9 @@ fun HomeScreen(
                     GroupedContent(
                         uiState = uiState,
                         isCarouselEnabled = isCarouselEnabled,
+                        mediaFilter = uiState.mediaFilter,
+                        filterCounts = uiState.filterCounts,
+                        onFilterChange = viewModel::setMediaFilter,
                         onVideoClick = onVideoClick,
                         onLibraryClick = onLibraryClick,
                         modifier = Modifier.fillMaxSize()
@@ -96,6 +104,9 @@ fun HomeScreen(
                     OverviewContent(
                         uiState = uiState,
                         isCarouselEnabled = isCarouselEnabled,
+                        mediaFilter = uiState.mediaFilter,
+                        filterCounts = uiState.filterCounts,
+                        onFilterChange = viewModel::setMediaFilter,
                         onVideoClick = onVideoClick,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -131,6 +142,13 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f).align(Alignment.CenterVertically)
                     )
                     Row(modifier = Modifier.align(Alignment.CenterVertically)) {
+                        IconButton(onClick = onSearchClick) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = stringResource(R.string.search),
+                                tint = Color.White
+                            )
+                        }
                         IconButton(onClick = onFavoritesClick) {
                             Icon(
                                 imageVector = Icons.Default.FavoriteBorder,
@@ -173,6 +191,9 @@ fun HomeScreen(
 private fun GroupedContent(
     uiState: HomeUiState,
     isCarouselEnabled: Boolean,
+    mediaFilter: String,
+    filterCounts: Map<String, Int>,
+    onFilterChange: (String) -> Unit,
     onVideoClick: (Long, String) -> Unit,
     onLibraryClick: (Long?, String) -> Unit,
     modifier: Modifier = Modifier
@@ -203,6 +224,15 @@ private fun GroupedContent(
             item {
                 CarouselSection(items = carouselItems)
             }
+        }
+
+        // 分类筛选：全部 / 电影 / 电视剧 / 其他（卡片显示各分类数量）
+        item {
+            MediaFilterRow(
+                selected = mediaFilter,
+                counts = filterCounts,
+                onSelect = onFilterChange
+            )
         }
 
         uiState.libraryGroups.forEach { group ->
@@ -249,6 +279,9 @@ private fun GroupedContent(
 private fun OverviewContent(
     uiState: HomeUiState,
     isCarouselEnabled: Boolean,
+    mediaFilter: String,
+    filterCounts: Map<String, Int>,
+    onFilterChange: (String) -> Unit,
     onVideoClick: (Long, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -283,6 +316,15 @@ private fun OverviewContent(
             }
         }
 
+        // 分类筛选：全部 / 电影 / 电视剧 / 其他（卡片显示各分类数量）
+        item(span = { GridItemSpan(5) }) {
+            MediaFilterRow(
+                selected = mediaFilter,
+                counts = filterCounts,
+                onSelect = onFilterChange
+            )
+        }
+
         // 网格视频
         items(
             items = uiState.allVideos,
@@ -297,6 +339,64 @@ private fun OverviewContent(
                     resolutions = series.resolutions,
                     onClick = { onVideoClick(series.id, series.type ?: "series") }
                 )
+            }
+        }
+    }
+}
+
+// 首页分类筛选行（全部 / 电影 / 电视剧 / 其他，无边框，选中态用主题色区分）
+// 每个卡片上方显示该分类的条目数量
+@Composable
+private fun MediaFilterRow(
+    selected: String,
+    counts: Map<String, Int>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val options = listOf(
+        MediaFilter.ALL to stringResource(R.string.filter_all),
+        MediaFilter.MOVIE to stringResource(R.string.filter_movie),
+        MediaFilter.TV to stringResource(R.string.filter_tv),
+        MediaFilter.OTHER to stringResource(R.string.filter_other)
+    )
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.pageHorizontalPadding, vertical = Dimens.spacingSm),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)
+    ) {
+        options.forEach { (value, label) ->
+            val isSelected = selected == value
+            val count = counts[value] ?: 0
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(Dimens.radiusMd))
+                    .background(
+                        if (isSelected) Primary else MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    .clickable { onSelect(value) }
+                    .padding(vertical = Dimens.spacingSm),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(Dimens.spacingXxs)
+                ) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

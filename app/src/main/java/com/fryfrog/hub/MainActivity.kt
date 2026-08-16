@@ -48,14 +48,19 @@ import com.fryfrog.hub.ui.login.LoginScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.navigation.bottomNavScreens
+import com.fryfrog.hub.ui.search.SearchScreen
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.FryfrogHubTheme
 import com.fryfrog.hub.ui.player.PlayerScreen
+import com.fryfrog.hub.ui.settings.LogsScreen
 import com.fryfrog.hub.ui.settings.MeScreen
 import com.fryfrog.hub.ui.settings.MediaLibrariesScreen
+import com.fryfrog.hub.ui.settings.SystemSettingsScreen
+import com.fryfrog.hub.ui.settings.UserManagementScreen
 import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.util.PrefsManager
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -86,6 +91,8 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
                     var isLoggedIn by remember { mutableStateOf(prefs.isLoggedIn) }
+                    // 当前登录用户是否管理员（控制媒体库页与管理操作的可见性；获取失败按管理员兼容）
+                    var isAdmin by remember { mutableStateOf(true) }
 
                     val mainHandler = Handler(Looper.getMainLooper())
 
@@ -95,6 +102,16 @@ class MainActivity : ComponentActivity() {
                         }
                         ApiClient.onUnauthorized = {
                             mainHandler.post { isLoggedIn = false }
+                        }
+                    }
+
+                    // 每次登录后拉取当前用户角色，决定管理功能入口的显示
+                    LaunchedEffect(isLoggedIn) {
+                        if (isLoggedIn) {
+                            isAdmin = com.fryfrog.hub.data.repository.MediaRepository()
+                                .getCurrentUser().getOrNull()?.isAdmin ?: true
+                        } else {
+                            isAdmin = true
                         }
                     }
 
@@ -122,9 +139,15 @@ class MainActivity : ComponentActivity() {
                                 homeViewMode = mode
                                 prefs.homeViewMode = mode
                             },
+                            isAdmin = isAdmin,
                             onLogout = {
+                                // 先通知后端注销 token（失败不阻塞本地登出）
+                                lifecycleScope.launch {
+                                    com.fryfrog.hub.data.repository.MediaRepository().logout()
+                                }
                                 prefs.clearLogin()
                                 isLoggedIn = false
+                                isAdmin = true
                             }
                         )
                     } else {
@@ -152,11 +175,18 @@ private fun MainContent(
     onCarouselEnabledChange: (Boolean) -> Unit,
     homeViewMode: String,
     onViewModeChange: (String) -> Unit,
+    isAdmin: Boolean = true,
     onLogout: () -> Unit = {}
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute in bottomNavRoutes
+    // 普通用户不显示媒体库页
+    val visibleBottomNavRoutes = if (isAdmin) {
+        bottomNavRoutes
+    } else {
+        bottomNavRoutes.filter { it != Screen.MediaLibraries.route }
+    }
+    val showBottomBar = currentRoute in visibleBottomNavRoutes
 
     val isHomeScreen = currentRoute == Screen.Home.route
     // 顶部有深色渐变遮罩的页面：状态栏图标固定为白色
@@ -190,6 +220,9 @@ private fun MainContent(
                     isCarouselEnabled = isCarouselEnabled,
                     homeViewMode = homeViewMode,
                     onViewModeChange = onViewModeChange,
+                    onSearchClick = {
+                        navController.navigate("search")
+                    },
                     onCalendarClick = {
                         navController.navigate("calendar")
                     },
@@ -210,6 +243,16 @@ private fun MainContent(
             composable("calendar") {
                 UpcomingCalendarScreen(
                     onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            // 全局搜索（/video/search/title、/video/search/director）
+            composable("search") {
+                SearchScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onVideoClick = { videoId, type ->
+                        navController.navigate("video_detail/$videoId?type=$type")
+                    }
                 )
             }
 
@@ -277,6 +320,27 @@ private fun MainContent(
             composable(Screen.MediaLibraries.route) {
                 MediaLibrariesScreen(
                     onBackClick = null
+                )
+            }
+
+            // 用户管理（仅管理员入口可见）
+            composable("users") {
+                UserManagementScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            // 系统设置（仅管理员入口可见）
+            composable("system_settings") {
+                SystemSettingsScreen(
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+
+            // 服务器日志（仅管理员入口可见）
+            composable("logs") {
+                LogsScreen(
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 
@@ -388,6 +452,10 @@ private fun MainContent(
                                     submittedText = { "已提交 $it 个视频的分辨率补全任务" }
                                 )
                             },
+                            onOpenUserManagement = { navController.navigate("users") },
+                            onOpenSystemSettings = { navController.navigate("system_settings") },
+                            onOpenLogs = { navController.navigate("logs") },
+                            isAdmin = isAdmin,
                             logoProgress = logoProgressState.value,
                             resolutionProgress = resolutionProgressState.value,
                             actorsProgress = actorsProgressState.value,
@@ -444,6 +512,7 @@ private fun MainContent(
                 )
                 VideoDetailScreen(
                     viewModel = viewModel,
+                    isAdmin = isAdmin,
                     onBackClick = {
                         // 返回列表时刷新，获取绑定/刮削后的最新元数据
                         homeViewModel.loadHomeData()
@@ -493,7 +562,7 @@ private fun MainContent(
                 val videoId = backStackEntry.arguments?.getLong("videoId") ?: 0L
                 val title = backStackEntry.arguments?.getString("title") ?: ""
                 val forceRestart = backStackEntry.arguments?.getBoolean("forceRestart") ?: false
-                val parentEntry = remember {
+                val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry("video_detail/{seriesId}?type={type}")
                 }
                 val detailViewModel: VideoDetailViewModel = viewModel(parentEntry)
@@ -523,6 +592,7 @@ private fun MainContent(
         ) {
             FryfrogBottomBar(
                 currentRoute = currentRoute,
+                isAdmin = isAdmin,
                 onNavigate = { route ->
                     navController.navigate(route) {
                         popUpTo(Screen.Home.route) {

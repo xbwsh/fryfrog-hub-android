@@ -25,6 +25,8 @@ data class MediaLibrariesUiState(
     val libraries: List<MediaLibrary> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    val noticeResId: Int? = null,
+    val noticeArg: String? = null,
     val scanningLibraryIds: Set<Long> = emptySet(),
     val pipelineProgress: Map<Long, PipelineProgress> = emptyMap(),
     val createSuccess: Boolean = false,
@@ -229,6 +231,29 @@ class MediaLibrariesViewModel : ViewModel() {
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun clearNotice() {
+        _uiState.value = _uiState.value.copy(noticeResId = null, noticeArg = null)
+    }
+
+    // 按库重新刮削（取代已删除的 supplement 接口）
+    fun rescrapeLibrary(library: MediaLibrary) {
+        viewModelScope.launch {
+            val result = com.fryfrog.hub.data.repository.MediaRepository().rescrapeLibrary(library.id)
+            result.fold(
+                onSuccess = {
+                    _uiState.value = _uiState.value.copy(
+                        noticeResId = com.fryfrog.hub.R.string.rescrape_submitted
+                    )
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        error = e.message ?: "Failed to submit rescrape"
+                    )
+                }
+            )
+        }
     }
 
     fun clearCreateSuccess() {

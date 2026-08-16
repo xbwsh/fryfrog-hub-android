@@ -106,11 +106,10 @@ fun FryfrogDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(Dimens.spacingMd)
                 ) {
-                    OutlinedButton(
+                    TextButton(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(Dimens.radiusMd),
-                        colors = ButtonDefaults.outlinedButtonColors(
+                        colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     ) {
