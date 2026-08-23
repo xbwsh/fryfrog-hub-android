@@ -1,6 +1,7 @@
 package com.fryfrog.hub.ui.music
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +38,6 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,7 +50,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -68,6 +71,11 @@ import com.fryfrog.hub.data.repository.MusicRepository
 import com.fryfrog.hub.ui.components.FryfrogTextField
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.Gold
+import dev.chrisbanes.haze.HazeInputScale
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.launch
 
 // ===== 工具 =====
@@ -349,30 +357,62 @@ fun MiniPlayerBar(
     progress: Float,
     onClick: () -> Unit,
     onPlayPause: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    hazeState: HazeState? = null
 ) {
     if (song == null) return
-    Surface(
+    val shape = RoundedCornerShape(Dimens.radiusXl)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val isDarkGlass = surfaceColor.luminance() < 0.5f
+    val glassStyle = HazeStyle(
+        backgroundColor = surfaceColor,
+        tints = listOf(
+            HazeTint(
+                if (isDarkGlass) {
+                    Color.Black.copy(alpha = 0.32f)
+                } else {
+                    Color.White.copy(alpha = 0.55f)
+                }
+            )
+        ),
+        fallbackTint = HazeTint(surfaceColor.copy(alpha = 0.95f)),
+        blurRadius = Dimens.glassBlurRadius,
+        noiseFactor = Dimens.glassNoise
+    )
+    val edgeBrush = Brush.linearGradient(
+        listOf(
+            Color.White.copy(alpha = Dimens.alphaGlassEdgeLight),
+            Color.White.copy(alpha = Dimens.alphaGlassEdgeDark),
+            Color.White.copy(alpha = Dimens.alphaGlassEdgeLight * 0.5f)
+        )
+    )
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Dimens.spacingLg)
-            .clip(RoundedCornerShape(Dimens.radiusXl)),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
-        tonalElevation = 4.dp,
-        shadowElevation = 8.dp
-    ) {
-        Column {
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(Dimens.spacingXxs),
-                drawStopIndicator = {}
+            .shadow(elevation = 8.dp, shape = shape, clip = false)
+            .clip(shape)
+            .then(
+                if (hazeState != null) {
+                    Modifier.hazeEffect(state = hazeState, style = glassStyle) {
+                        inputScale = HazeInputScale.Auto
+                    }
+                } else {
+                    Modifier.background(surfaceColor.copy(alpha = 0.97f))
+                }
             )
-            Row(
-                modifier = Modifier
-                    .clickable(onClick = onClick)
-                    .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            .border(Dimens.glassBorderWidth, edgeBrush, shape)
+            .clickable(onClick = onClick)
+    ) {
+        LinearProgressIndicator(
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(Dimens.spacingXxs),
+            drawStopIndicator = {}
+        )
+        Row(
+            modifier = Modifier.padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingSm),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
                 MusicCover(
                     url = song.coverUrl,
                     modifier = Modifier.size(Dimens.dialogAvatarSize),
@@ -411,7 +451,6 @@ fun MiniPlayerBar(
                         modifier = Modifier.size(Dimens.dialogIconSize)
                     )
                 }
-            }
         }
     }
 }

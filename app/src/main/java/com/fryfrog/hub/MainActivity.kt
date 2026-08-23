@@ -71,6 +71,8 @@ import com.fryfrog.hub.ui.videos.VideoDetailScreen
 import com.fryfrog.hub.ui.videos.VideoDetailViewModel
 import com.fryfrog.hub.util.PrefsManager
 import androidx.lifecycle.lifecycleScope
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -209,6 +211,9 @@ private fun MainContent(
     // Activity 级别的共享 HomeViewModel
     val homeViewModel: HomeViewModel = viewModel()
 
+    // 液态玻璃：捕获 NavHost 内容供底部栏/迷你播放条做背景模糊
+    val glassHazeState = rememberHazeState()
+
     // 连接音乐播放服务（MediaController），供迷你条/播放器共享
     LaunchedEffect(Unit) {
         MusicPlaybackManager.connect(navController.context)
@@ -229,7 +234,7 @@ private fun MainContent(
             NavHost(
                 navController = navController,
                 startDestination = Screen.Home.route,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().hazeSource(glassHazeState)
             ) {
             // 首页 - 视频列表
             composable(Screen.Home.route) {
@@ -725,7 +730,8 @@ private fun MainContent(
                         } else 0f,
                         onClick = { navController.navigate(MUSIC_PLAYER_ROUTE) },
                         onPlayPause = { MusicPlaybackManager.togglePlayPause() },
-                        onNext = { MusicPlaybackManager.seekNext() }
+                        onNext = { MusicPlaybackManager.seekNext() },
+                        hazeState = glassHazeState
                     )
                 }
             }
@@ -744,6 +750,7 @@ private fun MainContent(
                 FryfrogBottomBar(
                     currentRoute = currentRoute,
                     isAdmin = isAdmin,
+                    hazeState = glassHazeState,
                     onNavigate = { route ->
                         navController.navigate(route) {
                             popUpTo(Screen.Home.route) {

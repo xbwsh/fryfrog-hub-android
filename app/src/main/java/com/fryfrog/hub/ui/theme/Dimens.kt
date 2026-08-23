@@ -81,7 +81,11 @@ data class AppDimens(
     // Alpha
     val alphaOverlay: Float = 0.7f,
     val alphaSubtle: Float = 0.8f,
-    val alphaDisabled: Float = 0.38f
+    val alphaDisabled: Float = 0.38f,
+
+    // Liquid Glass（液态玻璃）
+    val glassBlurRadius: Dp = 22.dp,
+    val glassBorderWidth: Dp = 1.dp
 )
 
 val PhoneDimens = AppDimens()
@@ -195,4 +199,12 @@ object Dimens {
     const val alphaOverlay = 0.7f
     const val alphaSubtle = 0.8f
     const val alphaDisabled = 0.38f
+
+    // Liquid Glass（液态玻璃）
+    val glassBlurRadius: Dp @Composable get() = LocalDimens.current.glassBlurRadius
+    val glassBorderWidth: Dp @Composable get() = LocalDimens.current.glassBorderWidth
+    const val alphaGlassEdgeLight = 0.5f
+    const val alphaGlassEdgeDark = 0.08f
+    const val alphaGlassSheen = 0.15f
+    const val glassNoise = 0.08f
 }

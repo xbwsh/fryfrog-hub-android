@@ -149,6 +149,10 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
 
+    // Haze - 玻璃拟态背景模糊（液态玻璃底部导航）
+    // 注：1.7+ 传递依赖要求 compileSdk 36 / AGP 8.9+，项目当前为 SDK 35 / AGP 8.7
+    implementation("dev.chrisbanes.haze:haze:1.6.10")
+
     // Gson
     implementation("com.google.code.gson:gson:2.11.0")
 

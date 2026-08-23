@@ -690,7 +690,8 @@ fun PlayerScreen(
     forceRestart: Boolean = false
 ) {
     val vm: PlayerViewModel = viewModel(factory = PlayerVMFactory(videoId, LocalContext.current))
-    val activity = LocalContext.current as Activity
+    val activity = androidx.activity.compose.LocalActivity.current
+        ?: throw IllegalStateException("PlayerScreen requires an Activity context")
     var showControls by remember { mutableStateOf(true) }
     var isSeeking by remember { mutableStateOf(false) }
     var seekPosition by remember { mutableStateOf(0f) }
