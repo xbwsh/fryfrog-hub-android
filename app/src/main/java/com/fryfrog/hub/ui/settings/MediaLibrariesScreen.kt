@@ -30,7 +30,8 @@ import com.fryfrog.hub.ui.components.FryfrogDialog
 import com.fryfrog.hub.ui.components.FryfrogTextField
 import com.fryfrog.hub.ui.theme.*
 
-private val mediaTypes = listOf("VIDEO", "MUSIC", "COMIC", "EBOOK")
+// 后端 MediaLibrary.type 仅支持 VIDEO/MUSIC（漫画/电子书模块已移除）
+private val mediaTypes = listOf("VIDEO", "MUSIC")
 private val videoSubTypes = listOf("MOVIE", "TV", "MIXED")
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -149,6 +150,7 @@ fun MediaLibrariesScreen(
                                 onMoveDown = { viewModel.moveLibrary(index, 1) },
                                 onScan = { viewModel.scanLibrary(library) },
                                 onRescrape = { showRescrapeDialog = library },
+                                onToggle = { viewModel.toggleLibrary(library) },
                                 onDelete = { showDeleteDialog = library },
                                 onEdit = { showEditDialog = library }
                             )
@@ -311,6 +313,7 @@ private fun MediaLibraryItem(
     onMoveDown: () -> Unit = {},
     onScan: () -> Unit,
     onRescrape: () -> Unit = {},
+    onToggle: () -> Unit = {},
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
@@ -339,8 +342,6 @@ private fun MediaLibraryItem(
                             when (library.type) {
                                 "VIDEO" -> Primary.copy(alpha = 0.1f)
                                 "MUSIC" -> Success.copy(alpha = 0.1f)
-                                "COMIC" -> Warning.copy(alpha = 0.1f)
-                                "EBOOK" -> Info.copy(alpha = 0.1f)
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             }
                         ),
@@ -350,16 +351,12 @@ private fun MediaLibraryItem(
                         imageVector = when (library.type) {
                             "VIDEO" -> Icons.Default.VideoLibrary
                             "MUSIC" -> Icons.Default.LibraryMusic
-                            "COMIC" -> Icons.Default.Book
-                            "EBOOK" -> Icons.Default.ChromeReaderMode
                             else -> Icons.Default.Folder
                         },
                         contentDescription = null,
                         tint = when (library.type) {
                             "VIDEO" -> Primary
                             "MUSIC" -> Success
-                            "COMIC" -> Warning
-                            "EBOOK" -> Info
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         modifier = Modifier.size(22.dp)
@@ -437,6 +434,12 @@ private fun MediaLibraryItem(
                         )
                     }
                 } else {
+                    // 启用/禁用开关（PUT toggle）
+                    UniformSwitch(
+                        checked = library.enabled,
+                        onCheckedChange = { onToggle() }
+                    )
+                    Spacer(Modifier.width(Dimens.spacingXxs))
                     // 扫描 / 编辑 / 删除 图标（一行）
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = onScan, enabled = !isScanning) {
@@ -576,8 +579,6 @@ private fun CreateLibraryDialog(
                     val typeLabel = when (type) {
                         "VIDEO" -> stringResource(R.string.type_video)
                         "MUSIC" -> stringResource(R.string.type_music)
-                        "COMIC" -> stringResource(R.string.type_comic)
-                        "EBOOK" -> stringResource(R.string.type_ebook)
                         else -> type
                     }
                     FryfrogTextField(
@@ -591,14 +592,10 @@ private fun CreateLibraryDialog(
                     ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
                         val videoLabel = stringResource(R.string.type_video)
                         val musicLabel = stringResource(R.string.type_music)
-                        val comicLabel = stringResource(R.string.type_comic)
-                        val ebookLabel = stringResource(R.string.type_ebook)
                         mediaTypes.forEach { t ->
                             val label = when (t) {
                                 "VIDEO" -> videoLabel
                                 "MUSIC" -> musicLabel
-                                "COMIC" -> comicLabel
-                                "EBOOK" -> ebookLabel
                                 else -> t
                             }
                             DropdownMenuItem(
@@ -808,8 +805,6 @@ private fun EditLibraryDialog(
                     val typeLabel = when (type) {
                         "VIDEO" -> stringResource(R.string.type_video)
                         "MUSIC" -> stringResource(R.string.type_music)
-                        "COMIC" -> stringResource(R.string.type_comic)
-                        "EBOOK" -> stringResource(R.string.type_ebook)
                         else -> type
                     }
                     FryfrogTextField(
@@ -823,14 +818,10 @@ private fun EditLibraryDialog(
                     ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
                         val videoLabel = stringResource(R.string.type_video)
                         val musicLabel = stringResource(R.string.type_music)
-                        val comicLabel = stringResource(R.string.type_comic)
-                        val ebookLabel = stringResource(R.string.type_ebook)
                         mediaTypes.forEach { t ->
                             val label = when (t) {
                                 "VIDEO" -> videoLabel
                                 "MUSIC" -> musicLabel
-                                "COMIC" -> comicLabel
-                                "EBOOK" -> ebookLabel
                                 else -> t
                             }
                             DropdownMenuItem(

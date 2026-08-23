@@ -29,6 +29,7 @@
     <string name="section_home">首页</string>
     <string name="section_videos">视频</string>
     <string name="section_continue_watching">继续观看</string>
+    <string name="section_music">音乐</string>
     <string name="section_media_libraries">媒体库</string>
     <string name="section_me">我的</string>
     <string name="section_settings">设置</string>
@@ -292,4 +293,44 @@
     <string name="rescrape_library">按库重刮</string>
     <string name="rescrape_library_confirm">确定重新刮削「%s」中的所有视频吗？将在后台重新评估已有 TMDB 绑定。</string>
     <string name="rescrape_submitted">重刮任务已提交</string>
+
+    <!-- Music -->
+    <string name="music_tab_home">首页</string>
+    <string name="music_tab_albums">专辑</string>
+    <string name="music_tab_artists">歌手</string>
+    <string name="music_tab_songs">歌曲</string>
+    <string name="music_tab_playlists">播放列表</string>
+    <string name="music_no_content">暂无音乐内容</string>
+    <string name="music_no_albums">暂无专辑</string>
+    <string name="music_no_artists">暂无歌手</string>
+    <string name="music_search_hint">搜索歌曲、歌手、专辑…</string>
+    <string name="music_library_counts">%1$d 张专辑 · %2$d 位歌手</string>
+    <string name="music_album_count">%d 张专辑</string>
+    <string name="music_track_count">%d 首</string>
+    <string name="music_scan_this_library">扫描此音乐库</string>
+    <string name="music_scan_all_libraries">扫描全部音乐库</string>
+    <string name="music_restore_queue">恢复上次播放队列</string>
+    <string name="music_starred">已收藏</string>
+    <string name="music_add_star">收藏</string>
+    <string name="music_play_all">全部播放</string>
+    <string name="music_play_all_songs">播放 %d 首歌曲</string>
+    <string name="music_now_playing">正在播放</string>
+    <string name="music_queue">播放队列</string>
+    <string name="music_queue_count">队列共 %d 首</string>
+    <string name="music_nothing_playing">当前没有正在播放的歌曲</string>
+    <string name="music_no_lyrics">暂无歌词</string>
+    <string name="music_add_bookmark">在当前位置添加书签</string>
+    <string name="music_delete_bookmark">移除书签</string>
+    <string name="music_new_playlist">新建播放列表</string>
+    <string name="music_create_playlist">创建播放列表</string>
+    <string name="music_edit_playlist">编辑播放列表</string>
+    <string name="music_playlist_name">列表名称</string>
+    <string name="music_public_playlist">公开播放列表</string>
+    <string name="music_delete_playlist">删除播放列表</string>
+    <string name="music_delete_playlist_confirm">确定删除播放列表「%s」吗？</string>
+    <string name="music_add_to_playlist">添加到播放列表</string>
+    <string name="music_added_to_playlist">已添加到「%s」</string>
+    <string name="music_remove_from_playlist">从播放列表移除</string>
+    <string name="music_playlists_count">%d 个播放列表</string>
+    <string name="music_no_playlists">暂无播放列表</string>
 </resources>

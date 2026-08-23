@@ -219,14 +219,125 @@ interface FryfrogApi {
     @POST("/api/v1/media-libraries/{id}/scan")
     suspend fun scanMediaLibrary(@Path("id") id: Long): ApiResponse<Map<String, Any>>
 
+    // 启用/禁用资源库
+    @PUT("/api/v1/media-libraries/{id}/toggle")
+    suspend fun toggleMediaLibrary(@Path("id") id: Long): ApiResponse<MediaLibrary>
+
     @GET("/api/v1/media-libraries/{id}/pipeline-progress")
     suspend fun getPipelineProgress(@Path("id") id: Long): ApiResponse<PipelineProgress>
+
+    // 扫描进度查询（不传 libraryId 返回全部库）
+    @GET("/api/v1/media-libraries/scan/progress")
+    suspend fun getScanProgress(@Query("libraryId") libraryId: Long? = null): ApiResponse<List<ScrapeProgress>>
 
     @POST("/api/v1/media-libraries/scan")
     suspend fun scanAllMediaLibraries(): ApiResponse<Map<String, Any>>
 
     @GET("/api/v1/media-libraries/browse")
     suspend fun browseDirectory(@Query("path") path: String? = null): ApiResponse<List<Map<String, Any>>>
+
+    // ========== Music ==========
+    // 音乐首页：按当前用户可见媒体库分组返回专辑与歌手
+    @GET("/api/v1/music/home")
+    suspend fun getMusicHome(): ApiResponse<List<MusicLibraryGroupDTO>>
+
+    @GET("/api/v1/music/artists")
+    suspend fun getMusicArtists(): ApiResponse<List<MusicArtistDTO>>
+
+    // 歌手详情（含专辑列表）
+    @GET("/api/v1/music/artists/{id}")
+    suspend fun getMusicArtist(@Path("id") id: Long): ApiResponse<MusicArtistDTO>
+
+    @GET("/api/v1/music/albums")
+    suspend fun getMusicAlbums(): ApiResponse<List<MusicAlbumDTO>>
+
+    // 专辑详情（含曲目）
+    @GET("/api/v1/music/albums/{id}")
+    suspend fun getMusicAlbum(@Path("id") id: Long): ApiResponse<MusicAlbumDTO>
+
+    // 搜索单曲：q=标题/歌手/专辑关键词，genre=流派过滤，limit 默认 50
+    @GET("/api/v1/music/songs")
+    suspend fun searchMusicSongs(
+        @Query("q") q: String? = null,
+        @Query("genre") genre: String? = null,
+        @Query("limit") limit: Int = 50
+    ): ApiResponse<List<MusicSongDTO>>
+
+    @GET("/api/v1/music/songs/{id}")
+    suspend fun getMusicSong(@Path("id") id: Long): ApiResponse<MusicSongDTO>
+
+    // 歌词为原始文本（优先内嵌，否则同目录 .lrc），流式获取
+    @GET("/api/v1/music/songs/{id}/lyrics")
+    suspend fun getMusicLyrics(@Path("id") id: Long): Response<ResponseBody>
+
+    @GET("/api/v1/music/genres")
+    suspend fun getMusicGenres(): ApiResponse<List<String>>
+
+    // 收藏/评分：type = songs / albums / artists
+    @PUT("/api/v1/music/{type}/{id}/star")
+    suspend fun setMusicStar(
+        @Path("type") type: String,
+        @Path("id") id: Long,
+        @Query("status") status: Boolean
+    ): ApiResponse<Map<String, Any>>
+
+    // rating 1-5，0 清除
+    @PUT("/api/v1/music/{type}/{id}/rating")
+    suspend fun setMusicRating(
+        @Path("type") type: String,
+        @Path("id") id: Long,
+        @Query("rating") rating: Int
+    ): ApiResponse<Map<String, Any>>
+
+    // ===== 播放列表 =====
+    @GET("/api/v1/music/playlists")
+    suspend fun getMusicPlaylists(): ApiResponse<List<MusicPlaylist>>
+
+    @POST("/api/v1/music/playlists")
+    suspend fun createMusicPlaylist(@Body body: MusicPlaylistRequest): ApiResponse<MusicPlaylist>
+
+    // 详情返回 playlist + 曲目，结构为 Map
+    @GET("/api/v1/music/playlists/{id}")
+    suspend fun getMusicPlaylistDetail(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    @PUT("/api/v1/music/playlists/{id}")
+    suspend fun updateMusicPlaylist(
+        @Path("id") id: Long,
+        @Body body: MusicPlaylistUpdateRequest
+    ): ApiResponse<MusicPlaylist>
+
+    @DELETE("/api/v1/music/playlists/{id}")
+    suspend fun deleteMusicPlaylist(@Path("id") id: Long): ApiResponse<Map<String, Any>>
+
+    // ===== 播放队列 / Scrobble / 书签 =====
+    @GET("/api/v1/music/play-queue")
+    suspend fun getMusicPlayQueue(): ApiResponse<MusicPlayQueue>
+
+    @PUT("/api/v1/music/play-queue")
+    suspend fun saveMusicPlayQueue(@Body body: MusicPlayQueueRequest): ApiResponse<MusicPlayQueue>
+
+    @POST("/api/v1/music/scrobble")
+    suspend fun scrobbleMusic(@Body body: MusicScrobbleRequest): ApiResponse<Map<String, Any>>
+
+    @GET("/api/v1/music/bookmarks")
+    suspend fun getMusicBookmarks(): ApiResponse<List<MusicBookmark>>
+
+    @POST("/api/v1/music/bookmarks")
+    suspend fun createMusicBookmark(@Body body: MusicBookmarkRequest): ApiResponse<MusicBookmark>
+
+    @DELETE("/api/v1/music/bookmarks/{songId}")
+    suspend fun deleteMusicBookmark(@Path("songId") songId: Long): ApiResponse<Map<String, Any>>
+
+    // ===== 管理（异步执行，进度走 pipeline-progress 轮询） =====
+    @POST("/api/v1/music/scan")
+    suspend fun scanMusicLibraries(@Query("libraryId") libraryId: Long? = null): ApiResponse<Map<String, Any>>
+
+    // 整理音乐文件：dryRun 默认 true 仅预览
+    @POST("/api/v1/music/organize")
+    suspend fun organizeMusicLibrary(
+        @Query("libraryId") libraryId: Long,
+        @Query("dryRun") dryRun: Boolean = true
+    ): ApiResponse<Map<String, Any>>
 
     // ========== Settings ==========
     @GET("/api/v1/settings")

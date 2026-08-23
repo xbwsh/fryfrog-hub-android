@@ -145,6 +145,10 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
 
+    // Media3 (ExoPlayer + MediaSession) - 音乐后台播放
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-session:1.4.1")
+
     // Gson
     implementation("com.google.code.gson:gson:2.11.0")
 

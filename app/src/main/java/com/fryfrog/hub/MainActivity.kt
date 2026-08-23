@@ -17,9 +17,12 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
@@ -39,12 +42,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.fryfrog.hub.data.remote.ApiClient
+import com.fryfrog.hub.playback.MusicPlaybackManager
 import com.fryfrog.hub.ui.home.HomeScreen
 import com.fryfrog.hub.ui.home.HomeViewModel
 import com.fryfrog.hub.ui.home.LibraryOverviewScreen
 import com.fryfrog.hub.ui.calendar.UpcomingCalendarScreen
 import com.fryfrog.hub.ui.favorites.FavoritesScreen
 import com.fryfrog.hub.ui.login.LoginScreen
+import com.fryfrog.hub.ui.music.MiniPlayerBar
+import com.fryfrog.hub.ui.music.MusicAlbumScreen
+import com.fryfrog.hub.ui.music.MusicArtistScreen
+import com.fryfrog.hub.ui.music.MusicHomeScreen
+import com.fryfrog.hub.ui.music.MusicPlayerScreen
+import com.fryfrog.hub.ui.music.MusicPlaylistScreen
 import com.fryfrog.hub.ui.navigation.FryfrogBottomBar
 import com.fryfrog.hub.ui.navigation.Screen
 import com.fryfrog.hub.ui.navigation.bottomNavScreens
@@ -65,6 +75,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val VIDEO_DETAIL_ROUTE = "video_detail/{seriesId}?type={type}"
+private const val MUSIC_PLAYER_ROUTE = "music_player"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -145,6 +156,8 @@ class MainActivity : ComponentActivity() {
                                 lifecycleScope.launch {
                                     com.fryfrog.hub.data.repository.MediaRepository().logout()
                                 }
+                                // 停止音乐后台播放并清空队列
+                                MusicPlaybackManager.stopAndClear()
                                 prefs.clearLogin()
                                 isLoggedIn = false
                                 isAdmin = true
@@ -195,6 +208,12 @@ private fun MainContent(
 
     // Activity 级别的共享 HomeViewModel
     val homeViewModel: HomeViewModel = viewModel()
+
+    // 连接音乐播放服务（MediaController），供迷你条/播放器共享
+    LaunchedEffect(Unit) {
+        MusicPlaybackManager.connect(navController.context)
+    }
+    val musicPlaybackState by MusicPlaybackManager.state.collectAsState()
 
     LaunchedEffect(hasDarkTopOverlay, isHomeScreen, isDarkTheme) {
         val window = (view.context as android.app.Activity).window
@@ -320,6 +339,100 @@ private fun MainContent(
             composable(Screen.MediaLibraries.route) {
                 MediaLibrariesScreen(
                     onBackClick = null
+                )
+            }
+
+            // 音乐首页（按库分组 / 专辑 / 歌手 / 歌曲 / 播放列表）
+            composable(Screen.Music.route) {
+                MusicHomeScreen(
+                    isAdmin = isAdmin,
+                    onOpenArtist = { artistId ->
+                        navController.navigate("music_artist/$artistId")
+                    },
+                    onOpenAlbum = { albumId ->
+                        navController.navigate("music_album/$albumId")
+                    },
+                    onOpenPlaylist = { playlistId ->
+                        navController.navigate("music_playlist/$playlistId")
+                    },
+                    onOpenPlayer = {
+                        navController.navigate(MUSIC_PLAYER_ROUTE)
+                    }
+                )
+            }
+
+            // 歌手详情
+            composable(
+                route = "music_artist/{artistId}",
+                arguments = listOf(navArgument("artistId") { type = NavType.LongType }),
+                enterTransition = { musicNavEnter },
+                exitTransition = { musicNavExit },
+                popEnterTransition = { musicNavPopEnter },
+                popExitTransition = { musicNavPopExit }
+            ) { backStackEntry ->
+                val artistId = backStackEntry.arguments?.getLong("artistId") ?: 0L
+                MusicArtistScreen(
+                    artistId = artistId,
+                    onBackClick = { navController.popBackStack() },
+                    onOpenAlbum = { albumId -> navController.navigate("music_album/$albumId") }
+                )
+            }
+
+            // 专辑详情
+            composable(
+                route = "music_album/{albumId}",
+                arguments = listOf(navArgument("albumId") { type = NavType.LongType }),
+                enterTransition = { musicNavEnter },
+                exitTransition = { musicNavExit },
+                popEnterTransition = { musicNavPopEnter },
+                popExitTransition = { musicNavPopExit }
+            ) { backStackEntry ->
+                val albumId = backStackEntry.arguments?.getLong("albumId") ?: 0L
+                MusicAlbumScreen(
+                    albumId = albumId,
+                    onBackClick = { navController.popBackStack() },
+                    onOpenArtist = { artistId -> navController.navigate("music_artist/$artistId") },
+                    onOpenPlayer = { navController.navigate(MUSIC_PLAYER_ROUTE) }
+                )
+            }
+
+            // 播放列表详情
+            composable(
+                route = "music_playlist/{playlistId}",
+                arguments = listOf(navArgument("playlistId") { type = NavType.LongType }),
+                enterTransition = { musicNavEnter },
+                exitTransition = { musicNavExit },
+                popEnterTransition = { musicNavPopEnter },
+                popExitTransition = { musicNavPopExit }
+            ) { backStackEntry ->
+                val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: 0L
+                MusicPlaylistScreen(
+                    playlistId = playlistId,
+                    onBackClick = { navController.popBackStack() },
+                    onOpenPlayer = { navController.navigate(MUSIC_PLAYER_ROUTE) }
+                )
+            }
+
+            // 全屏音乐播放器（底部滑入）
+            composable(
+                route = MUSIC_PLAYER_ROUTE,
+                enterTransition = {
+                    slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(animationSpec = tween(250))
+                },
+                exitTransition = { fadeOut(animationSpec = tween(200)) },
+                popEnterTransition = { fadeIn(animationSpec = tween(200)) },
+                popExitTransition = {
+                    slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(animationSpec = tween(200))
+                }
+            ) {
+                MusicPlayerScreen(
+                    onBackClick = { navController.popBackStack() }
                 )
             }
 
@@ -576,33 +689,72 @@ private fun MainContent(
             }
         }
 
-        // 浮动底部导航栏
-        AnimatedVisibility(
-            visible = showBottomBar,
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(300)
-            ) + fadeIn(animationSpec = tween(300)),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(300)
-            ) + fadeOut(animationSpec = tween(300)),
+        // 底部浮层：迷你音乐播放条（有队列且非全屏播放页时显示）+ 浮动底部导航栏
+        val isVideoPlayerRoute = currentRoute?.startsWith("player/") == true
+        val showMiniPlayer = musicPlaybackState.hasQueue &&
+            currentRoute != MUSIC_PLAYER_ROUTE &&
+            !isVideoPlayerRoute
+
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            FryfrogBottomBar(
-                currentRoute = currentRoute,
-                isAdmin = isAdmin,
-                onNavigate = { route ->
-                    navController.navigate(route) {
-                        popUpTo(Screen.Home.route) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
+            AnimatedVisibility(
+                visible = showMiniPlayer,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(300)
+                ) + fadeIn(animationSpec = tween(300)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(300)
+                ) + fadeOut(animationSpec = tween(300))
+            ) {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .padding(bottom = Dimens.spacingSm)
+                        .then(if (!showBottomBar) Modifier.navigationBarsPadding() else Modifier)
+                ) {
+                    MiniPlayerBar(
+                        song = musicPlaybackState.currentSong,
+                        isPlaying = musicPlaybackState.isPlaying,
+                        progress = if (musicPlaybackState.durationMs > 0) {
+                            musicPlaybackState.positionMs.toFloat() / musicPlaybackState.durationMs
+                        } else 0f,
+                        onClick = { navController.navigate(MUSIC_PLAYER_ROUTE) },
+                        onPlayPause = { MusicPlaybackManager.togglePlayPause() },
+                        onNext = { MusicPlaybackManager.seekNext() }
+                    )
                 }
-            )
+            }
+
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(300)
+                ) + fadeIn(animationSpec = tween(300)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(300)
+                ) + fadeOut(animationSpec = tween(300))
+            ) {
+                FryfrogBottomBar(
+                    currentRoute = currentRoute,
+                    isAdmin = isAdmin,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Screen.Home.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
         }
         } // Box
     } // Scaffold
@@ -610,9 +762,35 @@ private fun MainContent(
 
 private val bottomNavRoutes = listOf(
     Screen.Home.route,
+    Screen.Music.route,
     Screen.MediaLibraries.route,
     Screen.Me.route
 )
+
+// 音乐子页面共用滑动转场
+private val musicNavEnter: androidx.compose.animation.EnterTransition =
+    slideInHorizontally(
+        initialOffsetX = { it },
+        animationSpec = tween(350, easing = FastOutSlowInEasing)
+    ) + fadeIn(animationSpec = tween(250))
+
+private val musicNavExit: androidx.compose.animation.ExitTransition =
+    slideOutHorizontally(
+        targetOffsetX = { -it / 3 },
+        animationSpec = tween(350, easing = FastOutSlowInEasing)
+    ) + fadeOut(animationSpec = tween(200))
+
+private val musicNavPopEnter: androidx.compose.animation.EnterTransition =
+    slideInHorizontally(
+        initialOffsetX = { -it / 3 },
+        animationSpec = tween(350, easing = FastOutSlowInEasing)
+    ) + fadeIn(animationSpec = tween(250))
+
+private val musicNavPopExit: androidx.compose.animation.ExitTransition =
+    slideOutHorizontally(
+        targetOffsetX = { it },
+        animationSpec = tween(350, easing = FastOutSlowInEasing)
+    ) + fadeOut(animationSpec = tween(200))
 
 class VideoDetailViewModelFactory(
     private val seriesId: Long,

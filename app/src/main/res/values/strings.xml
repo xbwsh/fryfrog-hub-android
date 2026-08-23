@@ -29,6 +29,7 @@
     <string name="section_home">Home</string>
     <string name="section_videos">Videos</string>
     <string name="section_continue_watching">Continue Watching</string>
+    <string name="section_music">Music</string>
     <string name="section_media_libraries">Libraries</string>
     <string name="section_me">Me</string>
     <string name="section_settings">Settings</string>
@@ -292,4 +293,44 @@
     <string name="rescrape_library">Rescrape Library</string>
     <string name="rescrape_library_confirm">Rescrape all videos in \"%s\"? Existing TMDB bindings will be re-evaluated in the background.</string>
     <string name="rescrape_submitted">Rescrape task submitted</string>
+
+    <!-- Music -->
+    <string name="music_tab_home">Home</string>
+    <string name="music_tab_albums">Albums</string>
+    <string name="music_tab_artists">Artists</string>
+    <string name="music_tab_songs">Songs</string>
+    <string name="music_tab_playlists">Playlists</string>
+    <string name="music_no_content">No music content yet</string>
+    <string name="music_no_albums">No albums</string>
+    <string name="music_no_artists">No artists</string>
+    <string name="music_search_hint">Search songs, artists, albums…</string>
+    <string name="music_library_counts">%1$d albums · %2$d artists</string>
+    <string name="music_album_count">%d albums</string>
+    <string name="music_track_count">%d tracks</string>
+    <string name="music_scan_this_library">Scan this library</string>
+    <string name="music_scan_all_libraries">Scan all music libraries</string>
+    <string name="music_restore_queue">Restore last playback queue</string>
+    <string name="music_starred">Starred</string>
+    <string name="music_add_star">Add star</string>
+    <string name="music_play_all">Play All</string>
+    <string name="music_play_all_songs">Play %d songs</string>
+    <string name="music_now_playing">Now Playing</string>
+    <string name="music_queue">Queue</string>
+    <string name="music_queue_count">%d songs in queue</string>
+    <string name="music_nothing_playing">Nothing playing</string>
+    <string name="music_no_lyrics">No lyrics available</string>
+    <string name="music_add_bookmark">Add bookmark at current position</string>
+    <string name="music_delete_bookmark">Remove bookmark</string>
+    <string name="music_new_playlist">New Playlist</string>
+    <string name="music_create_playlist">Create Playlist</string>
+    <string name="music_edit_playlist">Edit Playlist</string>
+    <string name="music_playlist_name">Playlist Name</string>
+    <string name="music_public_playlist">Public Playlist</string>
+    <string name="music_delete_playlist">Delete Playlist</string>
+    <string name="music_delete_playlist_confirm">Delete playlist \"%s\"?</string>
+    <string name="music_add_to_playlist">Add to Playlist</string>
+    <string name="music_added_to_playlist">Added to \"%s\"</string>
+    <string name="music_remove_from_playlist">Remove from playlist</string>
+    <string name="music_playlists_count">%d playlists</string>
+    <string name="music_no_playlists">No playlists yet</string>
 </resources>

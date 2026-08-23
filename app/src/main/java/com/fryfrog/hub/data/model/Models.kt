@@ -403,3 +403,152 @@ data class SeriesFrameSelectRequest(
     val videoId: Long,
     val index: Int
 )
+
+// ========== 音乐模块 ==========
+// 注意：streamUrl/coverUrl/lyricsUrl 均为预签名 URL（7 天有效），不要长期持久化
+
+data class MusicSongDTO(
+    val id: Long,
+    val title: String?,
+    val artistName: String? = null,
+    val albumName: String? = null,
+    val artistId: Long? = null,
+    val albumId: Long? = null,
+    val trackNumber: Int? = null,
+    val discNumber: Int? = null,
+    // 单曲时长为 Double，专辑汇总时长为 Int
+    val durationSeconds: Double? = null,
+    val format: String? = null,
+    val bitRate: Int? = null,
+    val genre: String? = null,
+    val year: Int? = null,
+    val fileSize: Long? = null,
+    val streamUrl: String? = null,
+    val coverUrl: String? = null,
+    val lyricsUrl: String? = null,
+    val starred: Boolean? = null,
+    val rating: Int? = null,
+    val playCount: Int? = null
+) {
+    val displayTitle: String get() = title ?: "#$id"
+    val displayArtist: String get() = artistName ?: ""
+    val durationMs: Long get() = ((durationSeconds ?: 0.0) * 1000).toLong()
+}
+
+data class MusicAlbumDTO(
+    val id: Long,
+    val title: String?,
+    val artistName: String? = null,
+    val artistId: Long? = null,
+    val year: Int? = null,
+    val genre: String? = null,
+    val coverUrl: String? = null,
+    val trackCount: Int? = null,
+    val durationSeconds: Int? = null,
+    val starred: Boolean? = null,
+    val rating: Int? = null,
+    val songs: List<MusicSongDTO>? = null
+) {
+    val displayTitle: String get() = title ?: "#$id"
+}
+
+data class MusicArtistDTO(
+    val id: Long,
+    val name: String?,
+    val sortName: String? = null,
+    val coverUrl: String? = null,
+    val albumCount: Int? = null,
+    val starred: Boolean? = null,
+    val albums: List<MusicAlbumDTO>? = null
+) {
+    val displayName: String get() = name ?: "#$id"
+}
+
+// 音乐首页：按资源库分组（GET /music/home）
+data class MusicLibraryGroupDTO(
+    val libraryId: Long? = null,
+    val libraryName: String? = null,
+    val libraryPath: String? = null,
+    val albums: List<MusicAlbumDTO>? = null,
+    val artists: List<MusicArtistDTO>? = null,
+    val albumCount: Int? = null,
+    val artistCount: Int? = null
+) {
+    val displayLibraryName: String get() = libraryName ?: ""
+}
+
+data class MusicPlaylist(
+    val id: Long,
+    val name: String?,
+    val userId: Long? = null,
+    val comment: String? = null,
+    val isPublic: Boolean? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null
+) {
+    val displayName: String get() = name ?: ""
+}
+
+data class MusicPlaylistRequest(
+    val name: String,
+    val comment: String? = null,
+    val isPublic: Boolean? = null,
+    val songIds: List<Long>? = null
+)
+
+// 更新播放列表：songIndexesToRemove 为按位置删除的下标（0-based）
+data class MusicPlaylistUpdateRequest(
+    val name: String? = null,
+    val comment: String? = null,
+    val isPublic: Boolean? = null,
+    val songIdsToAdd: List<Long>? = null,
+    val songIndexesToRemove: List<Int>? = null
+)
+
+// 播放队列（每用户一条）：entryIds 为逗号分隔的单曲 ID 串
+data class MusicPlayQueue(
+    val id: Long? = null,
+    val userId: Long? = null,
+    val entryIds: String? = null,
+    val currentSongId: Long? = null,
+    val positionSeconds: Double? = null,
+    val changedAtMillis: Long? = null
+) {
+    fun songIds(): List<Long> = entryIds
+        ?.split(",")
+        ?.mapNotNull { it.trim().toLongOrNull() }
+        ?: emptyList()
+}
+
+data class MusicPlayQueueRequest(
+    val songIds: List<Long>,
+    val currentSongId: Long? = null,
+    val positionSeconds: Double? = null
+)
+
+// 登记播放：submission=true 累加播放次数（提交），false=正在播放
+data class MusicScrobbleRequest(
+    val songId: Long,
+    val submission: Boolean? = null,
+    val time: Long? = null
+)
+
+data class MusicBookmark(
+    val id: Long? = null,
+    val song: MusicSongDTO? = null,
+    val positionSeconds: Double? = null,
+    val comment: String? = null,
+    val createdAtMillis: Long? = null,
+    val createdAt: String? = null,
+    val updatedAt: String? = null,
+    val userId: Long? = null
+) {
+    val songId: Long? get() = song?.id
+    val positionMs: Long get() = ((positionSeconds ?: 0.0) * 1000).toLong()
+}
+
+data class MusicBookmarkRequest(
+    val songId: Long,
+    val positionSeconds: Double,
+    val comment: String? = null
+)

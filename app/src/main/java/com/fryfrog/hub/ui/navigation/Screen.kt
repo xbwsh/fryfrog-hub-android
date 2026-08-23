@@ -2,6 +2,7 @@ package com.fryfrog.hub.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -15,6 +16,12 @@ sealed class Screen(
         route = "home",
         titleResId = com.fryfrog.hub.R.string.section_home,
         icon = Icons.Default.Home
+    )
+
+    data object Music : Screen(
+        route = "music",
+        titleResId = com.fryfrog.hub.R.string.section_music,
+        icon = Icons.Default.LibraryMusic
     )
 
     data object MediaLibraries : Screen(
@@ -32,6 +39,7 @@ sealed class Screen(
 
 val bottomNavScreens = listOf(
     Screen.Home,
+    Screen.Music,
     Screen.MediaLibraries,
     Screen.Me
 )

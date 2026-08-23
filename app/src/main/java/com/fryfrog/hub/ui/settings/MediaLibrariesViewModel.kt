@@ -121,7 +121,12 @@ class MediaLibrariesViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(scanningLibraryIds = newIds)
             try {
                 val api = ApiClient.getApi()
-                val response = api.scanMediaLibrary(library.id)
+                val response = if (library.type == "MUSIC") {
+                    // MUSIC 库走音乐扫描接口
+                    api.scanMusicLibraries(library.id)
+                } else {
+                    api.scanMediaLibrary(library.id)
+                }
                 if (response.success) {
                     startScanProgressPolling()
                 } else {
@@ -139,11 +144,50 @@ class MediaLibrariesViewModel : ViewModel() {
         }
     }
 
+    /** 启用/禁用资源库（PUT /media-libraries/{id}/toggle），乐观更新 */
+    fun toggleLibrary(library: MediaLibrary) {
+        val newEnabled = !library.enabled
+        // 乐观更新列表
+        _uiState.value = _uiState.value.copy(
+            libraries = _uiState.value.libraries.map {
+                if (it.id == library.id) it.copy(enabled = newEnabled) else it
+            }
+        )
+        viewModelScope.launch {
+            try {
+                val api = ApiClient.getApi()
+                val response = api.toggleMediaLibrary(library.id)
+                if (!response.success) {
+                    // 回滚
+                    _uiState.value = _uiState.value.copy(
+                        libraries = _uiState.value.libraries.map {
+                            if (it.id == library.id) it.copy(enabled = library.enabled) else it
+                        },
+                        error = response.message ?: "Failed to toggle library"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    libraries = _uiState.value.libraries.map {
+                        if (it.id == library.id) it.copy(enabled = library.enabled) else it
+                    },
+                    error = e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
     private var pipelineProgressJob: Job? = null
 
+    /**
+     * 扫描进度轮询：
+     * - VIDEO 库走 pipeline-progress（聚合 scan/scrape/actors/assets 阶段）
+     * - MUSIC 库走 media-libraries/scan/progress（音乐无刮削流水线）
+     */
     private fun startScanProgressPolling() {
         pipelineProgressJob?.cancel()
         val startedAt = System.currentTimeMillis()
+        val typeById = _uiState.value.libraries.associate { it.id to it.type }
         pipelineProgressJob = viewModelScope.launch {
             while (true) {
                 val scanningIds = _uiState.value.scanningLibraryIds
@@ -163,13 +207,36 @@ class MediaLibrariesViewModel : ViewModel() {
                     val updated = mutableMapOf<Long, PipelineProgress>()
                     val finished = mutableSetOf<Long>()
                     for (id in scanningIds) {
-                        val response = api.getPipelineProgress(id)
-                        if (response.success && response.data != null) {
-                            val progress = response.data
-                            updated[id] = progress
-                            // 结束条件：running=false 且 stage=done，或 percent 已达 100
-                            if ((!progress.running && progress.stage == "done") || progress.percent >= 100.0) {
+                        if (typeById[id] == "MUSIC") {
+                            // MUSIC 库：走 scan/progress 查询
+                            val progress = api.getScanProgress(id).data?.firstOrNull()
+                            if (progress != null) {
+                                updated[id] = PipelineProgress(
+                                    libraryId = id,
+                                    stage = progress.stage,
+                                    running = progress.running,
+                                    percent = progress.percent,
+                                    currentItem = progress.currentItem,
+                                    scrapingEnabled = false,
+                                    scanPercent = progress.percent,
+                                    scrapePercent = 0.0
+                                )
+                                if (!progress.running || progress.percent >= 100.0) {
+                                    finished.add(id)
+                                }
+                            } else {
+                                // 无进度数据视为已结束
                                 finished.add(id)
+                            }
+                        } else {
+                            val response = api.getPipelineProgress(id)
+                            if (response.success && response.data != null) {
+                                val progress = response.data
+                                updated[id] = progress
+                                // 结束条件：running=false 且 stage=done，或 percent 已达 100
+                                if ((!progress.running && progress.stage == "done") || progress.percent >= 100.0) {
+                                    finished.add(id)
+                                }
                             }
                         }
                     }
