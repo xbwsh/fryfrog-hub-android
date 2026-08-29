@@ -747,20 +747,20 @@ private fun MainContent(
                     animationSpec = tween(300)
                 ) + fadeOut(animationSpec = tween(300))
             ) {
-                FryfrogBottomBar(
-                    currentRoute = currentRoute,
-                    isAdmin = isAdmin,
-                    hazeState = glassHazeState,
-                    onNavigate = { route ->
-                        navController.navigate(route) {
-                            popUpTo(Screen.Home.route) {
-                                saveState = true
+FryfrogBottomBar(
+                        currentRoute = currentRoute,
+                        isAdmin = isAdmin,
+                        hazeState = glassHazeState,
+                        onNavigate = { route ->
+                            navController.navigate(route) {
+                                popUpTo(Screen.Home.route) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
-                    }
-                )
+                    )
             }
         }
         } // Box

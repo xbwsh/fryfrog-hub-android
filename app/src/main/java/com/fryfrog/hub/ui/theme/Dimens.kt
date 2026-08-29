@@ -85,7 +85,12 @@ data class AppDimens(
 
     // Liquid Glass（液态玻璃）
     val glassBlurRadius: Dp = 22.dp,
-    val glassBorderWidth: Dp = 1.dp
+    val glassBorderWidth: Dp = 1.dp,
+
+    // Bottom Dock（iOS 液态玻璃胶囊导航）
+    val dockHeight: Dp = 56.dp,
+    val dockIndicatorHeight: Dp = 52.dp,
+    val dockBorderWidth: Dp = 0.7.dp
 )
 
 val PhoneDimens = AppDimens()
@@ -203,6 +208,9 @@ object Dimens {
     // Liquid Glass（液态玻璃）
     val glassBlurRadius: Dp @Composable get() = LocalDimens.current.glassBlurRadius
     val glassBorderWidth: Dp @Composable get() = LocalDimens.current.glassBorderWidth
+    val dockHeight: Dp @Composable get() = LocalDimens.current.dockHeight
+    val dockIndicatorHeight: Dp @Composable get() = LocalDimens.current.dockIndicatorHeight
+    val dockBorderWidth: Dp @Composable get() = LocalDimens.current.dockBorderWidth
     const val alphaGlassEdgeLight = 0.5f
     const val alphaGlassEdgeDark = 0.08f
     const val alphaGlassSheen = 0.15f

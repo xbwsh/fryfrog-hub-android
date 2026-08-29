@@ -42,6 +42,7 @@ import com.fryfrog.hub.ui.components.SectionHeader
 import com.fryfrog.hub.ui.components.WideMediaCard
 import com.fryfrog.hub.ui.theme.Dimens
 import com.fryfrog.hub.ui.theme.Primary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 private const val CAROUSEL_AUTO_SCROLL_DELAY = 3000L
@@ -133,14 +134,9 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
-                        .padding(horizontal = Dimens.spacingMd)
+                        .padding(horizontal = Dimens.spacingMd),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f).align(Alignment.CenterVertically)
-                    )
                     Row(modifier = Modifier.align(Alignment.CenterVertically)) {
                         IconButton(onClick = onSearchClick) {
                             Icon(
@@ -414,16 +410,37 @@ private fun CarouselSection(
     items: List<CarouselItem>,
     modifier: Modifier = Modifier
 ) {
+    if (items.isEmpty()) return
     val pagerState = rememberPagerState(pageCount = { items.size })
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
-    val carouselHeight = if (isTablet) Dimens.carouselHeightTablet else Dimens.carouselHeight
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val baseHeight = if (isTablet) Dimens.carouselHeightTablet else Dimens.carouselHeight
+    // 横屏时屏幕高度有限，轮播高度按比例压缩避免占满视口且避免高度突变导致分页偏移
+    val carouselHeight = if (isLandscape) {
+        // 取基础高度的 0.6 并限制不超屏幕高度 45%
+        val h = (baseHeight.value * 0.62f).dp
+        val maxH = (configuration.screenHeightDp * 0.45f).dp
+        if (h > maxH) maxH else h
+    } else {
+        baseHeight
+    }
 
-    LaunchedEffect(pagerState) {
+    // 自动轮播：用户拖动时暂停，被取消时不中断循环；横竖屏/数量变化时重启以重置偏移
+    LaunchedEffect(items.size, configuration.orientation) {
+        if (items.size <= 1) return@LaunchedEffect
         while (true) {
             delay(CAROUSEL_AUTO_SCROLL_DELAY)
-            val nextPage = (pagerState.currentPage + 1) % items.size
-            pagerState.animateScrollToPage(nextPage)
+            if (pagerState.isScrollInProgress) continue
+            // items.size 可能在加载后变化，防御模零与越界
+            val size = items.size
+            if (size == 0) continue
+            val nextPage = (pagerState.currentPage + 1) % size
+            try {
+                pagerState.animateScrollToPage(nextPage)
+            } catch (_: CancellationException) {
+                // 被用户手势或布局变化打断，等待下一轮
+            }
         }
     }
 
@@ -434,7 +451,8 @@ private fun CarouselSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(carouselHeight),
-                pageSpacing = 0.dp
+                pageSpacing = 0.dp,
+                beyondViewportPageCount = 1
             ) { page ->
                 val item = items[page]
                 WideMediaCard(
@@ -443,7 +461,7 @@ private fun CarouselSection(
                     coverUrl = item.coverUrl,
                     onClick = item.onClick,
                     modifier = Modifier
-                        .fillMaxHeight(),
+                        .fillMaxSize(),
                     fixedSize = false,
                     clipShape = RectangleShape,
                     bottomContentPadding = Dimens.carouselFadeHeight
