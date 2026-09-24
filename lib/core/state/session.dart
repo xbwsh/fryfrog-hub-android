@@ -28,6 +28,13 @@ class Session extends ChangeNotifier {
   final List<SeriesListDto> carouselItems = [];
   final List<MusicLibraryGroup> musicGroups = [];
   final List<MusicSong> songs = [];
+  final Map<BookShelfKind, List<BookItem>> books = {
+    BookShelfKind.ebook: [],
+    BookShelfKind.comic: [],
+    BookShelfKind.audiobook: [],
+  };
+
+  List<BookItem> booksOf(BookShelfKind kind) => books[kind] ?? const [];
 
   List<MusicAlbum> get albums =>
       musicGroups.expand((g) => g.albums).toList(growable: false);
@@ -179,6 +186,11 @@ class Session extends ChangeNotifier {
         ..clear()
         ..addAll((results[2] as PageResponse<MusicSong>).content);
 
+      // Books are independent — one kind failing must not block video/music.
+      await Future.wait([
+        for (final kind in BookShelfKind.values) _loadBooksSafe(client, kind),
+      ]);
+
       _rollCarousel();
     } catch (e) {
       catalogError = '$e';
@@ -187,6 +199,17 @@ class Session extends ChangeNotifier {
 
     isLoadingCatalog = false;
     notifyListeners();
+  }
+
+  Future<void> _loadBooksSafe(ApiClient client, BookShelfKind kind) async {
+    try {
+      final page = await client.fetchBooks(kind);
+      books[kind]!
+        ..clear()
+        ..addAll(page.content);
+    } catch (e) {
+      debugPrint('loadBooks $kind failed: $e');
+    }
   }
 
   void _rollCarousel() {
@@ -224,6 +247,9 @@ class Session extends ChangeNotifier {
     carouselItems.clear();
     musicGroups.clear();
     songs.clear();
+    for (final list in books.values) {
+      list.clear();
+    }
     notifyListeners();
   }
 

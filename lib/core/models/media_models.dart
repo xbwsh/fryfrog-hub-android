@@ -259,6 +259,75 @@ class MusicSong {
       );
 }
 
+/// Bookshelf segment kinds matching backend routers.
+enum BookShelfKind {
+  ebook('/api/v1/ebooks'),
+  comic('/api/v1/comics'),
+  audiobook('/api/v1/audiobooks');
+
+  const BookShelfKind(this.basePath);
+  final String basePath;
+
+  String coverPath(int id) => '$basePath/$id/cover';
+  String detailPath(int id) => '$basePath/$id';
+}
+
+/// Unified DTO for ebooks / comics / audiobooks list & detail.
+class BookItem {
+  const BookItem({
+    required this.id,
+    required this.title,
+    this.author,
+    this.narrator,
+    this.publisher,
+    this.overview,
+    this.series,
+    this.seriesPart,
+    this.coverUrl,
+    this.positionPercent,
+    this.chapterIndex,
+    this.pageCount,
+    this.trackCount,
+  });
+
+  final int id;
+  final String title;
+  final String? author;
+  final String? narrator;
+  final String? publisher;
+  final String? overview;
+  final String? series;
+  final int? seriesPart;
+  final String? coverUrl;
+  final double? positionPercent;
+  final int? chapterIndex;
+  final int? pageCount;
+  final int? trackCount;
+
+  String get displayTitle => title.isEmpty ? '(未命名)' : title;
+  String get subtitle {
+    if (author != null && author!.isNotEmpty) return author!;
+    if (narrator != null && narrator!.isNotEmpty) return narrator!;
+    return '';
+  }
+
+  factory BookItem.fromJson(Map<String, dynamic> json) => BookItem(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        title: json['title'] as String? ?? '',
+        author: json['author'] as String?,
+        narrator: json['narrator'] as String?,
+        publisher: json['publisher'] as String?,
+        overview: json['overview'] as String?,
+        series: json['series'] as String?,
+        seriesPart: (json['seriesPart'] as num?)?.toInt(),
+        coverUrl: (json['coverUrl'] ?? json['cover']) as String?,
+        positionPercent: (json['positionPercent'] as num?)?.toDouble(),
+        chapterIndex: (json['chapterIndex'] as num?)?.toInt(),
+        pageCount: (json['pageCount'] as num?)?.toInt(),
+        trackCount: (json['trackCount'] as num?)?.toInt(),
+      );
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,

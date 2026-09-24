@@ -153,6 +153,38 @@ class ApiClient {
     });
   }
 
+  /// List ebooks / comics / audiobooks. Backend: `GET /api/v1/{ebooks|comics|audiobooks}`.
+  Future<PageResponse<BookItem>> fetchBooks(
+    BookShelfKind kind, {
+    String? q,
+    int page = 0,
+    int size = 50,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'size': '$size',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+    };
+    final json = await _send(kind.basePath, query: query);
+    return _unwrap(json, (raw) {
+      if (raw is List) {
+        final items = raw
+            .whereType<Map<String, dynamic>>()
+            .map(BookItem.fromJson)
+            .toList(growable: false);
+        return PageResponse(
+          content: items,
+          page: page,
+          size: size,
+          totalElements: items.length,
+          totalPages: items.isEmpty ? 0 : 1,
+        );
+      }
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : PageResponse.fromJson(map, BookItem.fromJson);
+    });
+  }
+
   /// Relative paths like `/api/v1/video/2/cover` → absolute URL.
   String resolveUrl(String? path) {
     if (path == null || path.isEmpty) return '';
