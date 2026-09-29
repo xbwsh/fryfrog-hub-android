@@ -1,8 +1,8 @@
 allprojects {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        // Official sources only — aliyun-first breaks CI (GitHub runners
+        // get 502 and Gradle fails hard on 5xx without falling through).
+        // Local China mirrors belong in ~/.gradle/init.d/, not in the repo.
         google()
         mavenCentral()
     }
