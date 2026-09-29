@@ -20,7 +20,6 @@ class Session extends ChangeNotifier {
   String? token;
   ApiClient? api;
 
-  HomeContentMode contentMode = HomeContentMode.video;
   bool privacyEnabled = false;
   ThemeModePref themeMode = ThemeModePref.system;
 
@@ -76,7 +75,9 @@ class Session extends ChangeNotifier {
       );
     }
 
-    if (token != null && token!.isNotEmpty && connection.activeBaseUrl != null) {
+    if (token != null &&
+        token!.isNotEmpty &&
+        connection.activeBaseUrl != null) {
       api = ApiClient(connection.activeBaseUrl!, token: token);
       try {
         user = await api!.me();
@@ -212,6 +213,14 @@ class Session extends ChangeNotifier {
     }
   }
 
+  /// Reload a single shelf kind (e.g. after a scrape bind changed covers).
+  Future<void> refreshBooks(BookShelfKind kind) async {
+    final client = api;
+    if (client == null) return;
+    await _loadBooksSafe(client, kind);
+    notifyListeners();
+  }
+
   void _rollCarousel() {
     final seen = <int>{};
     final withFanart = <SeriesListDto>[];
@@ -253,12 +262,6 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setContentMode(HomeContentMode mode) {
-    if (contentMode == mode) return;
-    contentMode = mode;
-    notifyListeners();
-  }
-
   void setPrivacy(bool value) {
     privacyEnabled = value;
     notifyListeners();
@@ -269,8 +272,6 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 }
-
-enum HomeContentMode { video, music }
 
 enum ThemeModePref {
   system('跟随系统'),

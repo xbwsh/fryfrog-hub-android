@@ -12,13 +12,13 @@ class AppColors {
 
   static Color background(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? backgroundDark
-          : backgroundLight;
+      ? backgroundDark
+      : backgroundLight;
 
   static Color surface(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? surfaceDark
-          : surfaceLight;
+      ? surfaceDark
+      : surfaceLight;
 
   static const Color accent = Color(0xFF0A84FF);
   static const Color danger = Color(0xFFFF453A);

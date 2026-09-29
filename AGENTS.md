@@ -28,17 +28,22 @@ lib/
 ├── core/
 │   ├── adaptive/  # DeviceForm + AdaptiveScope
 │   ├── theme/     # AppColors, Dimens
-│   ├── models/    # media_models.dart
-│   ├── network/   # server_connection.dart
+│   ├── models/    # 按域拆分：video/books/music/user/common + media_models barrel
+│   ├── rules/     # WatchRules 等纯业务规则（可单测）
+│   ├── network/   # ServerConnection, ApiClient, gateways（端口）+ gateways_impl
 │   └── state/     # session.dart
 ├── features/
 │   ├── auth/      # login_screen.dart
 │   ├── home/      # home_screen.dart
-│   ├── books/     # books_screen.dart
+│   ├── books/     # books_screen + comic_reader(_controller)
 │   ├── music/     # music_screen.dart
+│   ├── video/     # detail/player + video_detail_controller
 │   └── profile/   # profile_screen.dart
 └── widgets/       # server_image, mini_player
 ```
+
+依赖方向：`features → core/rule|gateway 端口 → ApiClient 适配器 → http`。
+UI 只渲染 Controller 状态；业务编排在 `*Controller`，进度规则在 `WatchRules`。
 
 ## Key Conventions
 

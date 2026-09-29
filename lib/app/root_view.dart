@@ -40,7 +40,10 @@ class _RootViewState extends State<RootView> {
     return ListenableBuilder(
       listenable: widget.session,
       builder: (context, _) {
-        final body = switch ((widget.session.isLoading, widget.session.isAuthenticated)) {
+        final body = switch ((
+          widget.session.isLoading,
+          widget.session.isAuthenticated,
+        )) {
           (true, _) => _LoadingView(form: form),
           (false, true) => MainShell(session: widget.session),
           _ => LoginScreen(session: widget.session),
@@ -99,10 +102,7 @@ class _LoadingView extends StatelessWidget {
         children: [
           const CircularProgressIndicator.adaptive(),
           const SizedBox(height: Dimens.spacingLg),
-          Text(
-            '连接服务器…',
-            style: TextStyle(fontSize: 15 * form.typeScale),
-          ),
+          Text('连接服务器…', style: TextStyle(fontSize: 15 * form.typeScale)),
         ],
       ),
     );

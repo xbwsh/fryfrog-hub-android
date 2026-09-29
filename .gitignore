@@ -46,3 +46,11 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Machine-local / tooling / build artifacts
+/app/
+/.gradle/
+/.gradle-home/
+/.mimocode/
+/.zcode/
+local.properties

@@ -28,8 +28,7 @@ class AdaptiveScope extends InheritedWidget {
   final DeviceForm form;
 
   static DeviceForm of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<AdaptiveScope>();
+    final scope = context.dependOnInheritedWidgetOfExactType<AdaptiveScope>();
     return scope?.form ?? DeviceForm.phone;
   }
 
@@ -63,30 +62,30 @@ bool _isTelevision() {
 /// Scale multipliers for density and focus chrome.
 extension DeviceFormX on DeviceForm {
   double get posterScale => switch (this) {
-        DeviceForm.phone => 1,
-        DeviceForm.tabletPortrait => 1.15,
-        DeviceForm.tabletLandscape => 1.2,
-        DeviceForm.tv => 1.5,
-      };
+    DeviceForm.phone => 1,
+    DeviceForm.tabletPortrait => 1.15,
+    DeviceForm.tabletLandscape => 1.2,
+    DeviceForm.tv => 1.5,
+  };
 
   double get typeScale => switch (this) {
-        DeviceForm.phone => 1,
-        DeviceForm.tabletPortrait => 1.05,
-        DeviceForm.tabletLandscape => 1.08,
-        DeviceForm.tv => 1.25,
-      };
+    DeviceForm.phone => 1,
+    DeviceForm.tabletPortrait => 1.05,
+    DeviceForm.tabletLandscape => 1.08,
+    DeviceForm.tv => 1.25,
+  };
 
   double get contentMaxWidth => switch (this) {
-        DeviceForm.phone => double.infinity,
-        DeviceForm.tabletPortrait => 720,
-        DeviceForm.tabletLandscape => 1100,
-        DeviceForm.tv => 1280,
-      };
+    DeviceForm.phone => double.infinity,
+    DeviceForm.tabletPortrait => 720,
+    DeviceForm.tabletLandscape => 1100,
+    DeviceForm.tv => 1280,
+  };
 
   int get overviewCrossAxisCount => switch (this) {
-        DeviceForm.phone => 3,
-        DeviceForm.tabletPortrait => 4,
-        DeviceForm.tabletLandscape => 6,
-        DeviceForm.tv => 6,
-      };
+    DeviceForm.phone => 3,
+    DeviceForm.tabletPortrait => 4,
+    DeviceForm.tabletLandscape => 6,
+    DeviceForm.tv => 6,
+  };
 }

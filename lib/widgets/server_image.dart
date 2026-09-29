@@ -33,7 +33,16 @@ class ServerImage extends StatelessWidget {
     final path = url;
     if (path == null || path.isEmpty) return placeholder;
 
-    final resolved = _resolve(context, path);
+    final s = session ?? SessionScope.of(context);
+    final resolved = path.startsWith('http')
+        ? path
+        : (s.resolveImage(path) ?? path);
+    // Cover endpoints require Bearer auth — without it every image 401s
+    // and the list shows one identical placeholder.
+    final token = s.token;
+    final headers = <String, String>{
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
 
     return ClipRRect(
       borderRadius: radius,
@@ -42,27 +51,20 @@ class ServerImage extends StatelessWidget {
         fit: fit,
         width: double.infinity,
         height: double.infinity,
+        httpHeaders: headers,
         placeholder: (_, _) => placeholder,
         errorWidget: (_, _, _) => placeholder,
-        errorListener: (_) {},
+        errorListener: (e) {
+          debugPrint('ServerImage failed: $resolved — $e');
+        },
       ),
     );
-  }
-
-  String _resolve(BuildContext context, String path) {
-    if (path.startsWith('http')) return path;
-    final s = session ?? SessionScope.of(context);
-    return s.resolveImage(path) ?? path;
   }
 }
 
 /// Inherited access to [Session] for image URL resolution.
 class SessionScope extends InheritedWidget {
-  const SessionScope({
-    super.key,
-    required this.session,
-    required super.child,
-  });
+  const SessionScope({super.key, required this.session, required super.child});
 
   final Session session;
 

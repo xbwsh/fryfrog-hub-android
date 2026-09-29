@@ -6,6 +6,7 @@ import '../../core/network/server_connection.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
+import 'media_library_screen.dart';
 
 /// Profile mirrors apple ProfileView sections: account / admin / server /
 /// appearance / playback / cache / privacy / support / logout.
@@ -49,7 +50,9 @@ class ProfileScreen extends StatelessWidget {
                       child: ListTile(
                         leading: CircleAvatar(
                           radius: 26 * form.posterScale * 0.8,
-                          backgroundColor: AppColors.accent.withValues(alpha: 0.2),
+                          backgroundColor: AppColors.accent.withValues(
+                            alpha: 0.2,
+                          ),
                           child: Text(
                             (user?.title.isNotEmpty ?? false)
                                 ? user!.title.characters.first
@@ -69,7 +72,9 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         ),
                         subtitle: Text(
-                          user == null ? '' : '@${user.username} · ${user.roleText}',
+                          user == null
+                              ? ''
+                              : '@${user.username} · ${user.roleText}',
                           style: TextStyle(fontSize: 13 * form.typeScale),
                         ),
                       ),
@@ -102,6 +107,12 @@ class ProfileScreen extends StatelessWidget {
                             icon: Icons.video_library_rounded,
                             label: '媒体库管理',
                             form: form,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<bool>(
+                                builder: (_) =>
+                                    MediaLibraryScreen(session: session),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -147,8 +158,9 @@ class ProfileScreen extends StatelessWidget {
                                   for (final mode in ThemeModePref.values)
                                     GlassSegment(label: mode.title),
                                 ],
-                                selectedIndex:
-                                    ThemeModePref.values.indexOf(session.themeMode),
+                                selectedIndex: ThemeModePref.values.indexOf(
+                                  session.themeMode,
+                                ),
                                 onSegmentSelected: (i) => session.setThemeMode(
                                   ThemeModePref.values[i],
                                 ),
@@ -173,7 +185,9 @@ class ProfileScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   '隐私模式',
-                                  style: TextStyle(fontSize: 15 * form.typeScale),
+                                  style: TextStyle(
+                                    fontSize: 15 * form.typeScale,
+                                  ),
                                 ),
                               ),
                               GlassSwitch(
@@ -185,24 +199,18 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: Dimens.spacingLg),
-                    _SectionCard(
-                      title: '支持',
-                      form: form,
-                      children: [
-                        _NavTile(
-                          icon: Icons.favorite_rounded,
-                          label: '支持开发者',
-                          form: form,
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: Dimens.spacingXl),
                     Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 360),
                         child: GlassButton.custom(
-                          height: 48,
+                          width: double.infinity,
+                          height: 48 * form.typeScale,
+                          // Default LiquidOval stretches into a lens shape on a
+                          // wide button — use the card radius instead.
+                          shape: const LiquidRoundedRectangle(
+                            borderRadius: Dimens.radiusLg,
+                          ),
                           onTap: () => session.logout(),
                           child: Text(
                             '退出登录',
@@ -215,7 +223,9 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: Dimens.dockHeight + Dimens.spacingXl),
+                    const SizedBox(
+                      height: Dimens.dockHeight + Dimens.spacingXl,
+                    ),
                   ],
                 ),
               ),
@@ -257,9 +267,7 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
         ),
-        GlassCard(
-          child: Column(children: children),
-        ),
+        GlassCard(child: Column(children: children)),
       ],
     );
   }
@@ -270,16 +278,19 @@ class _NavTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.form,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final DeviceForm form;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       dense: !form.isTv,
+      onTap: onTap,
       leading: Icon(icon),
       title: Text(label, style: TextStyle(fontSize: 15 * form.typeScale)),
       trailing: const Icon(Icons.chevron_right_rounded),
@@ -307,7 +318,9 @@ class _AddressTile extends StatelessWidget {
     return ListTile(
       dense: !form.isTv,
       leading: Icon(
-        mode == ServerConnectionMode.lan ? Icons.wifi_rounded : Icons.public_rounded,
+        mode == ServerConnectionMode.lan
+            ? Icons.wifi_rounded
+            : Icons.public_rounded,
         color: active ? AppColors.accent : Theme.of(context).hintColor,
       ),
       title: Row(
@@ -316,10 +329,7 @@ class _AddressTile extends StatelessWidget {
           if (active) ...[
             const SizedBox(width: Dimens.spacingSm),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 2,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.accent.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(999),

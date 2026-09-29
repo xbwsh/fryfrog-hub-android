@@ -30,10 +30,10 @@ class ServerConnection extends ChangeNotifier {
 
   String? get activeBaseUrl => urlString(effectiveMode);
   String? get alternateBaseUrl => urlString(
-        effectiveMode == ServerConnectionMode.lan
-            ? ServerConnectionMode.public
-            : ServerConnectionMode.lan,
-      );
+    effectiveMode == ServerConnectionMode.lan
+        ? ServerConnectionMode.public
+        : ServerConnectionMode.lan,
+  );
 
   void apply({
     required String scheme,
@@ -45,7 +45,9 @@ class ServerConnection extends ChangeNotifier {
     this.port = port;
     this.publicHost = publicHost;
     this.lanHost = lanHost;
-    effectiveMode = hasLan ? ServerConnectionMode.lan : ServerConnectionMode.public;
+    effectiveMode = hasLan
+        ? ServerConnectionMode.lan
+        : ServerConnectionMode.public;
     notifyListeners();
   }
 

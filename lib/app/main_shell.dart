@@ -26,14 +26,14 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _titles = ['首页', '书架', '音乐', '我的'];
+  static const _titles = ['视频', '书架', '音乐', '我的'];
 
   List<Widget> get _pages => [
-        HomeScreen(session: widget.session),
-        BooksScreen(session: widget.session),
-        MusicScreen(session: widget.session),
-        ProfileScreen(session: widget.session),
-      ];
+    HomeScreen(session: widget.session),
+    BooksScreen(session: widget.session),
+    MusicScreen(session: widget.session),
+    ProfileScreen(session: widget.session),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -43,33 +43,33 @@ class _MainShellState extends State<MainShell> {
 
     final content = switch (form) {
       DeviceForm.phone => _PhoneShell(
-          form: form,
-          index: _index,
-          onIndexChanged: (i) => setState(() => _index = i),
-          body: current,
-        ),
+        form: form,
+        index: _index,
+        onIndexChanged: (i) => setState(() => _index = i),
+        body: current,
+      ),
       DeviceForm.tabletPortrait => _TabletPortraitShell(
-          form: form,
-          index: _index,
-          onIndexChanged: (i) => setState(() => _index = i),
-          title: _titles[_index],
-          body: current,
-        ),
+        form: form,
+        index: _index,
+        onIndexChanged: (i) => setState(() => _index = i),
+        title: _titles[_index],
+        body: current,
+      ),
       DeviceForm.tabletLandscape => _SideRailShell(
-          form: form,
-          index: _index,
-          onIndexChanged: (i) => setState(() => _index = i),
-          body: current,
-          showLabels: true,
-        ),
+        form: form,
+        index: _index,
+        onIndexChanged: (i) => setState(() => _index = i),
+        body: current,
+        showLabels: true,
+      ),
       DeviceForm.tv => _SideRailShell(
-          form: form,
-          index: _index,
-          onIndexChanged: (i) => setState(() => _index = i),
-          body: current,
-          showLabels: true,
-          wide: true,
-        ),
+        form: form,
+        index: _index,
+        onIndexChanged: (i) => setState(() => _index = i),
+        body: current,
+        showLabels: true,
+        wide: true,
+      ),
     };
 
     return content;
@@ -92,6 +92,10 @@ class _PhoneShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassScaffold(
+      // GlassScaffold's scroll-edge fade holds a static background capture
+      // that only re-captures on route/size changes — remount on theme
+      // switch or the top/bottom fades keep the old theme's colour.
+      key: ValueKey('glass-scaffold-${Theme.maybeBrightnessOf(context)}'),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
       // none: avoid SystemUiOverlayStyle.light/dark presets that force an
@@ -122,7 +126,7 @@ class _PhoneShell extends StatelessWidget {
             selectedIndex: index,
             onTabSelected: onIndexChanged,
             tabs: const [
-              GlassTab(icon: Icon(Icons.home_rounded), label: '首页'),
+              GlassTab(icon: Icon(Icons.video_library_rounded), label: '视频'),
               GlassTab(icon: Icon(Icons.auto_stories_rounded), label: '书架'),
               GlassTab(icon: Icon(Icons.library_music_rounded), label: '音乐'),
               GlassTab(icon: Icon(Icons.person_rounded), label: '我的'),
@@ -152,6 +156,7 @@ class _TabletPortraitShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassScaffold(
+      key: ValueKey('glass-scaffold-${Theme.maybeBrightnessOf(context)}'),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
@@ -189,7 +194,7 @@ class _TabletPortraitShell extends StatelessWidget {
             selectedIndex: index,
             onTabSelected: onIndexChanged,
             tabs: const [
-              GlassTab(icon: Icon(Icons.home_rounded), label: '首页'),
+              GlassTab(icon: Icon(Icons.video_library_rounded), label: '视频'),
               GlassTab(icon: Icon(Icons.auto_stories_rounded), label: '书架'),
               GlassTab(icon: Icon(Icons.library_music_rounded), label: '音乐'),
               GlassTab(icon: Icon(Icons.person_rounded), label: '我的'),
@@ -226,12 +231,12 @@ class _SideRailShellState extends State<_SideRailShell> {
   final List<FocusNode> _nodes = List.generate(4, (_) => FocusNode());
 
   static const _icons = [
-    Icons.home_rounded,
+    Icons.video_library_rounded,
     Icons.auto_stories_rounded,
     Icons.library_music_rounded,
     Icons.person_rounded,
   ];
-  static const _labels = ['首页', '书架', '音乐', '我的'];
+  static const _labels = ['视频', '书架', '音乐', '我的'];
 
   @override
   void dispose() {
@@ -241,11 +246,17 @@ class _SideRailShellState extends State<_SideRailShell> {
     super.dispose();
   }
 
+  void _select(int i) {
+    widget.onIndexChanged(i);
+    _nodes[i].requestFocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     final form = widget.form;
     final width = widget.wide ? Dimens.tvNavWidth : Dimens.railWidthExpanded;
     final scale = form.typeScale;
+    final scheme = Theme.of(context).colorScheme;
 
     return GlassScaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -280,7 +291,8 @@ class _SideRailShellState extends State<_SideRailShell> {
                           ),
                           child: Focus(
                             focusNode: _nodes[i],
-                            autofocus: i == 0,
+                            // Keep D-pad focus on the active tab, not always Home.
+                            autofocus: i == widget.index,
                             onKeyEvent: (node, event) {
                               if (event is KeyDownEvent &&
                                   (event.logicalKey ==
@@ -289,7 +301,7 @@ class _SideRailShellState extends State<_SideRailShell> {
                                           LogicalKeyboardKey.enter ||
                                       event.logicalKey ==
                                           LogicalKeyboardKey.gameButtonA)) {
-                                widget.onIndexChanged(i);
+                                _select(i);
                                 return KeyEventResult.handled;
                               }
                               return KeyEventResult.ignored;
@@ -299,9 +311,10 @@ class _SideRailShellState extends State<_SideRailShell> {
                                 final focused = Focus.of(context).hasFocus;
                                 final selected = widget.index == i;
                                 return InkWell(
-                                  borderRadius:
-                                      BorderRadius.circular(Dimens.radiusMd),
-                                  onTap: () => widget.onIndexChanged(i),
+                                  borderRadius: BorderRadius.circular(
+                                    Dimens.radiusMd,
+                                  ),
+                                  onTap: () => _select(i),
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 180),
                                     padding: const EdgeInsets.symmetric(
@@ -312,34 +325,41 @@ class _SideRailShellState extends State<_SideRailShell> {
                                       borderRadius: BorderRadius.circular(
                                         Dimens.radiusMd,
                                       ),
+                                      // Focus ring only on the item that has focus.
                                       border: focused
                                           ? Border.all(
-                                              color: Colors.white,
+                                              color: scheme.primary,
                                               width: Dimens.focusBorder,
                                             )
                                           : null,
+                                      // Selection highlight is independent of focus.
                                       color: selected
-                                          ? Colors.white.withValues(alpha: 0.14)
+                                          ? scheme.primary.withValues(
+                                              alpha: 0.16,
+                                            )
                                           : null,
                                     ),
                                     child: Row(
                                       children: [
                                         Icon(
                                           _icons[i],
-                                          size: (widget.wide ? 28 : 22) *
-                                              scale /
-                                              form.typeScale *
-                                              form.typeScale,
+                                          size: (widget.wide ? 28 : 22) * scale,
+                                          color: selected
+                                              ? scheme.primary
+                                              : null,
                                         ),
                                         const SizedBox(width: Dimens.spacingMd),
                                         Text(
                                           _labels[i],
                                           style: TextStyle(
-                                            fontSize: (widget.wide ? 18 : 15) *
-                                                scale,
+                                            fontSize:
+                                                (widget.wide ? 18 : 15) * scale,
                                             fontWeight: selected
                                                 ? FontWeight.w700
                                                 : FontWeight.w500,
+                                            color: selected
+                                                ? scheme.primary
+                                                : null,
                                           ),
                                         ),
                                       ],

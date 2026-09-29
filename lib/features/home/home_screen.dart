@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/adaptive/device_form.dart';
@@ -6,6 +8,8 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import '../video/video_detail_screen.dart';
+import '../video/video_library_screen.dart';
 
 /// Home mirrors apple HomeView: carousel → overview stats → library rails.
 class HomeScreen extends StatefulWidget {
@@ -35,100 +39,92 @@ class _HomeScreenState extends State<HomeScreen> {
             child: session.isLoadingCatalog && session.videoGroups.isEmpty
                 ? const Center(child: CircularProgressIndicator.adaptive())
                 : session.catalogError != null &&
-                        session.videoGroups.isEmpty &&
-                        session.musicGroups.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(Dimens.spacingXl),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '内容加载失败',
-                                style: TextStyle(
-                                  fontSize: 17 * form.typeScale,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: Dimens.spacingSm),
-                              Text(
-                                session.catalogError!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 13 * form.typeScale,
-                                  color: Theme.of(context).hintColor,
-                                ),
-                              ),
-                              const SizedBox(height: Dimens.spacingLg),
-                              FilledButton(
-                                onPressed: session.loadCatalog,
-                                child: const Text('重试'),
-                              ),
-                            ],
+                      session.videoGroups.isEmpty &&
+                      session.musicGroups.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Dimens.spacingXl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '内容加载失败',
+                            style: TextStyle(
+                              fontSize: 17 * form.typeScale,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: Dimens.spacingSm),
+                          Text(
+                            session.catalogError!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13 * form.typeScale,
+                              color: Theme.of(context).hintColor,
+                            ),
+                          ),
+                          const SizedBox(height: Dimens.spacingLg),
+                          FilledButton(
+                            onPressed: session.loadCatalog,
+                            child: const Text('重试'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                // ListView (not CustomScrollView) — avoids sliver type crashes
+                // when a child fails and becomes ErrorWidget.
+                : ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      if (form.prefersTopTabs || form.isTv)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            Dimens.spacingLg,
+                            Dimens.spacingMd,
+                            Dimens.spacingLg,
+                            0,
+                          ),
+                          child: _HomeToolbar(form: form),
+                        ),
+                      _Carousel(
+                        items: session.carouselItems,
+                        session: session,
+                        height: form.isTv
+                            ? Dimens.carouselHeightTv
+                            : form.isTablet
+                            ? Dimens.carouselHeightTablet
+                            : Dimens.carouselHeightPhone,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Dimens.spacingLg,
+                          vertical: Dimens.spacingLg,
+                        ),
+                        child: _OverviewStats(
+                          groups: session.videoGroups,
+                          form: form,
+                        ),
+                      ),
+                      if (!_overview)
+                        for (final g in session.videoGroups)
+                          _LibraryRail(group: g, form: form, session: session)
+                      else
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Dimens.spacingLg,
+                          ),
+                          child: _OverviewGrid(
+                            groups: session.videoGroups,
+                            form: form,
+                            session: session,
                           ),
                         ),
-                      )
-                    // ListView (not CustomScrollView) — avoids sliver type crashes
-                    // when a child fails and becomes ErrorWidget.
-                    : ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                if (form.prefersTopTabs || form.isTv)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Dimens.spacingLg,
-                      Dimens.spacingMd,
-                      Dimens.spacingLg,
-                      0,
-                    ),
-                    child: _HomeToolbar(session: session, form: form),
-                  ),
-                _Carousel(
-                  items: session.carouselItems,
-                  height: form.isTv
-                      ? Dimens.carouselHeightTv
-                      : form.isTablet
-                          ? Dimens.carouselHeightTablet
-                          : Dimens.carouselHeightPhone,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Dimens.spacingLg,
-                    vertical: Dimens.spacingLg,
-                  ),
-                  child: _OverviewStats(
-                    groups: session.videoGroups,
-                    form: form,
-                  ),
-                ),
-                if (session.contentMode == HomeContentMode.video) ...[
-                  if (!_overview)
-                    for (final g in session.videoGroups)
-                      _LibraryRail(group: g, form: form)
-                  else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Dimens.spacingLg,
+                      const SizedBox(
+                        height: Dimens.dockHeight + Dimens.spacingXxl,
                       ),
-                      child: _OverviewGrid(
-                        groups: session.videoGroups,
-                        form: form,
-                      ),
-                    ),
-                ] else
-                  Padding(
-                    padding: const EdgeInsets.all(Dimens.spacingLg),
-                    child: _MusicHomeSection(
-                      albums: session.albums,
-                      artists: session.artists,
-                      form: form,
-                    ),
+                    ],
                   ),
-                const SizedBox(
-                  height: Dimens.dockHeight + Dimens.spacingXxl,
-                ),
-              ],
-            ),
           ),
           floatingActionButton: form.isPhone
               ? FloatingActionButton.small(
@@ -150,57 +146,92 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _HomeToolbar extends StatelessWidget {
-  const _HomeToolbar({required this.session, required this.form});
+  const _HomeToolbar({required this.form});
 
-  final Session session;
   final DeviceForm form;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          '首页',
-          style: TextStyle(
-            fontSize: 28 * form.typeScale,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const Spacer(),
-        SegmentedButton<HomeContentMode>(
-          segments: const [
-            ButtonSegment(value: HomeContentMode.video, label: Text('视频')),
-            ButtonSegment(value: HomeContentMode.music, label: Text('音乐')),
-          ],
-          selected: {session.contentMode},
-          onSelectionChanged: (s) => session.setContentMode(s.first),
-        ),
-      ],
+    return Text(
+      '视频',
+      style: TextStyle(
+        fontSize: 28 * form.typeScale,
+        fontWeight: FontWeight.w800,
+      ),
     );
   }
 }
 
 class _Carousel extends StatefulWidget {
-  const _Carousel({required this.items, required this.height});
+  const _Carousel({required this.items, required this.height, this.session});
 
   final List<SeriesListDto> items;
   final double height;
+  final Session? session;
 
   @override
   State<_Carousel> createState() => _CarouselState();
 }
 
 class _CarouselState extends State<_Carousel> {
+  static const _autoPlayInterval = Duration(seconds: 5);
+
   final _controller = PageController(viewportFraction: 0.92);
+  Timer? _autoPlay;
+  bool _userInteracting = false;
+  double formScale = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _restartAutoPlay();
+  }
+
+  @override
+  void didUpdateWidget(covariant _Carousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.items.length != widget.items.length) _restartAutoPlay();
+  }
+
+  void _restartAutoPlay() {
+    _autoPlay?.cancel();
+    if (widget.items.length <= 1) return;
+    _autoPlay = Timer.periodic(_autoPlayInterval, (_) => _advance());
+  }
+
+  void _advance() {
+    // Skip while the user is dragging, or when this route is covered
+    // (pushed detail screen) — resume on ScrollEnd / return.
+    if (!mounted || _userInteracting) return;
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    if (!_controller.hasClients) return;
+
+    final count = widget.items.length;
+    final current = _controller.page?.round() ?? 0;
+    final next = current + 1;
+    if (next >= count) {
+      // PageView can't animate past the last page — hard-cut back to start.
+      _controller.jumpToPage(0);
+    } else {
+      _controller.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
 
   @override
   void dispose() {
+    _autoPlay?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    formScale = AdaptiveScope.of(context).typeScale;
     if (widget.items.isEmpty) {
       return SizedBox(
         height: widget.height,
@@ -210,66 +241,110 @@ class _CarouselState extends State<_Carousel> {
 
     return SizedBox(
       height: widget.height,
-      child: PageView.builder(
-        controller: _controller,
-        itemCount: widget.items.length,
-        itemBuilder: (context, i) {
-          final item = widget.items[i];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(Dimens.radiusLg),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ServerImage(
-                    url: item.fanartUrl ?? item.coverUrl,
-                    borderRadius: BorderRadius.zero,
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.05),
-                          Colors.black.withValues(alpha: 0.72),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: Dimens.spacingLg,
-                    right: Dimens.spacingLg,
-                    bottom: Dimens.spacingLg,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          item.displayTitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (item.year != null)
-                          Text(
-                            '${item.year}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 13,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _userInteracting = true;
+          } else if (notification is ScrollEndNotification) {
+            _userInteracting = false;
+          }
+          return false;
+        },
+        child: PageView.builder(
+          controller: _controller,
+          itemCount: widget.items.length,
+          itemBuilder: (context, i) {
+            final item = widget.items[i];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
+              child: InkWell(
+                onTap: widget.session == null
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<bool>(
+                            builder: (_) => VideoDetailScreen(
+                              session: widget.session!,
+                              item: item,
                             ),
                           ),
-                      ],
-                    ),
+                        );
+                      },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(Dimens.radiusLg),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ServerImage(
+                        url: item.fanartUrl ?? item.coverUrl,
+                        borderRadius: BorderRadius.zero,
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.05),
+                              Colors.black.withValues(alpha: 0.72),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: Dimens.spacingLg,
+                        right: Dimens.spacingLg,
+                        bottom: Dimens.spacingLg,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              item.displayTitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (item.year != null)
+                              Text(
+                                '${item.year}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            const SizedBox(height: Dimens.spacingXs),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.play_circle_fill_rounded,
+                                  color: AppColors.accent,
+                                  size: 28 * formScale,
+                                ),
+                                const SizedBox(width: Dimens.spacingXs),
+                                Text(
+                                  item.isTv ? '播放剧集' : '播放',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -333,16 +408,17 @@ class _OverviewStats extends StatelessWidget {
 }
 
 class _LibraryRail extends StatelessWidget {
-  const _LibraryRail({required this.group, required this.form});
+  const _LibraryRail({required this.group, required this.form, this.session});
 
   final LibrarySeriesGroup group;
   final DeviceForm form;
+  final Session? session;
 
   @override
   Widget build(BuildContext context) {
     final posterW =
         (form.isTv ? Dimens.posterWidthTv : Dimens.posterWidth) *
-            form.posterScale;
+        form.posterScale;
     final posterH = posterW * 1.5;
 
     return Padding(
@@ -353,18 +429,40 @@ class _LibraryRail extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingLg),
-            child: Row(
-              children: [
-                Text(
-                  group.name,
-                  style: TextStyle(
-                    fontSize: 20 * form.typeScale,
-                    fontWeight: FontWeight.w800,
-                  ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Dimens.radiusSm),
+              onTap: session == null
+                  ? null
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => VideoLibraryScreen(
+                            session: session!,
+                            group: group,
+                          ),
+                        ),
+                      );
+                    },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: Dimens.spacingXs),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      group.name,
+                      style: TextStyle(
+                        fontSize: 20 * form.typeScale,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: Dimens.spacingXs),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20 * form.typeScale,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: Dimens.spacingXs),
-                Icon(Icons.chevron_right_rounded, size: 20 * form.typeScale),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: Dimens.spacingMd),
@@ -372,8 +470,7 @@ class _LibraryRail extends StatelessWidget {
             height: posterH + 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: Dimens.spacingLg),
+              padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingLg),
               itemCount: group.allItems.length,
               separatorBuilder: (_, _) =>
                   const SizedBox(width: Dimens.spacingMd),
@@ -382,7 +479,7 @@ class _LibraryRail extends StatelessWidget {
                 return SizedBox(
                   width: posterW,
                   height: posterH + 40,
-                  child: PosterCard(item: item, form: form),
+                  child: PosterCard(item: item, form: form, session: session),
                 );
               },
             ),
@@ -394,10 +491,11 @@ class _LibraryRail extends StatelessWidget {
 }
 
 class _OverviewGrid extends StatelessWidget {
-  const _OverviewGrid({required this.groups, required this.form});
+  const _OverviewGrid({required this.groups, required this.form, this.session});
 
   final List<LibrarySeriesGroup> groups;
   final DeviceForm form;
+  final Session? session;
 
   @override
   Widget build(BuildContext context) {
@@ -415,165 +513,62 @@ class _OverviewGrid extends StatelessWidget {
       ),
       itemCount: items.length,
       itemBuilder: (context, i) {
-        return PosterCard(item: items[i], form: form);
+        return PosterCard(item: items[i], form: form, session: session);
       },
     );
   }
 }
 
 class PosterCard extends StatelessWidget {
-  const PosterCard({super.key, required this.item, required this.form});
+  const PosterCard({
+    super.key,
+    required this.item,
+    required this.form,
+    this.session,
+  });
 
   final SeriesListDto item;
   final DeviceForm form;
+  final Session? session;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Expanded(
-          child: SizedBox.expand(
-            child: ServerImage(
-              url: item.coverUrl,
-              borderRadius: BorderRadius.circular(Dimens.radiusMd),
+    return InkWell(
+      borderRadius: BorderRadius.circular(Dimens.radiusMd),
+      onTap: session == null
+          ? null
+          : () {
+              Navigator.of(context).push(
+                MaterialPageRoute<bool>(
+                  builder: (_) =>
+                      VideoDetailScreen(session: session!, item: item),
+                ),
+              );
+            },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Expanded(
+            child: SizedBox.expand(
+              child: ServerImage(
+                url: item.coverUrl,
+                borderRadius: BorderRadius.circular(Dimens.radiusMd),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: Dimens.spacingXs),
-        Text(
-          item.displayTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 13 * form.typeScale,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MusicHomeSection extends StatelessWidget {
-  const _MusicHomeSection({
-    required this.albums,
-    required this.artists,
-    required this.form,
-  });
-
-  final List<MusicAlbum> albums;
-  final List<MusicArtist> artists;
-  final DeviceForm form;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '音乐',
-          style: TextStyle(
-            fontSize: 20 * form.typeScale,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: Dimens.spacingLg),
-        if (artists.isNotEmpty) ...[
+          const SizedBox(height: Dimens.spacingXs),
           Text(
-            '歌手',
+            item.displayTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 15 * form.typeScale,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingMd),
-          SizedBox(
-            height: 100,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: artists.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(width: Dimens.spacingLg),
-              itemBuilder: (context, i) {
-                final a = artists[i];
-                return SizedBox(
-                  width: 76,
-                  height: 100,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 64,
-                        height: 64,
-                        child: ServerImage(
-                          url: a.coverUrl,
-                          borderRadius: BorderRadius.circular(40),
-                        ),
-                      ),
-                      const SizedBox(height: Dimens.spacingXs),
-                      Text(
-                        a.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12 * form.typeScale),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingXl),
-        ],
-        if (albums.isNotEmpty) ...[
-          Text(
-            '专辑',
-            style: TextStyle(
-              fontSize: 15 * form.typeScale,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingMd),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.surface(context),
-              borderRadius: BorderRadius.circular(Dimens.radiusLg),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final album in albums.take(12))
-                  ListTile(
-                    dense: !form.isTv,
-                    leading: SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: ServerImage(url: album.coverUrl),
-                    ),
-                    title: Text(
-                      album.title,
-                      style: TextStyle(
-                        fontSize: 14 * form.typeScale,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      [
-                        if (album.artistName != null) album.artistName!,
-                        if (album.year != null) '${album.year}',
-                      ].join(' · '),
-                      style: TextStyle(fontSize: 12 * form.typeScale),
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                  ),
-              ],
+              fontSize: 13 * form.typeScale,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 }

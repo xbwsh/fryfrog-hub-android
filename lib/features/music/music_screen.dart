@@ -55,7 +55,8 @@ class _MusicScreenState extends State<MusicScreen> {
                       constraints: const BoxConstraints(maxWidth: 520),
                       child: GlassSegmentedControl(
                         segments: [
-                          for (final label in _modes) GlassSegment(label: label),
+                          for (final label in _modes)
+                            GlassSegment(label: label),
                         ],
                         selectedIndex: _mode,
                         onSegmentSelected: (i) => setState(() => _mode = i),
@@ -82,20 +83,20 @@ class _MusicScreenState extends State<MusicScreen> {
       case 3:
         return _EmptyMusic(message: '暂无歌单', form: form);
       default:
-        return _SongList(albums: session.albums, form: form);
+        return _SongList(songs: session.songs, form: form);
     }
   }
 }
 
 class _SongList extends StatelessWidget {
-  const _SongList({required this.albums, required this.form});
+  const _SongList({required this.songs, required this.form});
 
-  final List<MusicAlbum> albums;
+  final List<MusicSong> songs;
   final DeviceForm form;
 
   @override
   Widget build(BuildContext context) {
-    if (albums.isEmpty) {
+    if (songs.isEmpty) {
       return _EmptyMusic(message: '暂无歌曲', form: form);
     }
 
@@ -106,31 +107,36 @@ class _SongList extends StatelessWidget {
       ),
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(vertical: Dimens.spacingSm),
-        itemCount: albums.length * 2,
+        itemCount: songs.length,
         separatorBuilder: (_, _) => Divider(
           height: 1,
           indent: 72,
           color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
         ),
         itemBuilder: (context, i) {
-          final album = albums[i ~/ 2];
-          final track = (i ~/ 2) + 1;
+          final song = songs[i];
+          final track = song.trackNumber ?? (i + 1);
           return ListTile(
             dense: !form.isTv,
             leading: SizedBox(
               width: 48 * form.posterScale * 0.75,
               height: 48 * form.posterScale * 0.75,
-              child: ServerImage(url: album.coverUrl),
+              child: ServerImage(url: song.coverPath),
             ),
             title: Text(
-              '$track. ${album.title}',
+              '$track. ${song.title}',
               style: TextStyle(
                 fontSize: 14 * form.typeScale,
                 fontWeight: FontWeight.w600,
               ),
             ),
             subtitle: Text(
-              album.artistName ?? '未知歌手',
+              [
+                if (song.artistName != null && song.artistName!.isNotEmpty)
+                  song.artistName!,
+                if (song.albumName != null && song.albumName!.isNotEmpty)
+                  song.albumName!,
+              ].join(' · '),
               style: TextStyle(fontSize: 12 * form.typeScale),
             ),
             trailing: const Icon(Icons.play_arrow_rounded),
@@ -156,10 +162,10 @@ class _AlbumGrid extends StatelessWidget {
     final cols = form.isTv
         ? 6
         : form.isTabletLandscape
-            ? 5
-            : form.isTabletPortrait
-                ? 4
-                : 3;
+        ? 5
+        : form.isTabletPortrait
+        ? 4
+        : 3;
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -176,7 +182,7 @@ class _AlbumGrid extends StatelessWidget {
           children: [
             Expanded(
               child: ServerImage(
-                url: a.coverUrl,
+                url: a.coverPath,
                 borderRadius: BorderRadius.circular(Dimens.radiusMd),
               ),
             ),
@@ -221,8 +227,8 @@ class _ArtistGrid extends StatelessWidget {
     final cols = form.isTv
         ? 6
         : form.isTablet
-            ? 5
-            : 3;
+        ? 5
+        : 3;
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -238,7 +244,7 @@ class _ArtistGrid extends StatelessWidget {
           children: [
             Expanded(
               child: ServerImage(
-                url: a.coverUrl,
+                url: a.coverPath,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
