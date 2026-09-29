@@ -3,6 +3,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/network/server_connection.dart';
+import '../../core/state/app_prefs.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
@@ -20,16 +21,18 @@ class ProfileScreen extends StatelessWidget {
     final form = AdaptiveScope.of(context);
 
     return ListenableBuilder(
-      listenable: session,
+      // prefs notifies separately from session (theme/privacy toggles).
+      listenable: Listenable.merge([session, session.prefs]),
       builder: (context, _) {
         final user = session.user;
         final connection = session.connection;
 
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: Align(
+        // No inner Scaffold: root Scaffold already provides Material and
+        // the transparent background — nesting one per tab just deepened
+        // the tree.
+        return SafeArea(
+          bottom: false,
+          child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: form.contentMaxWidth),
@@ -38,13 +41,14 @@ class ProfileScreen extends StatelessWidget {
                     form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
                   ),
                   children: [
-                    Text(
-                      '我的',
-                      style: TextStyle(
-                        fontSize: 28 * form.typeScale,
-                        fontWeight: FontWeight.w800,
+                    if (!form.isTabletPortrait)
+                      Text(
+                        '我的',
+                        style: TextStyle(
+                          fontSize: 28 * form.typeScale,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: Dimens.spacingXl),
                     GlassCard(
                       child: ListTile(
@@ -159,11 +163,12 @@ class ProfileScreen extends StatelessWidget {
                                     GlassSegment(label: mode.title),
                                 ],
                                 selectedIndex: ThemeModePref.values.indexOf(
-                                  session.themeMode,
+                                  session.prefs.themeMode,
                                 ),
-                                onSegmentSelected: (i) => session.setThemeMode(
-                                  ThemeModePref.values[i],
-                                ),
+                                onSegmentSelected: (i) =>
+                                    session.prefs.setThemeMode(
+                                      ThemeModePref.values[i],
+                                    ),
                               ),
                             ],
                           ),
@@ -191,8 +196,8 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ),
                               GlassSwitch(
-                                value: session.privacyEnabled,
-                                onChanged: session.setPrivacy,
+                                value: session.prefs.privacyEnabled,
+                                onChanged: session.prefs.setPrivacy,
                               ),
                             ],
                           ),
@@ -223,14 +228,17 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(
-                      height: Dimens.dockHeight + Dimens.spacingXl,
+                    SizedBox(
+                      // Dock + gesture-bar inset: with only dockHeight the
+                      // logout button slid under the tab bar.
+                      height: Dimens.dockHeight +
+                          Dimens.spacingXl +
+                          MediaQuery.paddingOf(context).bottom,
                     ),
                   ],
                 ),
               ),
             ),
-          ),
         );
       },
     );

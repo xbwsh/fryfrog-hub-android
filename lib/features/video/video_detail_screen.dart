@@ -291,11 +291,11 @@ class _DetailView extends StatelessWidget {
               ? '继续播放'
               : '播放');
 
-    return ListView(
-      padding: EdgeInsets.zero,
-      children: [
+    return CustomScrollView(
+      slivers: [
         // ---- Hero ----
-        SizedBox(
+        SliverToBoxAdapter(
+          child: SizedBox(
           height: Dimens.videoHeroHeight * form.posterScale,
           child: Stack(
             fit: StackFit.expand,
@@ -426,12 +426,19 @@ class _DetailView extends StatelessWidget {
               ),
             ],
           ),
+          ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(Dimens.spacingLg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            Dimens.spacingLg,
+            Dimens.spacingLg,
+            Dimens.spacingLg,
+            0,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               if (detail.overview != null && detail.overview!.isNotEmpty) ...[
                 Text(
                   '简介',
@@ -554,58 +561,99 @@ class _DetailView extends StatelessWidget {
                 ),
                 const SizedBox(height: Dimens.spacingSm),
               ],
-              if (detail.seasons.isNotEmpty) ...[
-                Text(
-                  detail.isStandalone
-                      ? '正片'
-                      : '剧集 · ${detail.episodeCount ?? detail.allEpisodes.length}',
-                  style: TextStyle(
-                    fontSize: 16 * form.typeScale,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: Dimens.spacingSm),
-                for (final season in detail.seasons) ...[
-                  if (detail.seasons.length > 1) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: Dimens.spacingSm,
-                        bottom: Dimens.spacingXs,
-                      ),
-                      child: Text(
-                        '第 ${season.seasonNumber} 季',
-                        style: TextStyle(
-                          fontSize: 14 * form.typeScale,
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface(context),
-                      borderRadius: BorderRadius.circular(Dimens.radiusLg),
-                    ),
-                    child: Column(
-                      children: [
-                        for (final e in season.episodes)
-                          _EpisodeTile(
-                            episode: e,
-                            selected: selected?.id == e.id,
-                            form: form,
-                            onTap: () => onSelectEpisode(e),
-                            onLongPress: () => onSelectOnly(e),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-              const SizedBox(height: Dimens.spacingXxl),
             ],
           ),
         ),
+        ),
+        if (detail.seasons.isNotEmpty) ...[
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              Dimens.spacingLg,
+              0,
+              Dimens.spacingLg,
+              0,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    detail.isStandalone
+                        ? '正片'
+                        : '剧集 · ${detail.episodeCount ?? detail.allEpisodes.length}',
+                    style: TextStyle(
+                      fontSize: 16 * form.typeScale,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: Dimens.spacingSm),
+                ],
+              ),
+            ),
+          ),
+          for (final season in detail.seasons) ...[
+            if (detail.seasons.length > 1)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  Dimens.spacingLg,
+                  Dimens.spacingSm,
+                  Dimens.spacingLg,
+                  Dimens.spacingXs,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    '第 ${season.seasonNumber} 季',
+                    style: TextStyle(
+                      fontSize: 14 * form.typeScale,
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Dimens.spacingLg,
+              ),
+              sliver: SliverList.builder(
+                itemCount: season.episodes.length,
+                itemBuilder: (context, i) {
+                  final e = season.episodes[i];
+                  // Clip to the same radius as the surface fill — otherwise
+                  // the selected/ink tint paints square corners over the
+                  // rounded card (very visible in dark mode).
+                  final radius = BorderRadius.vertical(
+                    top: i == 0
+                        ? Radius.circular(Dimens.radiusLg)
+                        : Radius.zero,
+                    bottom: i == season.episodes.length - 1
+                        ? Radius.circular(Dimens.radiusLg)
+                        : Radius.zero,
+                  );
+                  return ClipRRect(
+                    key: ValueKey(e.id),
+                    borderRadius: radius,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface(context),
+                        borderRadius: radius,
+                      ),
+                      child: _EpisodeTile(
+                        episode: e,
+                        selected: selected?.id == e.id,
+                        form: form,
+                        onTap: () => onSelectEpisode(e),
+                        onLongPress: () => onSelectOnly(e),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+        const SliverToBoxAdapter(child: SizedBox(height: Dimens.spacingXxl)),
+        const SliverToBoxAdapter(child: SizedBox(height: Dimens.spacingLg)),
       ],
     );
   }

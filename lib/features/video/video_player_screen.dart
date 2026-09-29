@@ -45,6 +45,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _muted = false;
   bool _exiting = false;
   bool _saving = false;
+  bool _markedWatched = false;
 
   double _lastProgressSave = 0;
   int _lastUiMs = -1000;
@@ -207,7 +208,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       await widget.session.api
           ?.saveWatchProgress(_video.id, position: pos, duration: dur)
           .timeout(const Duration(seconds: 3));
-      if (dur > 0 && pos / dur >= 0.9) {
+      if (dur > 0 && pos / dur >= 0.9 && !_markedWatched) {
+        // One-shot: without this, every 5s save past 90% doubles up with
+        // a setWatched request.
+        _markedWatched = true;
         await widget.session.api
             ?.setWatched(_video.id, completed: true)
             .timeout(const Duration(seconds: 3));

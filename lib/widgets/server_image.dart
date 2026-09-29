@@ -44,18 +44,34 @@ class ServerImage extends StatelessWidget {
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 
+    // Decode at display size, not source size: covers/fanart from media
+    // servers are often 1080p+, and every grid tile decoding full-size is
+    // the app's biggest memory cost. Unbounded constraints (rare) fall
+    // back to a screen-width cap.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
     return ClipRRect(
       borderRadius: radius,
-      child: CachedNetworkImage(
-        imageUrl: resolved,
-        fit: fit,
-        width: double.infinity,
-        height: double.infinity,
-        httpHeaders: headers,
-        placeholder: (_, _) => placeholder,
-        errorWidget: (_, _, _) => placeholder,
-        errorListener: (e) {
-          debugPrint('ServerImage failed: $resolved — $e');
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final logicalWidth = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : screenWidth;
+          final pixels = (logicalWidth * dpr).round();
+          return CachedNetworkImage(
+            imageUrl: resolved,
+            fit: fit,
+            width: double.infinity,
+            height: double.infinity,
+            httpHeaders: headers,
+            memCacheWidth: pixels > 0 ? pixels : null,
+            placeholder: (_, _) => placeholder,
+            errorWidget: (_, _, _) => placeholder,
+            errorListener: (e) {
+              debugPrint('ServerImage failed: $resolved — $e');
+            },
+          );
         },
       ),
     );

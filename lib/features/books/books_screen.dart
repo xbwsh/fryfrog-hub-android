@@ -39,25 +39,34 @@ class _BooksScreenState extends State<BooksScreen> {
       builder: (context, _) {
         final kind = _kinds[_section];
         final books = session.booksOf(kind);
+        final pad = form.isTv ? Dimens.spacingXxl : Dimens.spacingLg;
+        // Reserve room for the bottom dock so the last grid row is not
+        // hidden behind the tab bar.
+        final dockClearance = form.isPhone || form.isTabletPortrait
+            ? Dimens.dockHeight + MediaQuery.paddingOf(context).bottom
+            : 0.0;
 
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.all(
-                form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
-              ),
+        // No inner Scaffold — root Scaffold already provides Material.
+        return SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              pad,
+              pad,
+              pad,
+              pad + dockClearance,
+            ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    '书架',
-                    style: TextStyle(
-                      fontSize: 28 * form.typeScale,
-                      fontWeight: FontWeight.w800,
+                  if (!form.isTabletPortrait)
+                    Text(
+                      '书架',
+                      style: TextStyle(
+                        fontSize: 28 * form.typeScale,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: Dimens.spacingLg),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -88,7 +97,6 @@ class _BooksScreenState extends State<BooksScreen> {
                 ],
               ),
             ),
-          ),
         );
       },
     );
@@ -188,6 +196,7 @@ class _BookShelfGrid extends StatelessWidget {
                 : BoxFit.cover;
 
             return InkWell(
+              key: ValueKey(book.id),
               borderRadius: BorderRadius.circular(Dimens.radiusMd),
               onTap: () async {
                 final changed = await Navigator.of(context).push<bool>(

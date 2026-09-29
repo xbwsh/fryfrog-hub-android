@@ -28,7 +28,9 @@ class _MainShellState extends State<MainShell> {
 
   static const _titles = ['视频', '书架', '音乐', '我的'];
 
-  List<Widget> get _pages => [
+  // Pages are long-lived inside the IndexedStack below — keep instances
+  // stable so switching tabs does not recreate State.
+  late final List<Widget> _pages = [
     HomeScreen(session: widget.session),
     BooksScreen(session: widget.session),
     MusicScreen(session: widget.session),
@@ -38,35 +40,38 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
-    final pages = _pages;
-    final current = pages[_index];
+
+    // IndexedStack keeps inactive tabs mounted: switching keeps scroll
+    // position, avoids re-decoding images and stops the home carousel
+    // timer from restarting on every return.
+    final body = IndexedStack(index: _index, children: _pages);
 
     final content = switch (form) {
       DeviceForm.phone => _PhoneShell(
         form: form,
         index: _index,
         onIndexChanged: (i) => setState(() => _index = i),
-        body: current,
+        body: body,
       ),
       DeviceForm.tabletPortrait => _TabletPortraitShell(
         form: form,
         index: _index,
         onIndexChanged: (i) => setState(() => _index = i),
         title: _titles[_index],
-        body: current,
+        body: body,
       ),
       DeviceForm.tabletLandscape => _SideRailShell(
         form: form,
         index: _index,
         onIndexChanged: (i) => setState(() => _index = i),
-        body: current,
+        body: body,
         showLabels: true,
       ),
       DeviceForm.tv => _SideRailShell(
         form: form,
         index: _index,
         onIndexChanged: (i) => setState(() => _index = i),
-        body: current,
+        body: body,
         showLabels: true,
         wide: true,
       ),
@@ -92,16 +97,15 @@ class _PhoneShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassScaffold(
-      // GlassScaffold's scroll-edge fade holds a static background capture
-      // that only re-captures on route/size changes — remount on theme
-      // switch or the top/bottom fades keep the old theme's colour.
-      key: ValueKey('glass-scaffold-${Theme.maybeBrightnessOf(context)}'),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
       // none: avoid SystemUiOverlayStyle.light/dark presets that force an
       // opaque navigation bar behind the gesture pill. Overlay is set in app.dart.
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
+      // blur = live ProgressiveBlur, follows theme changes; the default
+      // soft style paints a static background capture that goes stale.
+      edgeStyle: GlassScrollEdgeStyle.blur,
       body: Stack(
         children: [
           Positioned.fill(child: body),
@@ -156,11 +160,15 @@ class _TabletPortraitShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassScaffold(
-      key: ValueKey('glass-scaffold-${Theme.maybeBrightnessOf(context)}'),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
+      edgeStyle: GlassScrollEdgeStyle.blur,
+      // Default +20 extends the blur 20px past the app bar onto page
+      // content (carousel, segmented controls) — retract it so the fade
+      // stays inside the bar area.
+      topEdgeFadeExtent: -Dimens.spacingLg,
       appBar: GlassAppBar(
         title: Text(title, style: TextStyle(fontSize: 17 * form.typeScale)),
         actions: [
@@ -263,6 +271,7 @@ class _SideRailShellState extends State<_SideRailShell> {
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
+      edgeStyle: GlassScrollEdgeStyle.blur,
       // Content draws under the gesture bar; only the nav card keeps SafeArea.
       body: Row(
         children: [

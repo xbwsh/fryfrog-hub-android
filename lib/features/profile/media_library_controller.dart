@@ -29,6 +29,19 @@ class MediaLibraryController extends ChangeNotifier {
   Timer? _poll;
   Timer? _hideDone;
 
+  /// Consecutive 1-empty responses in scan-all mode; guards against the
+  /// server never registering the scan (otherwise we poll 1 req/s forever).
+  int _emptyTicks = 0;
+  bool _disposed = false;
+
+  /// No-op after dispose: async ticks/CRUD can resume post-dispose and
+  /// notifyListeners() would otherwise assert in debug.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   static const Map<String, String> _stageLabels = {
     'scan': '扫描中',
     'scrape': '刮削中',
@@ -144,6 +157,7 @@ class MediaLibraryController extends ChangeNotifier {
     scanStage = stage;
     scanCurrentItem = null;
     scanPercent = 0;
+    _emptyTicks = 0;
     notifyListeners();
     _poll = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _tick();
@@ -155,7 +169,17 @@ class MediaLibraryController extends ChangeNotifier {
       final id = scanningId;
       if (id == null) {
         final list = await gateway.fetchScanProgress();
-        if (list.isEmpty) return;
+        if (list.isEmpty) {
+          // Progress not registered yet is normal for a few seconds;
+          // give up after 15 so a lost scan cannot poll forever.
+          if (++_emptyTicks >= 15) {
+            scanStage = '扫描状态获取超时';
+            _finishScan();
+            notifyListeners();
+          }
+          return;
+        }
+        _emptyTicks = 0;
         var total = 0;
         var done = 0;
         final items = <String>{};
@@ -203,6 +227,7 @@ class MediaLibraryController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _poll?.cancel();
     _hideDone?.cancel();
     super.dispose();

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/adaptive/device_form.dart';
 import '../core/network/server_connection.dart';
+import '../core/state/app_prefs.dart';
 import '../core/state/session.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/server_image.dart';
@@ -17,18 +18,25 @@ class FryfrogHubApp extends StatefulWidget {
 
 class _FryfrogHubAppState extends State<FryfrogHubApp> {
   late final ServerConnection _connection;
+  late final AppPrefs _prefs;
   late final Session _session;
+
+  /// Last style pushed through the platform channel — preference notifies
+  /// are rare now, but theme flips still shouldn't hit the channel twice.
+  Brightness? _lastIconBrightness;
 
   @override
   void initState() {
     super.initState();
     _connection = ServerConnection();
-    _session = Session(_connection);
+    _prefs = AppPrefs()..load();
+    _session = Session(_connection, _prefs);
   }
 
   @override
   void dispose() {
     _session.dispose();
+    _prefs.dispose();
     _connection.dispose();
     super.dispose();
   }
@@ -36,9 +44,11 @@ class _FryfrogHubAppState extends State<FryfrogHubApp> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _session,
+      // Only preference changes should rebuild MaterialApp — Session's
+      // catalog/auth notifies must not re-mount the whole tree above.
+      listenable: _prefs,
       builder: (context, _) {
-        final themeMode = switch (_session.themeMode) {
+        final themeMode = switch (_prefs.themeMode) {
           ThemeModePref.system => ThemeMode.system,
           ThemeModePref.light => ThemeMode.light,
           ThemeModePref.dark => ThemeMode.dark,
@@ -59,16 +69,19 @@ class _FryfrogHubAppState extends State<FryfrogHubApp> {
         final iconBrightness = effectiveBrightness == Brightness.dark
             ? Brightness.light
             : Brightness.dark;
-        SystemChrome.setSystemUIOverlayStyle(
-          SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            systemNavigationBarColor: Colors.transparent,
-            systemNavigationBarDividerColor: Colors.transparent,
-            systemNavigationBarContrastEnforced: false,
-            statusBarIconBrightness: iconBrightness,
-            systemNavigationBarIconBrightness: iconBrightness,
-          ),
-        );
+        if (iconBrightness != _lastIconBrightness) {
+          _lastIconBrightness = iconBrightness;
+          SystemChrome.setSystemUIOverlayStyle(
+            SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: Colors.transparent,
+              systemNavigationBarDividerColor: Colors.transparent,
+              systemNavigationBarContrastEnforced: false,
+              statusBarIconBrightness: iconBrightness,
+              systemNavigationBarIconBrightness: iconBrightness,
+            ),
+          );
+        }
 
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle(

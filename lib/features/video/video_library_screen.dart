@@ -110,6 +110,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                   ),
                   itemCount: items.length,
                   itemBuilder: (context, i) => _LibraryPosterCard(
+                    key: ValueKey(items[i].id),
                     item: items[i],
                     portrait: _portrait,
                     form: form,
@@ -124,6 +125,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
 
 class _LibraryPosterCard extends StatelessWidget {
   const _LibraryPosterCard({
+    super.key,
     required this.item,
     required this.portrait,
     required this.form,

@@ -153,8 +153,14 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
       final url = _resolve(urls[i]);
       if (url.isEmpty) continue;
       try {
+        // Same provider as the rendered page — precacheImage with a plain
+        // NetworkImage would warm a different cache and download twice.
         await precacheImage(
-          NetworkImage(url, headers: _headers),
+          CachedNetworkImageProvider(
+            url,
+            headers: _headers,
+            cacheKey: _stablePageCacheKey(url),
+          ),
           context,
           onError: (_, _) {},
         );
@@ -529,6 +535,14 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
   }
 }
 
+/// Signed page URLs rotate their query string (token/expiry), which would
+/// make every refresh a cache miss and pile duplicate entries on disk.
+/// Key the cache on the path only — it uniquely identifies the page.
+String _stablePageCacheKey(String url) {
+  final q = url.indexOf('?');
+  return q == -1 ? url : url.substring(0, q);
+}
+
 /// Fail-fast stub when Session has no ApiClient.
 class _NullComicGateway implements ComicGateway {
   @override
@@ -566,6 +580,7 @@ class _ReaderPage extends StatelessWidget {
       fit: fit,
       width: double.infinity,
       memCacheWidth: fit == BoxFit.fitWidth ? 1600 : null,
+      cacheKey: _stablePageCacheKey(url),
       placeholder: (_, _) => const _PagePlaceholder(),
       errorWidget: (_, _, _) => const _PageError(),
     );

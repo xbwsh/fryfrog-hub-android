@@ -32,11 +32,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: session.isLoadingCatalog && session.videoGroups.isEmpty
+        // No inner Scaffold — root Scaffold already provides Material.
+        return SafeArea(
+          bottom: false,
+          child: session.isLoadingCatalog && session.videoGroups.isEmpty
                 ? const Center(child: CircularProgressIndicator.adaptive())
                 : session.catalogError != null &&
                       session.videoGroups.isEmpty &&
@@ -77,7 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 : ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      if (form.prefersTopTabs || form.isTv)
+                      // Tablet portrait shows the small title in GlassAppBar
+                      // instead; phone has neither, landscape/TV keep the big one.
+                      if (form.isTv)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
                             Dimens.spacingLg,
@@ -104,6 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: _OverviewStats(
                           groups: session.videoGroups,
                           form: form,
+                          version: session.catalogVersion,
+                          overview: _overview,
+                          onToggle: () =>
+                              setState(() => _overview = !_overview),
                         ),
                       ),
                       if (!_overview)
@@ -117,28 +122,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: _OverviewGrid(
                             groups: session.videoGroups,
                             form: form,
+                            version: session.catalogVersion,
                             session: session,
                           ),
                         ),
-                      const SizedBox(
-                        height: Dimens.dockHeight + Dimens.spacingXxl,
+                      SizedBox(
+                        height: Dimens.dockHeight +
+                            Dimens.spacingXxl +
+                            MediaQuery.paddingOf(context).bottom,
                       ),
                     ],
                   ),
-          ),
-          floatingActionButton: form.isPhone
-              ? FloatingActionButton.small(
-                  heroTag: 'home-mode',
-                  backgroundColor: AppColors.accent,
-                  onPressed: () => setState(() => _overview = !_overview),
-                  child: Icon(
-                    _overview
-                        ? Icons.view_agenda_rounded
-                        : Icons.grid_view_rounded,
-                    color: Colors.white,
-                  ),
-                )
-              : null,
         );
       },
     );
@@ -257,6 +251,7 @@ class _CarouselState extends State<_Carousel> {
           itemBuilder: (context, i) {
             final item = widget.items[i];
             return Padding(
+              key: ValueKey(item.id),
               padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
               child: InkWell(
                 onTap: widget.session == null
@@ -350,29 +345,56 @@ class _CarouselState extends State<_Carousel> {
   }
 }
 
-class _OverviewStats extends StatelessWidget {
-  const _OverviewStats({required this.groups, required this.form});
+class _OverviewStats extends StatefulWidget {
+  const _OverviewStats({
+    required this.groups,
+    required this.form,
+    required this.version,
+    required this.overview,
+    required this.onToggle,
+  });
 
   final List<LibrarySeriesGroup> groups;
   final DeviceForm form;
+  final int version;
+  final bool overview;
+  final VoidCallback onToggle;
 
   @override
-  Widget build(BuildContext context) {
-    final items = groups.expand((g) => g.allItems).toList();
+  State<_OverviewStats> createState() => _OverviewStatsState();
+}
+
+class _OverviewStatsState extends State<_OverviewStats> {
+  // Counts only change when the catalog itself is replaced — recompute on
+  // version bumps instead of expanding + filtering every item on each
+  // Session notify (which rebuilds this widget constantly).
+  int _version = -1;
+  List<(String, int)> _cells = const [];
+
+  List<(String, int)> _compute() {
+    final items = widget.groups.expand((g) => g.allItems).toList();
     final movies = items.where((e) => e.isStandalone && !e.isTv).length;
     final shows = items.where((e) => e.isTv).length;
     final other = items.length - movies - shows;
-
-    final cells = [
+    return [
       ('全部', items.length),
       ('电影', movies),
       ('电视剧', shows),
       ('其他', other),
     ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_version != widget.version) {
+      _version = widget.version;
+      _cells = _compute();
+    }
+    final form = widget.form;
 
     return Row(
       children: [
-        for (final (label, count) in cells)
+        for (final (label, count) in _cells)
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: Dimens.spacingXs),
@@ -402,6 +424,34 @@ class _OverviewStats extends StatelessWidget {
               ),
             ),
           ),
+        // Rail/overview toggle lives here instead of a bottom-right FAB —
+        // the FAB sat under the mini player / dock and was unreachable on
+        // tablets, which have no FAB at all.
+        const SizedBox(width: Dimens.spacingSm),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: Dimens.spacingMd),
+          child: Material(
+            color: AppColors.surface(context),
+            borderRadius: BorderRadius.circular(Dimens.radiusLg),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Dimens.radiusLg),
+              onTap: widget.onToggle,
+              child: Tooltip(
+                message: widget.overview ? '分库显示' : '总览显示',
+                child: SizedBox(
+                  width: 48,
+                  height: 46,
+                  child: Icon(
+                    widget.overview
+                        ? Icons.view_agenda_rounded
+                        : Icons.grid_view_rounded,
+                    size: 22 * form.typeScale,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -477,6 +527,7 @@ class _LibraryRail extends StatelessWidget {
               itemBuilder: (context, i) {
                 final item = group.allItems[i];
                 return SizedBox(
+                  key: ValueKey(item.id),
                   width: posterW,
                   height: posterH + 40,
                   child: PosterCard(item: item, form: form, session: session),
@@ -490,30 +541,55 @@ class _LibraryRail extends StatelessWidget {
   }
 }
 
-class _OverviewGrid extends StatelessWidget {
-  const _OverviewGrid({required this.groups, required this.form, this.session});
+class _OverviewGrid extends StatefulWidget {
+  const _OverviewGrid({
+    required this.groups,
+    required this.form,
+    required this.version,
+    this.session,
+  });
 
   final List<LibrarySeriesGroup> groups;
   final DeviceForm form;
+  final int version;
   final Session? session;
 
   @override
+  State<_OverviewGrid> createState() => _OverviewGridState();
+}
+
+class _OverviewGridState extends State<_OverviewGrid> {
+  // The expand() below allocates a full list — recompute only when the
+  // catalog itself is replaced, not on every Session notify.
+  int _version = -1;
+  List<SeriesListDto> _items = const [];
+
+  @override
   Widget build(BuildContext context) {
-    final items = groups.expand((g) => g.allItems).toList();
-    final cols = form.overviewCrossAxisCount;
+    if (_version != widget.version) {
+      _version = widget.version;
+      _items = widget.groups.expand((g) => g.allItems).toList();
+    }
+    final items = _items;
+    final form = widget.form;
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
+        crossAxisCount: form.overviewCrossAxisCount,
         mainAxisSpacing: Dimens.spacingMd,
         crossAxisSpacing: Dimens.spacingMd,
         childAspectRatio: 0.62,
       ),
       itemCount: items.length,
       itemBuilder: (context, i) {
-        return PosterCard(item: items[i], form: form, session: session);
+        return PosterCard(
+          key: ValueKey(items[i].id),
+          item: items[i],
+          form: form,
+          session: widget.session,
+        );
       },
     );
   }

@@ -1,8 +1,14 @@
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:http/http.dart' as http;
 
 import '../models/media_models.dart';
+
+/// Bodies above this size decode on a background isolate — grouped-series
+/// and music-home payloads are hundreds of KB and jsonDecode on the UI
+/// thread shows up as dropped frames at startup.
+const int _kBigJsonBytes = 64 * 1024;
 
 /// REST client for fryfrog-hub-api. Unwraps `{success,message,data}`.
 class ApiClient {
@@ -53,6 +59,9 @@ class ApiClient {
     try {
       map = res.body.isEmpty
           ? <String, dynamic>{}
+          : res.body.length > _kBigJsonBytes
+          ? (await Isolate.run(() => jsonDecode(res.body))
+                as Map<String, dynamic>)
           : jsonDecode(res.body) as Map<String, dynamic>;
     } catch (_) {
       throw ApiException(res.statusCode, '响应格式错误 (${res.statusCode})');

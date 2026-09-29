@@ -30,24 +30,33 @@ class _MusicScreenState extends State<MusicScreen> {
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.all(
-                form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
-              ),
+        final pad = form.isTv ? Dimens.spacingXxl : Dimens.spacingLg;
+        // Keep the last row of grids/lists clear of the bottom dock.
+        final dockClearance = form.isPhone || form.isTabletPortrait
+            ? Dimens.dockHeight + MediaQuery.paddingOf(context).bottom
+            : 0.0;
+
+        // No inner Scaffold — root Scaffold already provides Material.
+        return SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              pad,
+              pad,
+              pad,
+              pad + dockClearance,
+            ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    '音乐',
-                    style: TextStyle(
-                      fontSize: 28 * form.typeScale,
-                      fontWeight: FontWeight.w800,
+                  if (!form.isTabletPortrait)
+                    Text(
+                      '音乐',
+                      style: TextStyle(
+                        fontSize: 28 * form.typeScale,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: Dimens.spacingLg),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -68,7 +77,6 @@ class _MusicScreenState extends State<MusicScreen> {
                 ],
               ),
             ),
-          ),
         );
       },
     );
@@ -117,6 +125,7 @@ class _SongList extends StatelessWidget {
           final song = songs[i];
           final track = song.trackNumber ?? (i + 1);
           return ListTile(
+            key: ValueKey(song.id),
             dense: !form.isTv,
             leading: SizedBox(
               width: 48 * form.posterScale * 0.75,
@@ -178,6 +187,7 @@ class _AlbumGrid extends StatelessWidget {
       itemBuilder: (context, i) {
         final a = albums[i];
         return Column(
+          key: ValueKey(a.id),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
@@ -241,6 +251,7 @@ class _ArtistGrid extends StatelessWidget {
       itemBuilder: (context, i) {
         final a = artists[i];
         return Column(
+          key: ValueKey(a.id),
           children: [
             Expanded(
               child: ServerImage(

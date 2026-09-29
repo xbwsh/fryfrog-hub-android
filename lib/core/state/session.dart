@@ -4,12 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/media_models.dart';
 import '../network/api_client.dart';
 import '../network/server_connection.dart';
+import 'app_prefs.dart';
 
 /// Session: auth + real catalog from fryfrog-hub-api.
+///
+/// [prefs] rides along for UI access (profile screen); preference changes
+/// notify [AppPrefs] only — never this notifier — so catalog updates don't
+/// rebuild MaterialApp and vice versa.
 class Session extends ChangeNotifier {
-  Session(this.connection);
+  Session(this.connection, this.prefs);
 
   final ServerConnection connection;
+  final AppPrefs prefs;
 
   bool isLoading = false;
   bool isAuthenticated = false;
@@ -19,9 +25,6 @@ class Session extends ChangeNotifier {
   UserProfile? user;
   String? token;
   ApiClient? api;
-
-  bool privacyEnabled = false;
-  ThemeModePref themeMode = ThemeModePref.system;
 
   final List<LibrarySeriesGroup> videoGroups = [];
   final List<SeriesListDto> carouselItems = [];
@@ -33,12 +36,24 @@ class Session extends ChangeNotifier {
     BookShelfKind.audiobook: [],
   };
 
+  /// Bumped whenever catalog data is replaced; lets widgets memoize
+  /// derived stats without recomputing on every unrelated notify.
+  int catalogVersion = 0;
+
   List<BookItem> booksOf(BookShelfKind kind) => books[kind] ?? const [];
 
-  List<MusicAlbum> get albums =>
-      musicGroups.expand((g) => g.albums).toList(growable: false);
-  List<MusicArtist> get artists =>
-      musicGroups.expand((g) => g.artists).toList(growable: false);
+  List<MusicAlbum> _albums = const [];
+  List<MusicArtist> _artists = const [];
+
+  /// Cached expansions of [musicGroups] — rebuilt on load/logout instead
+  /// of on every build (the old getters allocated two lists per notify).
+  List<MusicAlbum> get albums => _albums;
+  List<MusicArtist> get artists => _artists;
+
+  void _rebuildMusicCaches() {
+    _albums = musicGroups.expand((g) => g.albums).toList(growable: false);
+    _artists = musicGroups.expand((g) => g.artists).toList(growable: false);
+  }
 
   static const _kToken = 'auth.token';
   static const _kPublic = 'server.publicHost';
@@ -163,7 +178,24 @@ class Session extends ChangeNotifier {
     return false;
   }
 
-  Future<void> loadCatalog() async {
+  Future<void>? _loadCatalogInflight;
+
+  Future<void> loadCatalog() {
+    // Retry button, scan completion etc. can race — share one in-flight
+    // request instead of double-fetching and fighting over the lists.
+    final inflight = _loadCatalogInflight;
+    if (inflight != null) return inflight;
+    late Future<void> future;
+    future = _loadCatalogBody().whenComplete(() {
+      if (identical(_loadCatalogInflight, future)) {
+        _loadCatalogInflight = null;
+      }
+    });
+    _loadCatalogInflight = future;
+    return future;
+  }
+
+  Future<void> _loadCatalogBody() async {
     final client = api;
     if (client == null) return;
     isLoadingCatalog = true;
@@ -186,12 +218,14 @@ class Session extends ChangeNotifier {
       songs
         ..clear()
         ..addAll((results[2] as PageResponse<MusicSong>).content);
+      _rebuildMusicCaches();
 
       // Books are independent — one kind failing must not block video/music.
       await Future.wait([
         for (final kind in BookShelfKind.values) _loadBooksSafe(client, kind),
       ]);
 
+      catalogVersion++;
       _rollCarousel();
     } catch (e) {
       catalogError = '$e';
@@ -259,25 +293,8 @@ class Session extends ChangeNotifier {
     for (final list in books.values) {
       list.clear();
     }
+    _rebuildMusicCaches();
+    catalogVersion++;
     notifyListeners();
   }
-
-  void setPrivacy(bool value) {
-    privacyEnabled = value;
-    notifyListeners();
-  }
-
-  void setThemeMode(ThemeModePref mode) {
-    themeMode = mode;
-    notifyListeners();
-  }
-}
-
-enum ThemeModePref {
-  system('跟随系统'),
-  light('浅色'),
-  dark('深色');
-
-  const ThemeModePref(this.title);
-  final String title;
 }
