@@ -11,10 +11,10 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
-        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        // Official sources only — project-level mirrors break CI (GitHub
+        // runners get 502 from maven.aliyun.com and Gradle fails hard on
+        // 5xx without falling through). Local China mirrors belong in
+        // ~/.gradle/init.d/, not in the repo.
         google()
         mavenCentral()
         gradlePluginPortal()
