@@ -14,10 +14,10 @@ jobs:
     permissions:
       contents: write
     env:
-      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-      RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,19 +35,25 @@ jobs:
 
       - name: Setup release keystore
         run: |
-          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+          if [ -z "$KEYSTORE_BASE64" ]; then
             if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-              echo "::error::Tag builds need RELEASE_KEYSTORE_* repository secrets to sign the release APK"
+              echo "::error::Tag builds need the KEYSTORE_* repository secrets to sign the release APK"
               exit 1
             fi
-            echo "No release keystore secrets — falling back to debug signing."
+            echo "No keystore secrets — falling back to debug signing."
             exit 0
           fi
-          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          for v in "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            if [ -z "$v" ]; then
+              echo "::error::KEYSTORE_BASE64 is set, but KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD must all be set too"
+              exit 1
+            fi
+          done
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
           printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
-            "$RELEASE_KEYSTORE_PASSWORD" \
-            "$RELEASE_KEY_PASSWORD" \
-            "$RELEASE_KEY_ALIAS" \
+            "$KEYSTORE_PASSWORD" \
+            "$KEY_PASSWORD" \
+            "$KEY_ALIAS" \
             "release.keystore" > android/key.properties
 
       - name: Resolve version from tag
