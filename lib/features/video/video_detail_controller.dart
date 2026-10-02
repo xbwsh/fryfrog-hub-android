@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/models/media_models.dart';
+import '../../core/network/api_client.dart';
 import '../../core/network/gateways.dart';
 import '../../core/rules/watch_rules.dart';
 
@@ -103,6 +104,230 @@ class VideoDetailController extends ChangeNotifier {
       await refreshQuiet();
     } catch (e) {
       error = '操作失败：$e';
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  // ── Admin actions (TMDB / covers / logo) ─────────────────────────────
+
+  /// video-table id the admin ops act on: current selection, else the first
+  /// episode (for standalone that is the movie itself — never the series id).
+  int? get targetVideoId => selected?.id ?? detail?.firstEpisode?.id;
+
+  void _ensureIdle() {
+    if (busy) throw ApiException(400, '操作进行中，请稍候');
+  }
+
+  int _requireVideoId() {
+    final id = targetVideoId;
+    if (id == null) throw ApiException(400, '无法确定视频条目');
+    return id;
+  }
+
+  SeriesDetail _requireDetail() {
+    final d = detail;
+    if (d == null) throw ApiException(400, '详情尚未加载');
+    return d;
+  }
+
+  Future<List<TmdbSearchItem>> searchTmdb(String q) => gateway.searchTmdb(q);
+
+  /// Bind TMDB then poll the background job until it stops.
+  /// Backend job module: `bind:{videoId}`.
+  Future<void> bindTmdbWithPoll({
+    required int tmdbId,
+    required String mediaType,
+  }) async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      await gateway.bindTmdb(videoId, tmdbId: tmdbId, mediaType: mediaType);
+      await _pollBindJob(videoId);
+      await refreshQuiet();
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Re-fetch TMDB metadata; same async job + `bind:{videoId}` progress.
+  Future<void> refreshMetadataWithPoll() async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      await gateway.refreshTmdbMetadata(videoId);
+      await _pollBindJob(videoId);
+      await refreshQuiet();
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Poll every 1.5s, at most 40 times. Polling is best-effort: a failed
+  /// progress fetch ends the wait instead of failing the whole operation.
+  Future<void> _pollBindJob(int videoId) async {
+    for (var i = 0; i < 40; i++) {
+      ScrapeProgress progress;
+      try {
+        progress = await gateway.fetchScrapeProgress('bind:$videoId');
+      } catch (_) {
+        return;
+      }
+      if (!progress.running) return;
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+    }
+  }
+
+  /// Returns how many bindings were removed.
+  Future<int> unbind() async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      final unbound = await gateway.unbindTmdb(videoId);
+      await refreshQuiet();
+      return unbound;
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// [body] only contains non-null fields the dialog actually edited.
+  Future<void> updateMetadata(Map<String, dynamic> body) async {
+    _ensureIdle();
+    final d = _requireDetail();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      if (d.isStandalone) {
+        await gateway.updateVideoMetadata(_requireVideoId(), body);
+      } else {
+        await gateway.updateSeriesMetadata(d.id, body);
+      }
+      await refreshQuiet();
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Series-only, slow (~minutes) — ApiClient allows 300s for this call.
+  Future<SeasonRefreshResult> refreshSeasonCovers() async {
+    _ensureIdle();
+    final d = _requireDetail();
+    if (d.isStandalone) throw ApiException(400, '仅剧集支持刷新季海报');
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      final result = await gateway.refreshSeasonCovers(d.id);
+      await refreshQuiet();
+      return result;
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Auto-download the best TMDB logo. Returns whether one was downloaded.
+  Future<bool> fillLogo() async {
+    _ensureIdle();
+    final d = _requireDetail();
+    if (d.tmdbId == null) throw ApiException(400, '尚未绑定 TMDB');
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      final ok = d.isStandalone
+          ? await gateway.refreshVideoLogo(_requireVideoId())
+          : await gateway.refreshSeriesLogo(d.id);
+      await refreshQuiet();
+      return ok;
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<List<LogoOption>> fetchLogoOptions() async {
+    _ensureIdle();
+    final d = _requireDetail();
+    if (d.tmdbId == null) throw ApiException(400, '尚未绑定 TMDB');
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      return d.isStandalone
+          ? await gateway.fetchVideoLogoOptions(_requireVideoId())
+          : await gateway.fetchSeriesLogoOptions(d.id);
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<void> pickLogo(String filePath) async {
+    _ensureIdle();
+    final d = _requireDetail();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      if (d.isStandalone) {
+        await gateway.setVideoLogo(_requireVideoId(), filePath: filePath);
+      } else {
+        await gateway.setSeriesLogo(d.id, filePath: filePath);
+      }
+      await refreshQuiet();
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Pull covers from TMDB for the selected video. false = backend said no.
+  Future<bool> downloadCovers() async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      final ok = await gateway.downloadVideoCovers(videoId);
+      await refreshQuiet();
+      return ok;
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<List<FrameCandidate>> generateFrames() async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      return await gateway.generateFrameCandidates(videoId);
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// [type] = poster | fanart.
+  Future<void> selectFrame(int index, {required String type}) async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      await gateway.selectFrame(videoId, index: index, type: type);
+      await refreshQuiet();
+    } finally {
+      busy = false;
       if (!_disposed) notifyListeners();
     }
   }

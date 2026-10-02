@@ -9,6 +9,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import 'video_admin_dialogs.dart';
 import 'video_detail_controller.dart';
 import 'video_player_screen.dart';
 
@@ -105,6 +106,181 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     }
   }
 
+  // ── Admin menu actions (TMDB / covers / logo) ────────────────────────
+
+  bool get _isAdmin => widget.session.user?.isAdmin ?? false;
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Progress dialog → [work] → SnackBar. Returns whether it succeeded.
+  Future<bool> _runProgress(
+    String label,
+    Future<void> Function() work, {
+    String? okMessage,
+    required String failPrefix,
+  }) async {
+    try {
+      await runWithProgress(context, label, work);
+      if (okMessage != null) _snack(okMessage);
+      return true;
+    } catch (e) {
+      _snack('$failPrefix：$e');
+      return false;
+    }
+  }
+
+  Future<void> _bindTmdb() async {
+    final item = await showDialog<TmdbSearchItem>(
+      context: context,
+      builder: (_) => TmdbBindDialog(onSearch: _c.searchTmdb),
+    );
+    if (item == null) return;
+    if (!mounted) return;
+    await _runProgress(
+      '正在绑定并同步元数据…',
+      () => _c.bindTmdbWithPoll(tmdbId: item.id, mediaType: item.mediaType),
+      okMessage: '已绑定 TMDB',
+      failPrefix: '绑定 TMDB 失败',
+    );
+  }
+
+  Future<void> _editMetadata() async {
+    final detail = _c.detail;
+    if (detail == null) return;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => EditMetadataDialog(
+        detail: detail,
+        selected: _c.selected,
+        onSave: _c.updateMetadata,
+      ),
+    );
+    if (saved == true) _snack('元数据已保存');
+  }
+
+  Future<void> _refreshSeasonCovers() async {
+    try {
+      final result = await runWithProgress(
+        context,
+        '正在刷新季海报（可能需要几分钟）…',
+        _c.refreshSeasonCovers,
+      );
+      _snack('季海报刷新完成：${result.summary}');
+    } catch (e) {
+      _snack('刷新季海报失败：$e');
+    }
+  }
+
+  Future<void> _fillLogo() async {
+    try {
+      final ok = await _c.fillLogo();
+      _snack(ok ? 'Logo 补全完成' : 'TMDB 未找到可用 Logo');
+    } catch (e) {
+      _snack('补全 Logo 失败：$e');
+    }
+  }
+
+  Future<void> _pickLogo() async {
+    List<LogoOption>? options;
+    final ok = await _runProgress(
+      '正在加载 Logo 候选…',
+      () async {
+        options = await _c.fetchLogoOptions();
+      },
+      failPrefix: '加载 Logo 失败',
+    );
+    if (!ok || options == null) return;
+    if (!mounted) return;
+    final picked = options!;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => LogoPickerDialog(options: picked, onSet: _c.pickLogo),
+    );
+    if (saved == true) _snack('已设置 Logo');
+  }
+
+  Future<void> _unbindTmdb() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('解绑 TMDB'),
+        content: const Text('将清除 TMDB 绑定，保留已抓取的现有信息。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('解绑'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    await _runProgress(
+      '正在解绑…',
+      () => _c.unbind(),
+      okMessage: '已解绑 TMDB',
+      failPrefix: '解绑 TMDB 失败',
+    );
+  }
+
+  Future<void> _onAdminAction(String action) async {
+    switch (action) {
+      case 'bind':
+        await _bindTmdb();
+      case 'refreshMeta':
+        await _runProgress(
+          '正在刷新元数据…',
+          _c.refreshMetadataWithPoll,
+          okMessage: '元数据刷新完成',
+          failPrefix: '刷新元数据失败',
+        );
+      case 'covers':
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => CoverPickerSheet(
+            onDownloadCovers: _c.downloadCovers,
+            onGenerateFrames: _c.generateFrames,
+            onSelectFrame: _c.selectFrame,
+          ),
+        );
+      case 'editMeta':
+        await _editMetadata();
+      case 'seasonCovers':
+        await _refreshSeasonCovers();
+      case 'logoFill':
+        await _fillLogo();
+      case 'logoPick':
+        await _pickLogo();
+      case 'unbind':
+        await _unbindTmdb();
+    }
+  }
+
+  PopupMenuItem<String> _adminItem(String value, IconData icon, String label) {
+    return PopupMenuItem(
+      value: value,
+      enabled: !_c.busy,
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: Dimens.spacingMd),
+          Text(label, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
@@ -158,6 +334,59 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
               ),
               onPressed: _c.loading ? null : _c.load,
             ),
+            if (_isAdmin && detail != null)
+              PopupMenuButton<String>(
+                tooltip: '管理',
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black54, blurRadius: 8)],
+                ),
+                color: AppColors.surface(context),
+                onSelected: _onAdminAction,
+                itemBuilder: (context) => [
+                  _adminItem('bind', Icons.link_rounded, '搜索并绑定 TMDB'),
+                  if (detail.tmdbId != null)
+                    _adminItem(
+                      'refreshMeta',
+                      Icons.refresh_rounded,
+                      '刷新元数据',
+                    ),
+                  _adminItem('covers', Icons.image_rounded, '设置封面'),
+                  _adminItem('editMeta', Icons.edit_rounded, '编辑元数据'),
+                  if (!detail.isStandalone && detail.tmdbId != null)
+                    _adminItem(
+                      'seasonCovers',
+                      Icons.photo_library_rounded,
+                      '刷新季海报',
+                    ),
+                  if (detail.tmdbId != null) ...[
+                    _adminItem('logoFill', Icons.download_rounded, '补全 Logo'),
+                    _adminItem('logoPick', Icons.title_rounded, '手动设置 Logo'),
+                    PopupMenuItem(
+                      value: 'unbind',
+                      enabled: !_c.busy,
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.link_off_rounded,
+                            size: 18,
+                            color: AppColors.danger,
+                          ),
+                          SizedBox(width: Dimens.spacingMd),
+                          Text(
+                            '解绑 TMDB',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
           ],
         ),
         body: _c.loading
@@ -247,6 +476,80 @@ class _NullVideoGateway implements VideoGateway {
 
   @override
   String streamUrlFor(VideoItem video) => '';
+
+  @override
+  Future<List<TmdbSearchItem>> searchTmdb(String q) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> bindTmdb(
+    int videoId, {
+    required int tmdbId,
+    required String mediaType,
+  }) => throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> refreshTmdbMetadata(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<int> unbindTmdb(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<ScrapeProgress> fetchScrapeProgress(String module) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> updateSeriesMetadata(int id, Map<String, dynamic> body) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> updateVideoMetadata(int id, Map<String, dynamic> body) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<bool> downloadVideoCovers(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> selectFrame(
+    int videoId, {
+    required int index,
+    required String type,
+  }) => throw UnsupportedError('not logged in');
+
+  @override
+  Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<bool> refreshVideoLogo(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<bool> refreshSeriesLogo(int seriesId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<List<LogoOption>> fetchVideoLogoOptions(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<List<LogoOption>> fetchSeriesLogoOptions(int seriesId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> setVideoLogo(int videoId, {required String filePath}) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> setSeriesLogo(int seriesId, {required String filePath}) =>
+      throw UnsupportedError('not logged in');
 }
 
 class _DetailView extends StatelessWidget {

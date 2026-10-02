@@ -34,25 +34,15 @@ class ApiClient {
     String method = 'GET',
     Map<String, dynamic>? body,
     Map<String, String>? query,
+    Duration? timeout,
   }) async {
     final uri = _uri(path, query);
+    final limit = timeout ?? const Duration(seconds: 15);
     final res = switch (method) {
-      'POST' =>
-        await http
-            .post(uri, headers: _headers, body: jsonEncode(body ?? {}))
-            .timeout(const Duration(seconds: 15)),
-      'PUT' =>
-        await http
-            .put(uri, headers: _headers, body: jsonEncode(body ?? {}))
-            .timeout(const Duration(seconds: 15)),
-      'DELETE' =>
-        await http
-            .delete(uri, headers: _headers)
-            .timeout(const Duration(seconds: 15)),
-      _ =>
-        await http
-            .get(uri, headers: _headers)
-            .timeout(const Duration(seconds: 15)),
+      'POST' => await http.post(uri, headers: _headers, body: jsonEncode(body ?? {})).timeout(limit),
+      'PUT' => await http.put(uri, headers: _headers, body: jsonEncode(body ?? {})).timeout(limit),
+      'DELETE' => await http.delete(uri, headers: _headers).timeout(limit),
+      _ => await http.get(uri, headers: _headers).timeout(limit),
     };
 
     Map<String, dynamic> map;
@@ -596,6 +586,188 @@ class ApiClient {
           .map(LibraryDirItem.fromJson)
           .toList(growable: false);
     });
+  }
+
+  // ── Video admin (TMDB / covers / logo) ───────────────────────────────
+
+  /// Backend: `GET /api/v1/video/tmdb/search?q=`.
+  Future<List<TmdbSearchItem>> searchTmdb(String q) async {
+    final json = await _send('/api/v1/video/tmdb/search', query: {'q': q.trim()});
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(TmdbSearchItem.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  /// Async bind job — poll `fetchScrapeProgress('bind:{videoId}')` after this.
+  /// Backend: `POST /api/v1/video/{id}/tmdb/bind`.
+  Future<void> bindTmdb(
+    int videoId, {
+    required int tmdbId,
+    required String mediaType,
+  }) async {
+    await _send(
+      '/api/v1/video/$videoId/tmdb/bind',
+      method: 'POST',
+      body: {'tmdbId': tmdbId, 'mediaType': mediaType},
+    );
+  }
+
+  /// Async refresh job — same `bind:{videoId}` progress module.
+  /// Backend: `POST /api/v1/video/{id}/tmdb/refresh`.
+  Future<void> refreshTmdbMetadata(int videoId) async {
+    await _send('/api/v1/video/$videoId/tmdb/refresh', method: 'POST');
+  }
+
+  /// Backend: `POST /api/v1/video/{id}/tmdb/unbind` → `{tmdbId?, unbound}`.
+  Future<int> unbindTmdb(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/tmdb/unbind', method: 'POST');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return (map?['unbound'] as num?)?.toInt() ?? 0;
+    });
+  }
+
+  /// Backend: `GET /api/v1/video/scrape/progress?module=`.
+  Future<ScrapeProgress> fetchScrapeProgress(String module) async {
+    final json = await _send(
+      '/api/v1/video/scrape/progress',
+      query: {'module': module},
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : ScrapeProgress.fromJson(map);
+    });
+  }
+
+  /// Backend: `PUT /api/v1/video/series/{id}/metadata`. Null fields unchanged.
+  Future<void> updateSeriesMetadata(int id, Map<String, dynamic> body) async {
+    await _send('/api/v1/video/series/$id/metadata', method: 'PUT', body: body);
+  }
+
+  /// Backend: `PUT /api/v1/video/{id}/metadata`. Null fields unchanged.
+  Future<void> updateVideoMetadata(int id, Map<String, dynamic> body) async {
+    await _send('/api/v1/video/$id/metadata', method: 'PUT', body: body);
+  }
+
+  /// Re-download covers from TMDB. `data.success` is a **string**.
+  /// Backend: `POST /api/v1/video/{id}/covers`.
+  Future<bool> downloadVideoCovers(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/covers', method: 'POST');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      final success = map?['success'];
+      if (success is bool) return success;
+      return success?.toString() == 'true';
+    });
+  }
+
+  /// Generate frame screenshot candidates (sync, a few seconds).
+  /// Backend: `POST /api/v1/video/{id}/frames`.
+  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/frames', method: 'POST');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      final list = map?['candidates'] as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(FrameCandidate.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  /// `type` = poster (cover) | fanart (backdrop).
+  /// Backend: `POST /api/v1/video/{id}/frames/select`.
+  Future<void> selectFrame(
+    int videoId, {
+    required int index,
+    required String type,
+  }) async {
+    await _send(
+      '/api/v1/video/$videoId/frames/select',
+      method: 'POST',
+      body: {'index': index, 'type': type},
+    );
+  }
+
+  /// Slow (all seasons) — uses a 300s timeout instead of the default 15s.
+  /// Backend: `POST /api/v1/video/series/{id}/refresh-season-covers`.
+  Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId) async {
+    final json = await _send(
+      '/api/v1/video/series/$seriesId/refresh-season-covers',
+      method: 'POST',
+      timeout: const Duration(seconds: 300),
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : SeasonRefreshResult.fromJson(map);
+    });
+  }
+
+  /// Backend: `POST /api/v1/video/{id}/refresh-logo` → `{downloaded}`.
+  Future<bool> refreshVideoLogo(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/refresh-logo', method: 'POST');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map?['downloaded'] == true;
+    });
+  }
+
+  /// Backend: `POST /api/v1/video/series/{id}/refresh-logo` → `{downloaded}`.
+  Future<bool> refreshSeriesLogo(int seriesId) async {
+    final json = await _send(
+      '/api/v1/video/series/$seriesId/refresh-logo',
+      method: 'POST',
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map?['downloaded'] == true;
+    });
+  }
+
+  /// Backend: `GET /api/v1/video/{id}/logo-options`.
+  Future<List<LogoOption>> fetchVideoLogoOptions(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/logo-options');
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(LogoOption.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  /// Backend: `GET /api/v1/video/series/{id}/logo-options`.
+  Future<List<LogoOption>> fetchSeriesLogoOptions(int seriesId) async {
+    final json = await _send('/api/v1/video/series/$seriesId/logo-options');
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(LogoOption.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  /// Backend: `POST /api/v1/video/{id}/logo` `{filePath}`.
+  Future<void> setVideoLogo(int videoId, {required String filePath}) async {
+    await _send(
+      '/api/v1/video/$videoId/logo',
+      method: 'POST',
+      body: {'filePath': filePath},
+    );
+  }
+
+  /// Backend: `POST /api/v1/video/series/{id}/logo` `{filePath}`.
+  Future<void> setSeriesLogo(int seriesId, {required String filePath}) async {
+    await _send(
+      '/api/v1/video/series/$seriesId/logo',
+      method: 'POST',
+      body: {'filePath': filePath},
+    );
   }
 }
 

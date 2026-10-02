@@ -42,6 +42,77 @@ class ApiVideoGateway implements VideoGateway {
 
   @override
   String streamUrlFor(VideoItem video) => _api.videoStreamUrl(video);
+
+  @override
+  Future<List<TmdbSearchItem>> searchTmdb(String q) => _api.searchTmdb(q);
+
+  @override
+  Future<void> bindTmdb(
+    int videoId, {
+    required int tmdbId,
+    required String mediaType,
+  }) => _api.bindTmdb(videoId, tmdbId: tmdbId, mediaType: mediaType);
+
+  @override
+  Future<void> refreshTmdbMetadata(int videoId) =>
+      _api.refreshTmdbMetadata(videoId);
+
+  @override
+  Future<int> unbindTmdb(int videoId) => _api.unbindTmdb(videoId);
+
+  @override
+  Future<ScrapeProgress> fetchScrapeProgress(String module) =>
+      _api.fetchScrapeProgress(module);
+
+  @override
+  Future<void> updateSeriesMetadata(int id, Map<String, dynamic> body) =>
+      _api.updateSeriesMetadata(id, body);
+
+  @override
+  Future<void> updateVideoMetadata(int id, Map<String, dynamic> body) =>
+      _api.updateVideoMetadata(id, body);
+
+  @override
+  Future<bool> downloadVideoCovers(int videoId) =>
+      _api.downloadVideoCovers(videoId);
+
+  @override
+  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) =>
+      _api.generateFrameCandidates(videoId);
+
+  @override
+  Future<void> selectFrame(
+    int videoId, {
+    required int index,
+    required String type,
+  }) => _api.selectFrame(videoId, index: index, type: type);
+
+  @override
+  Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId) =>
+      _api.refreshSeasonCovers(seriesId);
+
+  @override
+  Future<bool> refreshVideoLogo(int videoId) => _api.refreshVideoLogo(videoId);
+
+  @override
+  Future<bool> refreshSeriesLogo(int seriesId) =>
+      _api.refreshSeriesLogo(seriesId);
+
+  @override
+  Future<List<LogoOption>> fetchVideoLogoOptions(int videoId) =>
+      _api.fetchVideoLogoOptions(videoId);
+
+  @override
+  Future<List<LogoOption>> fetchSeriesLogoOptions(int seriesId) =>
+      _api.fetchSeriesLogoOptions(seriesId);
+
+  @override
+  Future<void> setVideoLogo(int videoId, {required String filePath}) =>
+      _api.setVideoLogo(videoId, filePath: filePath);
+
+  @override
+  Future<void> setSeriesLogo(int seriesId, {required String filePath}) =>
+      _api.setSeriesLogo(seriesId, filePath: filePath);
 }
 
 class ApiComicGateway implements ComicGateway {

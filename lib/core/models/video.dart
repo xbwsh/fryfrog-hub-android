@@ -324,6 +324,180 @@ class SeriesDetail {
   );
 }
 
+/// One TMDB search hit from `GET /api/v1/video/tmdb/search`.
+/// All fields camelCase (matches backend DTO, not TMDB's snake_case).
+class TmdbSearchItem {
+  const TmdbSearchItem({
+    required this.id,
+    required this.mediaType,
+    this.title,
+    this.originalTitle,
+    this.overview,
+    this.releaseDate,
+    this.year,
+    this.posterPath,
+    this.backdropPath,
+    this.genreIds = const [],
+    this.voteAverage,
+    this.voteCount,
+    this.popularity,
+    this.adult = false,
+  });
+
+  final int id;
+  final String mediaType; // movie | tv
+  final String? title;
+  final String? originalTitle;
+  final String? overview;
+  final String? releaseDate;
+  final int? year;
+  final String? posterPath;
+  final String? backdropPath;
+  final List<int> genreIds;
+  final double? voteAverage;
+  final int? voteCount;
+  final double? popularity;
+  final bool adult;
+
+  String get displayTitle =>
+      (title != null && title!.isNotEmpty) ? title! : (originalTitle ?? '');
+  bool get isTv => mediaType.toLowerCase() == 'tv';
+
+  /// TMDB CDN path — [posterPath] is a bare `/xyz.jpg` file name.
+  String? get posterUrl {
+    final p = posterPath;
+    if (p == null || p.isEmpty) return null;
+    return 'https://image.tmdb.org/t/p/w200${p.startsWith('/') ? '' : '/'}$p';
+  }
+
+  factory TmdbSearchItem.fromJson(Map<String, dynamic> json) => TmdbSearchItem(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    mediaType: json['mediaType'] as String? ?? 'movie',
+    title: json['title'] as String?,
+    originalTitle: json['originalTitle'] as String?,
+    overview: json['overview'] as String?,
+    releaseDate: json['releaseDate'] as String?,
+    year: (json['year'] as num?)?.toInt(),
+    posterPath: json['posterPath'] as String?,
+    backdropPath: json['backdropPath'] as String?,
+    genreIds: ((json['genreIds'] as List?) ?? const [])
+        .whereType<num>()
+        .map((e) => e.toInt())
+        .toList(growable: false),
+    voteAverage: (json['voteAverage'] as num?)?.toDouble(),
+    voteCount: (json['voteCount'] as num?)?.toInt(),
+    popularity: (json['popularity'] as num?)?.toDouble(),
+    adult: json['adult'] == true,
+  );
+}
+
+/// Admin logo candidate from `GET .../logo-options`.
+/// [url] is a server-relative TMDB image proxy path (needs Bearer auth).
+class LogoOption {
+  const LogoOption({
+    this.filePath,
+    this.iso6391,
+    this.width,
+    this.height,
+    this.voteCount,
+    this.url,
+  });
+
+  final String? filePath;
+  final String? iso6391;
+  final int? width;
+  final int? height;
+  final double? voteCount;
+  final String? url;
+
+  String get sizeLabel =>
+      (width != null && height != null) ? '${width}x$height' : '';
+
+  factory LogoOption.fromJson(Map<String, dynamic> json) => LogoOption(
+    filePath: json['filePath'] as String?,
+    iso6391: json['iso6391'] as String?,
+    width: (json['width'] as num?)?.toInt(),
+    height: (json['height'] as num?)?.toInt(),
+    voteCount: (json['voteCount'] as num?)?.toDouble(),
+    url: json['url'] as String?,
+  );
+}
+
+/// One server-generated frame screenshot candidate (`POST .../frames`).
+/// [url] is server-relative and requires Bearer auth.
+class FrameCandidate {
+  const FrameCandidate({required this.index, this.position, this.url});
+
+  final int index;
+  final double? position;
+  final String? url;
+
+  factory FrameCandidate.fromJson(Map<String, dynamic> json) => FrameCandidate(
+    index: (json['index'] as num?)?.toInt() ?? 0,
+    position: (json['position'] as num?)?.toDouble(),
+    url: json['url'] as String?,
+  );
+}
+
+/// Background scrape/bind task progress
+/// (`GET /api/v1/video/scrape/progress?module=`).
+class ScrapeProgress {
+  const ScrapeProgress({
+    this.stage,
+    this.running = false,
+    this.percent,
+    this.completed,
+    this.total,
+  });
+
+  final String? stage;
+  final bool running;
+  final double? percent;
+  final int? completed;
+  final int? total;
+
+  factory ScrapeProgress.fromJson(Map<String, dynamic> json) => ScrapeProgress(
+    stage: json['stage'] as String?,
+    running: json['running'] as bool? ?? false,
+    percent: (json['percent'] as num?)?.toDouble(),
+    completed: (json['completed'] as num?)?.toInt(),
+    total: (json['total'] as num?)?.toInt(),
+  );
+}
+
+/// Stats summary of `POST .../series/{id}/refresh-season-covers`.
+class SeasonRefreshResult {
+  const SeasonRefreshResult({
+    this.refreshedSeasonPosters = 0,
+    this.refreshedEpisodeCovers = 0,
+    this.cleanedEpisodePosters = 0,
+    this.totalSeasons = 0,
+    this.totalEpisodes = 0,
+  });
+
+  final int refreshedSeasonPosters;
+  final int refreshedEpisodeCovers;
+  final int cleanedEpisodePosters;
+  final int totalSeasons;
+  final int totalEpisodes;
+
+  String get summary =>
+      '刷新季海报 $refreshedSeasonPosters / 更新剧集封面 '
+      '$refreshedEpisodeCovers / 清理旧封面 $cleanedEpisodePosters';
+
+  factory SeasonRefreshResult.fromJson(Map<String, dynamic> json) =>
+      SeasonRefreshResult(
+        refreshedSeasonPosters:
+            (json['refreshedSeasonPosters'] as num?)?.toInt() ?? 0,
+        refreshedEpisodeCovers:
+            (json['refreshedEpisodeCovers'] as num?)?.toInt() ?? 0,
+        cleanedEpisodePosters:
+            (json['cleanedEpisodePosters'] as num?)?.toInt() ?? 0,
+        totalSeasons: (json['totalSeasons'] as num?)?.toInt() ?? 0,
+        totalEpisodes: (json['totalEpisodes'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class VideoActorDto {
   const VideoActorDto({
     required this.id,

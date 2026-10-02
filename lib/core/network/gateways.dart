@@ -26,6 +26,51 @@ abstract class VideoGateway {
   Future<void> setSeriesFavorite(int id, {required bool status});
 
   String streamUrlFor(VideoItem video);
+
+  // ── Admin: TMDB binding / metadata / covers / logo ───────────────────
+
+  Future<List<TmdbSearchItem>> searchTmdb(String q);
+
+  /// Async job — poll [fetchScrapeProgress] with `bind:{videoId}` after.
+  Future<void> bindTmdb(
+    int videoId, {
+    required int tmdbId,
+    required String mediaType,
+  });
+
+  /// Async job — same `bind:{videoId}` progress module as [bindTmdb].
+  Future<void> refreshTmdbMetadata(int videoId);
+
+  /// Returns how many rows were unbound (`data.unbound`).
+  Future<int> unbindTmdb(int videoId);
+
+  Future<ScrapeProgress> fetchScrapeProgress(String module);
+
+  Future<void> updateSeriesMetadata(int id, Map<String, dynamic> body);
+
+  Future<void> updateVideoMetadata(int id, Map<String, dynamic> body);
+
+  Future<bool> downloadVideoCovers(int videoId);
+
+  Future<List<FrameCandidate>> generateFrameCandidates(int videoId);
+
+  /// [type] = poster | fanart.
+  Future<void> selectFrame(int videoId, {required int index, required String type});
+
+  /// Long-running (300s timeout server-side).
+  Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId);
+
+  Future<bool> refreshVideoLogo(int videoId);
+
+  Future<bool> refreshSeriesLogo(int seriesId);
+
+  Future<List<LogoOption>> fetchVideoLogoOptions(int videoId);
+
+  Future<List<LogoOption>> fetchSeriesLogoOptions(int seriesId);
+
+  Future<void> setVideoLogo(int videoId, {required String filePath});
+
+  Future<void> setSeriesLogo(int seriesId, {required String filePath});
 }
 
 /// Port for comic chapter pages + reading progress.
