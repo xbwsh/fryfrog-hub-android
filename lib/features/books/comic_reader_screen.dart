@@ -38,16 +38,19 @@ class ComicReaderScreen extends StatefulWidget {
   State<ComicReaderScreen> createState() => _ComicReaderScreenState();
 }
 
-class _ComicReaderScreenState extends State<ComicReaderScreen> {
+class _ComicReaderScreenState extends State<ComicReaderScreen>
+    with WidgetsBindingObserver {
   late final ComicReaderController _c;
   final ScrollController _scrollCtrl = ScrollController();
   final PageController _pageCtrl = PageController();
   final List<GlobalKey> _pageKeys = [];
   double? _knownExtent;
+  Timer? _reHideTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Reading owns the screen — hide status / navigation bars like the
     // video player does; restored in dispose.
     unawaited(
@@ -87,6 +90,32 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
     if (mounted) setState(_syncKeys);
   }
 
+  /// Rotating the device (or returning from background) makes the OS bring
+  /// the status / navigation bars back; re-hide them. The trailing timer
+  /// retries once after things settle — Android drops system UI changes
+  /// issued within 1s of a previous one.
+  void _reassertImmersive() {
+    if (!mounted) return;
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
+    );
+    _reHideTimer?.cancel();
+    _reHideTimer = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      unawaited(
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
+      );
+    });
+  }
+
+  @override
+  void didChangeMetrics() => _reassertImmersive();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reassertImmersive();
+  }
+
   void _syncKeys() {
     final n = _c.pageUrls.length;
     while (_pageKeys.length > n) {
@@ -99,6 +128,8 @@ class _ComicReaderScreenState extends State<ComicReaderScreen> {
 
   @override
   void dispose() {
+    _reHideTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.edgeToEdge,
