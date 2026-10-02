@@ -9,9 +9,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     # Needed only to publish release assets on tag pushes.
     permissions:
       contents: write
+    env:
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +33,36 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Setup release keystore
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+              echo "::error::Tag builds need RELEASE_KEYSTORE_* repository secrets to sign the release APK"
+              exit 1
+            fi
+            echo "No release keystore secrets — falling back to debug signing."
+            exit 0
+          fi
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' \
+            "$RELEASE_KEYSTORE_PASSWORD" \
+            "$RELEASE_KEY_PASSWORD" \
+            "$RELEASE_KEY_ALIAS" \
+            "release.keystore" > android/key.properties
+
+      - name: Resolve version from tag
+        id: ver
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            v="${GITHUB_REF_NAME#v}"
+            if ! echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::Tag must look like vX.Y.Z (got $GITHUB_REF_NAME)"
+              exit 1
+            fi
+            echo "name=$v" >> "$GITHUB_OUTPUT"
+            echo "number=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Dependencies
         run: flutter pub get
 
@@ -37,7 +73,17 @@ jobs:
         run: flutter test
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          BUILD_NAME: ${{ steps.ver.outputs.name }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.number }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            flutter build apk --release \
+              --build-name="$BUILD_NAME" \
+              --build-number="$BUILD_NUMBER"
+          else
+            flutter build apk --release
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

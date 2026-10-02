@@ -1,0 +1,6 @@
+# Copy to key.properties (gitignored) and fill in real values.
+# CI creates this file from repository secrets on tag builds.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=fryfrog
+storeFile=release.keystore
