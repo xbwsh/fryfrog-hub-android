@@ -46,6 +46,13 @@ class Dimens {
   /// Comic reader page gap in continuous-scroll mode.
   static const double readerPageGap = 6;
 
+  /// Height reserved under overlaid reader chrome (bottom bar area).
+  static const double readerChromeExtent = 88;
+
+  /// TXT ebook reader body text.
+  static const double ebookTextSize = 17;
+  static const double ebookTextLineHeight = 1.75;
+
   /// Video detail hero height (backdrop + poster row), excluding status bar.
   static const double videoHeroHeight = 300;
   static const double videoPosterWidth = 120;

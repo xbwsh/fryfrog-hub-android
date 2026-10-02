@@ -67,6 +67,34 @@ class ApiComicGateway implements ComicGateway {
       .then((_) {});
 }
 
+class ApiEbookGateway implements EbookGateway {
+  ApiEbookGateway(this._api);
+
+  final ApiClient _api;
+
+  @override
+  Future<List<BookChapter>> fetchChapters(int bookId) =>
+      _api.fetchEbookChapters(bookId);
+
+  @override
+  Future<EbookChapterContent> fetchChapterContent(
+    int bookId, {
+    required int chapterIndex,
+  }) => _api.fetchEbookChapterContent(bookId, chapterIndex: chapterIndex);
+
+  @override
+  Future<void> saveProgress(
+    int bookId, {
+    required double positionPercent,
+    required int chapterIndex,
+  }) => _api
+      .saveEbookProgress(
+        bookId,
+        positionPercent: positionPercent,
+        chapterIndex: chapterIndex,
+      );
+}
+
 class ApiMediaLibraryGateway implements MediaLibraryGateway {
   ApiMediaLibraryGateway(this._api);
 

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
 import 'comic_reader_screen.dart';
+import 'ebook_reader_screen.dart';
 
 /// Detail for a shelf item: metadata, chapters and (admin) scrape binding.
 class BookDetailScreen extends StatefulWidget {
@@ -130,23 +131,37 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         chapterIndex ??
         ((progress != null && !startOver) ? progress.chapterIndex : null) ??
         detail.chapters.first.chapterIndex;
-    final resumePage =
-        pageIndex ??
-        ((progress != null && !startOver) ? progress.pageIndex : null) ??
-        0;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<bool>(
-        builder: (_) => ComicReaderScreen(
-          session: widget.session,
-          comicId: detail.id,
-          title: detail.displayTitle,
-          chapters: detail.chapters,
-          initialChapterIndex: resumeChapter,
-          initialPageIndex: resumePage,
+    if (widget.kind == BookShelfKind.ebook) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<bool>(
+          builder: (_) => EbookReaderScreen(
+            session: widget.session,
+            bookId: detail.id,
+            title: detail.displayTitle,
+            chapters: detail.chapters,
+            initialChapterIndex: resumeChapter,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      final resumePage =
+          pageIndex ??
+          ((progress != null && !startOver) ? progress.pageIndex : null) ??
+          0;
+      await Navigator.of(context).push(
+        MaterialPageRoute<bool>(
+          builder: (_) => ComicReaderScreen(
+            session: widget.session,
+            comicId: detail.id,
+            title: detail.displayTitle,
+            chapters: detail.chapters,
+            initialChapterIndex: resumeChapter,
+            initialPageIndex: resumePage,
+          ),
+        ),
+      );
+    }
     if (!mounted) return;
     await _load();
     await widget.session.refreshBooks(widget.kind);
@@ -207,8 +222,14 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               detail: _detail!,
               form: form,
               kind: widget.kind,
-              onRead: widget.kind == BookShelfKind.comic ? _openReader : null,
-              onReadChapter: widget.kind == BookShelfKind.comic
+              onRead:
+                  widget.kind == BookShelfKind.comic ||
+                      widget.kind == BookShelfKind.ebook
+                  ? _openReader
+                  : null,
+              onReadChapter:
+                  widget.kind == BookShelfKind.comic ||
+                      widget.kind == BookShelfKind.ebook
                   ? (chapterIndex) =>
                         _openReader(chapterIndex: chapterIndex, pageIndex: 0)
                   : null,
@@ -313,7 +334,11 @@ class _DetailView extends StatelessWidget {
                         ),
                       if (detail.totalChapters != null &&
                           detail.totalChapters! > 0)
-                        _MetaChip(text: '${detail.totalChapters} 话'),
+                        _MetaChip(
+                          text:
+                              '${detail.totalChapters} '
+                              '${kind == BookShelfKind.ebook ? '章' : '话'}',
+                        ),
                       _MetaChip(text: detail.metadataSourceText),
                     ],
                   ),
@@ -330,7 +355,7 @@ class _DetailView extends StatelessWidget {
             ),
             onPressed: onRead,
             icon: const Icon(Icons.menu_book_rounded, size: 20),
-            label: Text(_readLabel(detail)),
+            label: Text(_readLabel(detail, kind)),
           ),
           if (detail.progress != null &&
               detail.progress!.hasPosition &&
@@ -399,7 +424,8 @@ class _DetailView extends StatelessWidget {
                     title: Text(
                       (c.title != null && c.title!.isNotEmpty)
                           ? c.title!
-                          : '第 ${c.chapterIndex + 1} 话',
+                          : '第 ${c.chapterIndex + 1} '
+                                '${kind == BookShelfKind.ebook ? '章' : '话'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14 * form.typeScale),
@@ -445,10 +471,11 @@ class _DetailView extends StatelessWidget {
   }
 }
 
-String _readLabel(BookDetail detail) {
+String _readLabel(BookDetail detail, BookShelfKind kind) {
   final p = detail.progress;
   if (p == null || !p.hasPosition || p.completed) return '开始阅读';
   final chapter = (p.chapterIndex ?? 0) + 1;
+  if (kind == BookShelfKind.ebook) return '继续阅读 · 第 $chapter 章';
   final page = (p.pageIndex ?? 0) + 1;
   return '继续阅读 · 第 $chapter 话 · 第 $page 页';
 }

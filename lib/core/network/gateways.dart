@@ -39,6 +39,22 @@ abstract class ComicGateway {
   });
 }
 
+/// Port for TXT ebook chapters + reading progress.
+abstract class EbookGateway {
+  Future<List<BookChapter>> fetchChapters(int bookId);
+
+  Future<EbookChapterContent> fetchChapterContent(
+    int bookId, {
+    required int chapterIndex,
+  });
+
+  Future<void> saveProgress(
+    int bookId, {
+    required double positionPercent,
+    required int chapterIndex,
+  });
+}
+
 /// Port for media library admin (list / CRUD / browse / scan).
 abstract class MediaLibraryGateway {
   Future<List<MediaLibrary>> fetchLibraries();

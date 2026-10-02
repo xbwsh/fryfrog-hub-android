@@ -175,7 +175,10 @@ class ReadingProgress {
         chapterIndex: (json['chapterIndex'] as num?)?.toInt(),
         pageIndex: (json['pageIndex'] as num?)?.toInt(),
         completed: json['completed'] == true,
-        progressPercent: (json['progressPercent'] as num?)?.toDouble(),
+        // Ebook progress uses `positionPercent`, comic uses `progressPercent`.
+        progressPercent:
+            ((json['progressPercent'] ?? json['positionPercent']) as num?)
+                ?.toDouble(),
       );
 }
 
@@ -194,6 +197,7 @@ class BookDetail {
     this.pubYear,
     this.rating,
     this.totalChapters,
+    this.format,
     this.coverUrl,
     this.positionPercent,
     this.progress,
@@ -212,10 +216,14 @@ class BookDetail {
   final int? pubYear;
   final double? rating;
   final int? totalChapters;
+  final String? format;
   final String? coverUrl;
   final double? positionPercent;
   final ReadingProgress? progress;
   final List<BookChapter> chapters;
+
+  /// Ebook format that supports online reading (backend gate: TXT only).
+  bool get isReadableText => (format ?? '').toUpperCase() == 'TXT';
 
   String get displayTitle => title.isEmpty ? '(未命名)' : title;
   String get subtitle {
@@ -235,6 +243,27 @@ class BookDetail {
     _ => '扫描',
   };
 
+  /// Copy with the chapter TOC fetched from a side endpoint (ebook TXT).
+  BookDetail withChapters(List<BookChapter> list) => BookDetail(
+    id: id,
+    title: title,
+    author: author,
+    narrator: narrator,
+    overview: overview,
+    series: series,
+    seriesPart: seriesPart,
+    metadataSource: metadataSource,
+    sourceId: sourceId,
+    pubYear: pubYear,
+    rating: rating,
+    totalChapters: totalChapters,
+    format: format,
+    coverUrl: coverUrl,
+    positionPercent: positionPercent,
+    progress: progress,
+    chapters: list,
+  );
+
   factory BookDetail.fromJson(Map<String, dynamic> json) => BookDetail(
     id: (json['id'] as num?)?.toInt() ?? 0,
     title: json['title'] as String? ?? '',
@@ -248,6 +277,7 @@ class BookDetail {
     pubYear: (json['pubYear'] as num?)?.toInt(),
     rating: (json['rating'] as num?)?.toDouble(),
     totalChapters: (json['totalChapters'] as num?)?.toInt(),
+    format: json['format'] as String?,
     coverUrl: readCoverJson(json),
     positionPercent:
         ((json['progressPercent'] ??
@@ -266,4 +296,27 @@ class BookDetail {
         .map(BookChapter.fromJson)
         .toList(growable: false),
   );
+}
+
+/// One TXT chapter's body from `GET /api/v1/ebooks/{id}/content`.
+class EbookChapterContent {
+  const EbookChapterContent({
+    required this.index,
+    required this.title,
+    required this.text,
+    this.chapterCount = 0,
+  });
+
+  final int index;
+  final String title;
+  final String text;
+  final int chapterCount;
+
+  factory EbookChapterContent.fromJson(Map<String, dynamic> json) =>
+      EbookChapterContent(
+        index: (json['index'] as num?)?.toInt() ?? 0,
+        title: json['title'] as String? ?? '',
+        text: json['text'] as String? ?? '',
+        chapterCount: (json['chapterCount'] as num?)?.toInt() ?? 0,
+      );
 }

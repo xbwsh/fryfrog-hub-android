@@ -199,10 +199,74 @@ class ApiClient {
 
   Future<BookDetail> fetchBookDetail(BookShelfKind kind, int id) async {
     final json = await _send(kind.detailPath(id));
-    return _unwrap(json, (raw) {
+    final detail = _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       return map == null ? null : BookDetail.fromJson(map);
     });
+    // Ebook detail has no embedded TOC — TXT reads via a side endpoint.
+    if (kind == BookShelfKind.ebook &&
+        detail.chapters.isEmpty &&
+        detail.isReadableText) {
+      try {
+        final chapters = await fetchEbookChapters(id);
+        if (chapters.isNotEmpty) return detail.withChapters(chapters);
+      } catch (_) {
+        // TOC failure must not break the detail page — just no read entry.
+      }
+    }
+    return detail;
+  }
+
+  /// TXT online reading: chapter TOC (character offsets live server-side).
+  /// Backend: `GET /api/v1/ebooks/{id}/chapters`.
+  Future<List<BookChapter>> fetchEbookChapters(int bookId) async {
+    final json = await _send('/api/v1/ebooks/$bookId/chapters');
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map((m) {
+            final index = (m['index'] as num?)?.toInt() ?? 0;
+            return BookChapter(
+              id: index,
+              chapterIndex: index,
+              title: m['title'] as String?,
+            );
+          })
+          .toList(growable: false);
+    });
+  }
+
+  /// TXT online reading: one chapter's body.
+  /// Backend: `GET /api/v1/ebooks/{id}/content?chapterIndex=`.
+  Future<EbookChapterContent> fetchEbookChapterContent(
+    int bookId, {
+    required int chapterIndex,
+  }) async {
+    final json = await _send(
+      '/api/v1/ebooks/$bookId/content',
+      query: {'chapterIndex': '$chapterIndex'},
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : EbookChapterContent.fromJson(map);
+    });
+  }
+
+  /// Backend: `PUT /api/v1/ebooks/{id}/progress`.
+  Future<void> saveEbookProgress(
+    int bookId, {
+    required double positionPercent,
+    required int chapterIndex,
+  }) async {
+    await _send(
+      '/api/v1/ebooks/$bookId/progress',
+      method: 'PUT',
+      body: {
+        'positionPercent': positionPercent,
+        'chapterIndex': chapterIndex,
+      },
+    );
   }
 
   Future<List<ScrapeProviderInfo>> fetchScrapeProviders(
