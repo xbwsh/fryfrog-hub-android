@@ -32,6 +32,9 @@ class VideoDetailScreen extends StatefulWidget {
 class _VideoDetailScreenState extends State<VideoDetailScreen> {
   late final VideoDetailController _c;
 
+  /// false = thumbnail list · true = compact number grid.
+  bool _episodeGrid = false;
+
   @override
   void initState() {
     super.initState();
@@ -436,6 +439,9 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 },
                 onSelectOnly: _c.selectOnly,
                 onMarkWatched: _markWatched,
+                episodeGrid: _episodeGrid,
+                onToggleEpisodeGrid: () =>
+                    setState(() => _episodeGrid = !_episodeGrid),
               ),
       ),
     );
@@ -565,6 +571,8 @@ class _DetailView extends StatelessWidget {
     required this.onSelectEpisode,
     required this.onSelectOnly,
     required this.onMarkWatched,
+    required this.episodeGrid,
+    required this.onToggleEpisodeGrid,
   });
 
   final SeriesDetail detail;
@@ -577,6 +585,8 @@ class _DetailView extends StatelessWidget {
   final ValueChanged<VideoItem> onSelectEpisode;
   final ValueChanged<VideoItem> onSelectOnly;
   final ValueChanged<bool> onMarkWatched;
+  final bool episodeGrid;
+  final VoidCallback onToggleEpisodeGrid;
 
   @override
   Widget build(BuildContext context) {
@@ -886,19 +896,31 @@ class _DetailView extends StatelessWidget {
               0,
             ),
             sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    detail.isStandalone
-                        ? '正片'
-                        : '剧集 · ${detail.episodeCount ?? detail.allEpisodes.length}',
-                    style: TextStyle(
-                      fontSize: 16 * form.typeScale,
-                      fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Text(
+                      detail.isStandalone
+                          ? '正片'
+                          : '剧集 · ${detail.episodeCount ?? detail.allEpisodes.length}',
+                      style: TextStyle(
+                        fontSize: 16 * form.typeScale,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: Dimens.spacingSm),
+                  if (detail.allEpisodes.length > 1)
+                    IconButton(
+                      tooltip: episodeGrid ? '卡片列表' : '数字网格',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        episodeGrid
+                            ? Icons.view_list_rounded
+                            : Icons.tag_rounded,
+                        size: 20 * form.typeScale,
+                      ),
+                      onPressed: onToggleEpisodeGrid,
+                    ),
                 ],
               ),
             ),
@@ -925,40 +947,61 @@ class _DetailView extends StatelessWidget {
               ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingLg),
-              sliver: SliverList.builder(
-                itemCount: season.episodes.length,
-                itemBuilder: (context, i) {
-                  final e = season.episodes[i];
-                  // Clip to the same radius as the surface fill — otherwise
-                  // the selected/ink tint paints square corners over the
-                  // rounded card (very visible in dark mode).
-                  final radius = BorderRadius.vertical(
-                    top: i == 0
-                        ? Radius.circular(Dimens.radiusLg)
-                        : Radius.zero,
-                    bottom: i == season.episodes.length - 1
-                        ? Radius.circular(Dimens.radiusLg)
-                        : Radius.zero,
-                  );
-                  return ClipRRect(
-                    key: ValueKey(e.id),
-                    borderRadius: radius,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: AppColors.surface(context),
-                        borderRadius: radius,
+              sliver: episodeGrid
+                  ? SliverGrid(
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 64 * form.typeScale,
+                        mainAxisSpacing: Dimens.spacingSm,
+                        crossAxisSpacing: Dimens.spacingSm,
+                        childAspectRatio: 1.4,
                       ),
-                      child: _EpisodeTile(
-                        episode: e,
-                        selected: selected?.id == e.id,
-                        form: form,
-                        onTap: () => onSelectEpisode(e),
-                        onLongPress: () => onSelectOnly(e),
-                      ),
+                      delegate: SliverChildBuilderDelegate((context, i) {
+                        final e = season.episodes[i];
+                        return _EpisodeNumberChip(
+                          key: ValueKey(e.id),
+                          label: e.episodeNumber?.toString() ?? '${i + 1}',
+                          selected: selected?.id == e.id,
+                          watched: e.isWatched,
+                          form: form,
+                          onTap: () => onSelectEpisode(e),
+                          onLongPress: () => onSelectOnly(e),
+                        );
+                      }, childCount: season.episodes.length),
+                    )
+                  : SliverList.builder(
+                      itemCount: season.episodes.length,
+                      itemBuilder: (context, i) {
+                        final e = season.episodes[i];
+                        // Clip to the same radius as the surface fill — otherwise
+                        // the selected/ink tint paints square corners over the
+                        // rounded card (very visible in dark mode).
+                        final radius = BorderRadius.vertical(
+                          top: i == 0
+                              ? Radius.circular(Dimens.radiusLg)
+                              : Radius.zero,
+                          bottom: i == season.episodes.length - 1
+                              ? Radius.circular(Dimens.radiusLg)
+                              : Radius.zero,
+                        );
+                        return ClipRRect(
+                          key: ValueKey(e.id),
+                          borderRadius: radius,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.surface(context),
+                              borderRadius: radius,
+                            ),
+                            child: _EpisodeTile(
+                              episode: e,
+                              selected: selected?.id == e.id,
+                              form: form,
+                              onTap: () => onSelectEpisode(e),
+                              onLongPress: () => onSelectOnly(e),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ],
@@ -1058,6 +1101,56 @@ class _ProgressBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact number chip for the grid episode view (纯数字形态).
+class _EpisodeNumberChip extends StatelessWidget {
+  const _EpisodeNumberChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.watched,
+    required this.form,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final String label;
+  final bool selected;
+  final bool watched;
+  final DeviceForm form;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(Dimens.radiusSm);
+
+    return Material(
+      color: selected ? scheme.primary : AppColors.surface(context),
+      borderRadius: radius,
+      child: InkWell(
+        borderRadius: radius,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14 * form.typeScale,
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? scheme.onPrimary
+                  : watched
+                  ? AppColors.success
+                  : scheme.onSurface.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
       ),
     );
   }
