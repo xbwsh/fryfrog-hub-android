@@ -75,7 +75,9 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
           ),
         ],
       ),
-      body: items.isEmpty
+      // Unscraped-only libraries still need the grid: the admin entry card
+      // is the only door into their backlog.
+      body: items.isEmpty && !showUnscraped
           ? Center(
               child: Text(
                 '暂无内容',
