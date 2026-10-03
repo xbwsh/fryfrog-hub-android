@@ -36,103 +36,112 @@ class _HomeScreenState extends State<HomeScreen> {
         return SafeArea(
           bottom: false,
           child: session.isLoadingCatalog && session.videoGroups.isEmpty
-                ? const Center(child: CircularProgressIndicator.adaptive())
-                : session.catalogError != null &&
-                      session.videoGroups.isEmpty &&
-                      session.musicGroups.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(Dimens.spacingXl),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '内容加载失败',
-                            style: TextStyle(
-                              fontSize: 17 * form.typeScale,
-                              fontWeight: FontWeight.w700,
-                            ),
+              ? const Center(child: CircularProgressIndicator.adaptive())
+              : session.catalogError != null &&
+                    session.videoGroups.isEmpty &&
+                    session.musicGroups.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(Dimens.spacingXl),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '内容加载失败',
+                          style: TextStyle(
+                            fontSize: 17 * form.typeScale,
+                            fontWeight: FontWeight.w700,
                           ),
-                          const SizedBox(height: Dimens.spacingSm),
-                          Text(
-                            session.catalogError!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13 * form.typeScale,
-                              color: Theme.of(context).hintColor,
-                            ),
+                        ),
+                        const SizedBox(height: Dimens.spacingSm),
+                        Text(
+                          session.catalogError!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13 * form.typeScale,
+                            color: Theme.of(context).hintColor,
                           ),
-                          const SizedBox(height: Dimens.spacingLg),
-                          FilledButton(
-                            onPressed: session.loadCatalog,
-                            child: const Text('重试'),
-                          ),
-                        ],
+                        ),
+                        const SizedBox(height: Dimens.spacingLg),
+                        FilledButton(
+                          onPressed: session.loadCatalog,
+                          child: const Text('重试'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              // ListView (not CustomScrollView) — avoids sliver type crashes
+              // when a child fails and becomes ErrorWidget.
+              : ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    // Tablet portrait shows the small title in GlassAppBar
+                    // instead; phone has neither, landscape/TV keep the big one.
+                    if (form.isTv)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          Dimens.spacingLg,
+                          Dimens.spacingMd,
+                          Dimens.spacingLg,
+                          0,
+                        ),
+                        child: _HomeToolbar(form: form),
+                      ),
+                    _Carousel(
+                      items: session.carouselItems,
+                      session: session,
+                      fullBleed: form.isTabletLandscape,
+                      height: form.isTv
+                          ? Dimens.carouselHeightTv
+                          : form.isTabletLandscape
+                          ? (MediaQuery.sizeOf(context).height *
+                                    Dimens.carouselHeightLandscapeFraction)
+                                .clamp(
+                                  Dimens.carouselHeightLandscapeMin,
+                                  Dimens.carouselHeightLandscapeMax,
+                                )
+                                .toDouble()
+                          : form.isTablet
+                          ? Dimens.carouselHeightTablet
+                          : Dimens.carouselHeightPhone,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Dimens.spacingLg,
+                        vertical: Dimens.spacingLg,
+                      ),
+                      child: _OverviewStats(
+                        groups: session.videoGroups,
+                        form: form,
+                        version: session.catalogVersion,
+                        overview: _overview,
+                        onToggle: () => setState(() => _overview = !_overview),
                       ),
                     ),
-                  )
-                // ListView (not CustomScrollView) — avoids sliver type crashes
-                // when a child fails and becomes ErrorWidget.
-                : ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      // Tablet portrait shows the small title in GlassAppBar
-                      // instead; phone has neither, landscape/TV keep the big one.
-                      if (form.isTv)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            Dimens.spacingLg,
-                            Dimens.spacingMd,
-                            Dimens.spacingLg,
-                            0,
-                          ),
-                          child: _HomeToolbar(form: form),
-                        ),
-                      _Carousel(
-                        items: session.carouselItems,
-                        session: session,
-                        height: form.isTv
-                            ? Dimens.carouselHeightTv
-                            : form.isTablet
-                            ? Dimens.carouselHeightTablet
-                            : Dimens.carouselHeightPhone,
-                      ),
+                    if (!_overview)
+                      for (final g in session.videoGroups)
+                        _LibraryRail(group: g, form: form, session: session)
+                    else
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: Dimens.spacingLg,
-                          vertical: Dimens.spacingLg,
                         ),
-                        child: _OverviewStats(
+                        child: _OverviewGrid(
                           groups: session.videoGroups,
                           form: form,
                           version: session.catalogVersion,
-                          overview: _overview,
-                          onToggle: () =>
-                              setState(() => _overview = !_overview),
+                          session: session,
                         ),
                       ),
-                      if (!_overview)
-                        for (final g in session.videoGroups)
-                          _LibraryRail(group: g, form: form, session: session)
-                      else
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Dimens.spacingLg,
-                          ),
-                          child: _OverviewGrid(
-                            groups: session.videoGroups,
-                            form: form,
-                            version: session.catalogVersion,
-                            session: session,
-                          ),
-                        ),
-                      SizedBox(
-                        height: Dimens.dockHeight +
-                            Dimens.spacingXxl +
-                            MediaQuery.paddingOf(context).bottom,
-                      ),
-                    ],
-                  ),
+                    SizedBox(
+                      height:
+                          Dimens.dockHeight +
+                          Dimens.spacingXxl +
+                          MediaQuery.paddingOf(context).bottom,
+                    ),
+                  ],
+                ),
         );
       },
     );
@@ -157,11 +166,20 @@ class _HomeToolbar extends StatelessWidget {
 }
 
 class _Carousel extends StatefulWidget {
-  const _Carousel({required this.items, required this.height, this.session});
+  const _Carousel({
+    required this.items,
+    required this.height,
+    this.session,
+    this.fullBleed = false,
+  });
 
   final List<SeriesListDto> items;
   final double height;
   final Session? session;
+
+  /// Tablet-landscape hero mode: card flush to the content-area edges
+  /// (no inset padding, no corner radius) with a deeper text scrim.
+  final bool fullBleed;
 
   @override
   State<_Carousel> createState() => _CarouselState();
@@ -252,7 +270,9 @@ class _CarouselState extends State<_Carousel> {
             final item = widget.items[i];
             return Padding(
               key: ValueKey(item.id),
-              padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.fullBleed ? 0 : Dimens.spacingSm,
+              ),
               child: InkWell(
                 onTap: widget.session == null
                     ? null
@@ -267,7 +287,9 @@ class _CarouselState extends State<_Carousel> {
                         );
                       },
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(Dimens.radiusLg),
+                  borderRadius: widget.fullBleed
+                      ? BorderRadius.zero
+                      : BorderRadius.circular(Dimens.radiusLg),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -280,10 +302,16 @@ class _CarouselState extends State<_Carousel> {
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.05),
-                              Colors.black.withValues(alpha: 0.72),
-                            ],
+                            colors: widget.fullBleed
+                                ? [
+                                    Colors.black.withValues(alpha: 0),
+                                    Colors.black.withValues(alpha: 0.22),
+                                    Colors.black.withValues(alpha: 0.78),
+                                  ]
+                                : [
+                                    Colors.black.withValues(alpha: 0.05),
+                                    Colors.black.withValues(alpha: 0.72),
+                                  ],
                           ),
                         ),
                       ),

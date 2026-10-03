@@ -32,6 +32,12 @@ class Dimens {
   static const double carouselHeightTablet = 300;
   static const double carouselHeightTv = 380;
 
+  /// Tablet-landscape home carousel (full-bleed hero): height as a fraction
+  /// of the viewport, clamped so short windows stay scrollable.
+  static const double carouselHeightLandscapeFraction = 0.55;
+  static const double carouselHeightLandscapeMin = 360;
+  static const double carouselHeightLandscapeMax = 520;
+
   static const double dockHeight = 64;
   static const double railWidthCompact = 72;
   static const double railWidthExpanded = 220;
