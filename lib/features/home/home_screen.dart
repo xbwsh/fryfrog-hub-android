@@ -33,7 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: session,
       builder: (context, _) {
         // No inner Scaffold — root Scaffold already provides Material.
+        // Landscape hero runs under the (transparent) status bar instead.
         return SafeArea(
+          top: !form.isTabletLandscape,
           bottom: false,
           child: session.isLoadingCatalog && session.videoGroups.isEmpty
               ? const Center(child: CircularProgressIndicator.adaptive())
@@ -188,7 +190,8 @@ class _Carousel extends StatefulWidget {
 class _CarouselState extends State<_Carousel> {
   static const _autoPlayInterval = Duration(seconds: 5);
 
-  final _controller = PageController(viewportFraction: 0.92);
+  late PageController _controller;
+  double _fraction = 0.92;
   Timer? _autoPlay;
   bool _userInteracting = false;
   double formScale = 1;
@@ -196,7 +199,24 @@ class _CarouselState extends State<_Carousel> {
   @override
   void initState() {
     super.initState();
+    _fraction = widget.fullBleed ? 1.0 : 0.92;
+    _controller = PageController(viewportFraction: _fraction);
     _restartAutoPlay();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Rotation can flip fullBleed (0.92 peek <-> 1.0 edge-to-edge); swap the
+    // controller so the active slide never shows neighbour slivers when
+    // bleeding. Old controller dies after the PageView re-attaches.
+    final want = widget.fullBleed ? 1.0 : 0.92;
+    if (want != _fraction) {
+      _fraction = want;
+      final old = _controller;
+      _controller = PageController(viewportFraction: want);
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    }
   }
 
   @override
