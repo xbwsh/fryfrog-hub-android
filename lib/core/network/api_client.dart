@@ -39,8 +39,14 @@ class ApiClient {
     final uri = _uri(path, query);
     final limit = timeout ?? const Duration(seconds: 15);
     final res = switch (method) {
-      'POST' => await http.post(uri, headers: _headers, body: jsonEncode(body ?? {})).timeout(limit),
-      'PUT' => await http.put(uri, headers: _headers, body: jsonEncode(body ?? {})).timeout(limit),
+      'POST' =>
+        await http
+            .post(uri, headers: _headers, body: jsonEncode(body ?? {}))
+            .timeout(limit),
+      'PUT' =>
+        await http
+            .put(uri, headers: _headers, body: jsonEncode(body ?? {}))
+            .timeout(limit),
       'DELETE' => await http.delete(uri, headers: _headers).timeout(limit),
       _ => await http.get(uri, headers: _headers).timeout(limit),
     };
@@ -142,9 +148,11 @@ class ApiClient {
       if (batch.isEmpty) break;
       for (final g in batch) {
         info.putIfAbsent(g.libraryId, () => g);
-        seriesByLib.putIfAbsent(g.libraryId, () => <SeriesListDto>[])
+        seriesByLib
+            .putIfAbsent(g.libraryId, () => <SeriesListDto>[])
             .addAll(g.series);
-        standaloneByLib.putIfAbsent(g.libraryId, () => <SeriesListDto>[])
+        standaloneByLib
+            .putIfAbsent(g.libraryId, () => <SeriesListDto>[])
             .addAll(g.standaloneVideos);
       }
     }
@@ -286,10 +294,7 @@ class ApiClient {
     await _send(
       '/api/v1/ebooks/$bookId/progress',
       method: 'PUT',
-      body: {
-        'positionPercent': positionPercent,
-        'chapterIndex': chapterIndex,
-      },
+      body: {'positionPercent': positionPercent, 'chapterIndex': chapterIndex},
     );
   }
 
@@ -624,9 +629,36 @@ class ApiClient {
 
   // ── Video admin (TMDB / covers / logo) ───────────────────────────────
 
+  /// Backend: `GET /api/v1/video/unscraped` — videos with `tmdbId == null`,
+  /// same page shape as the search results (`_page_videos`); [libraryId]
+  /// scopes the backlog to a single library.
+  Future<PageResponse<VideoItem>> fetchUnscrapedVideos({
+    int page = 0,
+    int size = 20,
+    int? libraryId,
+  }) async {
+    final json = await _send(
+      '/api/v1/video/unscraped',
+      query: {
+        'page': '$page',
+        'size': '$size',
+        if (libraryId != null) 'libraryId': '$libraryId',
+      },
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null
+          ? null
+          : PageResponse.fromJson(map, VideoItem.fromJson);
+    });
+  }
+
   /// Backend: `GET /api/v1/video/tmdb/search?q=`.
   Future<List<TmdbSearchItem>> searchTmdb(String q) async {
-    final json = await _send('/api/v1/video/tmdb/search', query: {'q': q.trim()});
+    final json = await _send(
+      '/api/v1/video/tmdb/search',
+      query: {'q': q.trim()},
+    );
     return _unwrap(json, (raw) {
       final list = raw as List? ?? const [];
       return list
@@ -658,7 +690,10 @@ class ApiClient {
 
   /// Backend: `POST /api/v1/video/{id}/tmdb/unbind` → `{tmdbId?, unbound}`.
   Future<int> unbindTmdb(int videoId) async {
-    final json = await _send('/api/v1/video/$videoId/tmdb/unbind', method: 'POST');
+    final json = await _send(
+      '/api/v1/video/$videoId/tmdb/unbind',
+      method: 'POST',
+    );
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       return (map?['unbound'] as num?)?.toInt() ?? 0;
@@ -743,7 +778,10 @@ class ApiClient {
 
   /// Backend: `POST /api/v1/video/{id}/refresh-logo` → `{downloaded}`.
   Future<bool> refreshVideoLogo(int videoId) async {
-    final json = await _send('/api/v1/video/$videoId/refresh-logo', method: 'POST');
+    final json = await _send(
+      '/api/v1/video/$videoId/refresh-logo',
+      method: 'POST',
+    );
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       return map?['downloaded'] == true;

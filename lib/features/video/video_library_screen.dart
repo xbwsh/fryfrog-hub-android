@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
 import 'video_detail_screen.dart';
+import 'unscraped_screen.dart';
 
 /// All items of one home library rail ("电影" / "电视剧" / …) in a grid,
 /// with a portrait-poster / landscape-backdrop display toggle.
@@ -32,6 +33,9 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
     final items = widget.group.allItems;
+    // Admin entry into this library's unscraped backlog — same cell as a
+    // poster, placeholder art, first grid position.
+    final showUnscraped = widget.session.user?.isAdmin == true;
 
     return Scaffold(
       backgroundColor: AppColors.background(context),
@@ -108,17 +112,98 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                     crossAxisSpacing: spacing,
                     childAspectRatio: cellAspect,
                   ),
-                  itemCount: items.length,
-                  itemBuilder: (context, i) => _LibraryPosterCard(
-                    key: ValueKey(items[i].id),
-                    item: items[i],
-                    portrait: _portrait,
-                    form: form,
-                    session: widget.session,
-                  ),
+                  itemCount: items.length + (showUnscraped ? 1 : 0),
+                  itemBuilder: (context, i) {
+                    if (showUnscraped && i == 0) {
+                      return _UnscrapedEntryCard(
+                        key: const ValueKey('unscraped-entry'),
+                        form: form,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<bool>(
+                              builder: (_) => UnscrapedScreen(
+                                session: widget.session,
+                                libraryId: widget.group.libraryId,
+                                libraryName: widget.group.name,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }
+                    final item = items[showUnscraped ? i - 1 : i];
+                    return _LibraryPosterCard(
+                      key: ValueKey(item.id),
+                      item: item,
+                      portrait: _portrait,
+                      form: form,
+                      session: widget.session,
+                    );
+                  },
                 );
               },
             ),
+    );
+  }
+}
+
+/// Placeholder cell the size of a poster card: opens the library's
+/// unscraped backlog. No cover art by design.
+class _UnscrapedEntryCard extends StatelessWidget {
+  const _UnscrapedEntryCard({
+    super.key,
+    required this.form,
+    required this.onTap,
+  });
+
+  final DeviceForm form;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(Dimens.radiusMd);
+
+    return InkWell(
+      borderRadius: radius,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SizedBox.expand(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.surface(context),
+                      borderRadius: radius,
+                    ),
+                  ),
+                  Center(
+                    child: Icon(
+                      Icons.search_off_rounded,
+                      size: 44 * form.typeScale,
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: Dimens.spacingXs),
+          Text(
+            '未刮削',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13 * form.typeScale,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
