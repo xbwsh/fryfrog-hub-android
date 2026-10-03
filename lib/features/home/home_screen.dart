@@ -32,9 +32,10 @@ class _HomeScreenState extends State<HomeScreen> {
       listenable: session,
       builder: (context, _) {
         // No inner Scaffold — root Scaffold already provides Material.
-        // Landscape hero runs under the (transparent) status bar instead.
+        // TV keeps its title/toolbar below the inset; every other form runs
+        // the carousel under the (transparent) status bar instead.
         return SafeArea(
-          top: !form.isTabletLandscape,
+          top: form.isTv,
           bottom: false,
           child: session.isLoadingCatalog && session.videoGroups.isEmpty
               ? const Center(child: CircularProgressIndicator.adaptive())
@@ -92,7 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     HomeCarousel(
                       items: session.carouselItems,
                       session: session,
-                      fullBleed: form.isTabletLandscape,
+                      fullBleed: !form.isTv,
+                      railAligned: form.isTabletLandscape,
                       height: form.isTv
                           ? Dimens.carouselHeightTv
                           : form.isTabletLandscape

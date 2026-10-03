@@ -20,17 +20,21 @@ class HomeCarousel extends StatefulWidget {
     required this.height,
     this.session,
     this.fullBleed = false,
+    this.railAligned = false,
   });
 
   final List<SeriesListDto> items;
   final double height;
   final Session? session;
 
-  /// Full-screen hero mode: flush to the top/right screen edges (status-bar
-  /// bleed, no right gutter) while the left edge sits on the same 16px line
-  /// as the library rails below, with rounded left corners for a soft
-  /// transition into the rail column.
+  /// Immersive mode: flush to the screen edges (no side gutters, no corner
+  /// radius), runs under the transparent status bar, deeper text scrim and
+  /// viewportFraction 1.0 so neighbours never peek.
   final bool fullBleed;
+
+  /// Landscape variant of [fullBleed]: left edge pulled back to the rails'
+  /// 16px alignment line with rounded left corners (right stays square).
+  final bool railAligned;
 
   /// Viewport-relative height for the tablet-landscape full-width band.
   static double landscapeHeight(BuildContext context) =>
@@ -150,9 +154,11 @@ class _HomeCarouselState extends State<HomeCarousel> {
             return Padding(
               key: ValueKey(item.id),
               padding: EdgeInsets.only(
-                // Left gutter matches the library rails' spacingLg so the
-                // hero edge and the 分库 headers below share one line.
-                left: widget.fullBleed ? Dimens.spacingLg : Dimens.spacingSm,
+                left: !widget.fullBleed
+                    ? Dimens.spacingSm
+                    : widget.railAligned
+                    ? Dimens.spacingLg
+                    : 0,
                 right: widget.fullBleed ? 0 : Dimens.spacingSm,
               ),
               child: InkWell(
@@ -169,14 +175,16 @@ class _HomeCarouselState extends State<HomeCarousel> {
                         );
                       },
                 child: ClipRRect(
-                  borderRadius: widget.fullBleed
+                  borderRadius: !widget.fullBleed
+                      ? BorderRadius.circular(Dimens.radiusLg)
+                      : widget.railAligned
                       // Soft left corners facing the rails; the right side
                       // runs off the screen edge square.
                       ? BorderRadius.only(
                           topLeft: Radius.circular(Dimens.radiusLg),
                           bottomLeft: Radius.circular(Dimens.radiusLg),
                         )
-                      : BorderRadius.circular(Dimens.radiusLg),
+                      : BorderRadius.zero,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
