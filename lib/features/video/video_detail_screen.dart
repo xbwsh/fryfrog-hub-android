@@ -344,7 +344,10 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 color: AppColors.surface(context),
                 onSelected: _onAdminAction,
                 itemBuilder: (context) => [
-                  _adminItem('bind', Icons.link_rounded, '搜索并绑定 TMDB'),
+                  // Bind only while unbound — a bound detail shows the
+                  // refresh/logo/unbind family instead (rebind = unbind first).
+                  if (detail.tmdbId == null)
+                    _adminItem('bind', Icons.link_rounded, '搜索并绑定 TMDB'),
                   if (detail.tmdbId != null)
                     _adminItem('refreshMeta', Icons.refresh_rounded, '刷新元数据'),
                   _adminItem('covers', Icons.image_rounded, '设置封面'),
