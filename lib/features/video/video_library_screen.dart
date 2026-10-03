@@ -6,7 +6,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
-import '../home/home_carousel.dart' show SlideBadge;
+import '../home/home_carousel.dart' show ResolutionBadges, SlideBadge;
 import 'video_detail_screen.dart';
 import 'unscraped_screen.dart';
 
@@ -290,6 +290,11 @@ class _LibraryPosterCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                  Positioned(
+                    right: Dimens.spacingXs,
+                    bottom: Dimens.spacingXs,
+                    child: ResolutionBadges(resolutions: item.resolutions),
+                  ),
                 ],
               ),
             ),

@@ -299,7 +299,36 @@ class _HomeCarouselState extends State<HomeCarousel> {
   }
 }
 
-/// Small translucent chip for a slide/poster top-left corner (rating / 18+).
+/// Bottom-right resolution chips for poster covers (e.g. 4K · 1080P).
+/// Renders nothing when the item carries no resolution labels.
+class ResolutionBadges extends StatelessWidget {
+  const ResolutionBadges({super.key, required this.resolutions});
+
+  final List<String> resolutions;
+
+  static String _display(String label) {
+    final lower = label.toLowerCase();
+    if (lower == '1080p') return '1080P';
+    if (lower == '720p') return '720P';
+    if (lower == '480p') return '480P';
+    if (lower == '2160p') return '4K';
+    return label;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (resolutions.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: Dimens.spacingXs,
+      children: [
+        for (final r in resolutions)
+          SlideBadge(text: _display(r), color: AppColors.accent),
+      ],
+    );
+  }
+}
+
+/// Small translucent chip for a slide/poster corner (rating / 18+ / res).
 class SlideBadge extends StatelessWidget {
   const SlideBadge({super.key, required this.text, required this.color});
 

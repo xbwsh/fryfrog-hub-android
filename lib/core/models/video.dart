@@ -18,6 +18,7 @@ class SeriesListDto {
     this.isAdult = false,
     this.favorite = false,
     this.episodeCount,
+    this.resolutions = const [],
   });
 
   final int id;
@@ -34,6 +35,10 @@ class SeriesListDto {
   final bool isAdult;
   final bool favorite;
   final int? episodeCount;
+
+  /// Distinct resolution labels across the item's episodes,
+  /// backend-sorted high → low (4K, 2K, 1080p, …).
+  final List<String> resolutions;
 
   String get displayTitle => (title != null && title!.isNotEmpty)
       ? title!
@@ -56,6 +61,10 @@ class SeriesListDto {
     isAdult: json['isAdult'] == true,
     favorite: json['favorite'] == true,
     episodeCount: (json['episodeCount'] as num?)?.toInt(),
+    resolutions: [
+      for (final r in (json['resolutions'] as List? ?? const []))
+        if (r is String) r,
+    ],
   );
 }
 

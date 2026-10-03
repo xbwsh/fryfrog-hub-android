@@ -471,6 +471,11 @@ class PosterCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                  Positioned(
+                    right: Dimens.spacingXs,
+                    bottom: Dimens.spacingXs,
+                    child: ResolutionBadges(resolutions: item.resolutions),
+                  ),
                 ],
               ),
             ),
