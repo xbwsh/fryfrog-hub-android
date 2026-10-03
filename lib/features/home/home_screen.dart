@@ -442,9 +442,34 @@ class PosterCard extends StatelessWidget {
         children: [
           Expanded(
             child: SizedBox.expand(
-              child: ServerImage(
-                url: item.coverUrl,
-                borderRadius: BorderRadius.circular(Dimens.radiusMd),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ServerImage(
+                    url: item.coverUrl,
+                    borderRadius: BorderRadius.circular(Dimens.radiusMd),
+                  ),
+                  if (item.isAdult || (item.rating != null && item.rating! > 0))
+                    Positioned(
+                      top: Dimens.spacingXs,
+                      left: Dimens.spacingXs,
+                      child: Wrap(
+                        spacing: Dimens.spacingXs,
+                        children: [
+                          if (item.isAdult)
+                            const SlideBadge(
+                              text: '18+',
+                              color: AppColors.danger,
+                            ),
+                          if (item.rating != null && item.rating! > 0)
+                            SlideBadge(
+                              text: '★ ${item.rating!.toStringAsFixed(1)}',
+                              color: Colors.white,
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

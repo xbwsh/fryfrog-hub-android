@@ -206,12 +206,12 @@ class _HomeCarouselState extends State<HomeCarousel> {
                           spacing: Dimens.spacingXs,
                           children: [
                             if (item.isAdult)
-                              const _SlideBadge(
+                              const SlideBadge(
                                 text: '18+',
                                 color: AppColors.danger,
                               ),
                             if (item.rating != null && item.rating! > 0)
-                              _SlideBadge(
+                              SlideBadge(
                                 text: '★ ${item.rating!.toStringAsFixed(1)}',
                                 color: Colors.white,
                               ),
@@ -276,9 +276,9 @@ class _HomeCarouselState extends State<HomeCarousel> {
   }
 }
 
-/// Small translucent chip for the slide's top-left corner (rating / 18+).
-class _SlideBadge extends StatelessWidget {
-  const _SlideBadge({required this.text, required this.color});
+/// Small translucent chip for a slide/poster top-left corner (rating / 18+).
+class SlideBadge extends StatelessWidget {
+  const SlideBadge({super.key, required this.text, required this.color});
 
   final String text;
   final Color color;
