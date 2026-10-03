@@ -28,8 +28,8 @@ class Dimens {
   /// Title + year strip under a video poster in the library grid.
   static const double videoMetaExtent = 44;
 
-  static const double carouselHeightPhone = 220;
-  static const double carouselHeightTablet = 300;
+  static const double carouselHeightPhone = 250;
+  static const double carouselHeightTablet = 340;
   static const double carouselHeightTv = 380;
 
   /// Tablet-landscape home carousel (full-bleed hero): height as a fraction
