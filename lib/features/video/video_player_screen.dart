@@ -261,7 +261,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _exiting = true;
     if (!mounted) return;
     // canPop stays false for the route; pop explicitly (maybePop would no-op).
-    Navigator.of(context).pop();
+    final navigator = Navigator.of(context);
+    // Rotation + bars must settle while the player still covers the detail
+    // page — otherwise its top bar shifts downward when they come back.
+    _restoreAppChrome().whenComplete(navigator.pop);
   }
 
   void _seekBy(int seconds) {

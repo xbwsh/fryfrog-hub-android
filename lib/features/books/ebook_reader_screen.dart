@@ -39,6 +39,7 @@ class _EbookReaderScreenState extends State<EbookReaderScreen>
   late final EbookReaderController _c;
   final ScrollController _scrollCtrl = ScrollController();
   Timer? _reHideTimer;
+  bool _exiting = false;
 
   @override
   void initState() {
@@ -94,12 +95,7 @@ class _EbookReaderScreenState extends State<EbookReaderScreen>
   void dispose() {
     _reHideTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.edgeToEdge,
-        overlays: SystemUiOverlay.values,
-      ),
-    );
+    unawaited(_restoreAppChrome());
     _c
       ..removeListener(_onChanged)
       ..dispose();
@@ -199,14 +195,27 @@ class _EbookReaderScreenState extends State<EbookReaderScreen>
       if (_c.hasPrevChapter) _goToChapter(_c.chapterPos - 1);
     } else if (key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.goBack) {
-      Navigator.of(context).maybePop();
+      _exit();
     }
   }
 
+  Future<void> _restoreAppChrome() => SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+    overlays: SystemUiOverlay.values,
+  );
+
   Future<void> _exit() async {
+    if (_exiting) return;
+    _exiting = true;
     final navigator = Navigator.of(context);
-    await _c.flushProgress();
-    navigator.maybePop();
+    // Bring the bars back while this route still covers the detail page —
+    // otherwise its top bar reflows downward right after the pop reveals it.
+    final save = _c.flushProgress();
+    await _restoreAppChrome();
+    await save;
+    // Pop (not maybePop): PopScope below keeps canPop false so the system
+    // back gesture routes through here instead of racing dispose.
+    navigator.pop();
   }
 
   @override
@@ -220,48 +229,55 @@ class _EbookReaderScreenState extends State<EbookReaderScreen>
         _onKey(event);
         return KeyEventResult.ignored;
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _c.toggleChrome,
-              child: _buildBody(form, pad),
-            ),
-            if (_c.chromeVisible)
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: _TopBar(
-                  form: form,
-                  title: widget.title,
-                  chapterLabel: _c.chapterLabel,
-                  onPage: _c.chapterCount <= 1
-                      ? null
-                      : '${_c.chapterPos + 1}/${_c.chapterCount}',
-                  onBack: _exit,
-                  onChapters: _c.chapterCount > 1 ? _openChapterSheet : null,
-                ),
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop || _exiting) return;
+          unawaited(_exit());
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _c.toggleChrome,
+                child: _buildBody(form, pad),
               ),
-            if (_c.chromeVisible && _c.chapterCount > 1)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _BottomBar(
-                  form: form,
-                  chapterPos: _c.chapterPos,
-                  chapterCount: _c.chapterCount,
-                  canPrev: _c.hasPrevChapter,
-                  canNext: _c.hasNextChapter,
-                  onPrev: () => _goToChapter(_c.chapterPos - 1),
-                  onNext: () => _goToChapter(_c.chapterPos + 1),
-                  onSlider: (v) => _goToChapter(v.round()),
+              if (_c.chromeVisible)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _TopBar(
+                    form: form,
+                    title: widget.title,
+                    chapterLabel: _c.chapterLabel,
+                    onPage: _c.chapterCount <= 1
+                        ? null
+                        : '${_c.chapterPos + 1}/${_c.chapterCount}',
+                    onBack: _exit,
+                    onChapters: _c.chapterCount > 1 ? _openChapterSheet : null,
+                  ),
                 ),
-              ),
-          ],
+              if (_c.chromeVisible && _c.chapterCount > 1)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _BottomBar(
+                    form: form,
+                    chapterPos: _c.chapterPos,
+                    chapterCount: _c.chapterCount,
+                    canPrev: _c.hasPrevChapter,
+                    canNext: _c.hasNextChapter,
+                    onPrev: () => _goToChapter(_c.chapterPos - 1),
+                    onNext: () => _goToChapter(_c.chapterPos + 1),
+                    onSlider: (v) => _goToChapter(v.round()),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -477,13 +493,12 @@ class _BottomBar extends StatelessWidget {
                     child: Slider(
                       value: chapterPos.clamp(0, chapterCount - 1).toDouble(),
                       min: 0,
-                      max: (chapterCount - 1).clamp(0, double.infinity)
+                      max: (chapterCount - 1)
+                          .clamp(0, double.infinity)
                           .toDouble(),
                       divisions: chapterCount <= 1 ? 1 : chapterCount - 1,
                       label: '${chapterPos + 1}',
-                      onChanged: chapterCount <= 1
-                          ? null
-                          : (v) => onSlider(v),
+                      onChanged: chapterCount <= 1 ? null : (v) => onSlider(v),
                     ),
                   ),
                   IconButton(

@@ -46,6 +46,7 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
   final List<GlobalKey> _pageKeys = [];
   double? _knownExtent;
   Timer? _reHideTimer;
+  bool _exiting = false;
 
   @override
   void initState() {
@@ -130,12 +131,7 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
   void dispose() {
     _reHideTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.edgeToEdge,
-        overlays: SystemUiOverlay.values,
-      ),
-    );
+    unawaited(_restoreAppChrome());
     _c
       ..removeListener(_onChanged)
       ..dispose();
@@ -374,14 +370,27 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
       }
     } else if (key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.goBack) {
-      Navigator.of(context).maybePop();
+      _exit();
     }
   }
 
+  Future<void> _restoreAppChrome() => SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+    overlays: SystemUiOverlay.values,
+  );
+
   Future<void> _exit() async {
+    if (_exiting) return;
+    _exiting = true;
     final navigator = Navigator.of(context);
-    await _c.flushProgress();
-    navigator.maybePop();
+    // Bring the bars back while this route still covers the detail page —
+    // otherwise its top bar reflows downward right after the pop reveals it.
+    final save = _c.flushProgress();
+    await _restoreAppChrome();
+    await save;
+    // Pop (not maybePop): PopScope below keeps canPop false so the system
+    // back gesture routes through here instead of racing dispose.
+    navigator.pop();
   }
 
   @override
@@ -396,80 +405,89 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
         _onKey(event);
         return KeyEventResult.ignored;
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _c.toggleChrome,
-              child: _buildBody(form, pad),
-            ),
-            if (_c.chromeVisible)
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: _TopBar(
-                  form: form,
-                  title: widget.title,
-                  chapterLabel: _c.chapters.isEmpty ? '' : _c.chapterLabel,
-                  onPage: _c.pageUrls.isEmpty
-                      ? null
-                      : '${_c.pageIndex + 1}/${_c.pageCount}',
-                  onBack: _exit,
-                  onChapters: _c.chapters.length > 1 ? _openChapterSheet : null,
-                  onToggleMode: () {
-                    final page = _c.pageIndex;
-                    _c.setMode(
-                      mode == ComicReaderController.readerModeScroll
-                          ? ComicReaderController.readerModePage
-                          : ComicReaderController.readerModeScroll,
-                    );
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      if (_c.mode == ComicReaderController.readerModePage) {
-                        if (_pageCtrl.hasClients && page < _c.pageCount) {
-                          _pageCtrl.jumpToPage(page);
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop || _exiting) return;
+          unawaited(_exit());
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _c.toggleChrome,
+                child: _buildBody(form, pad),
+              ),
+              if (_c.chromeVisible)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _TopBar(
+                    form: form,
+                    title: widget.title,
+                    chapterLabel: _c.chapters.isEmpty ? '' : _c.chapterLabel,
+                    onPage: _c.pageUrls.isEmpty
+                        ? null
+                        : '${_c.pageIndex + 1}/${_c.pageCount}',
+                    onBack: _exit,
+                    onChapters: _c.chapters.length > 1
+                        ? _openChapterSheet
+                        : null,
+                    onToggleMode: () {
+                      final page = _c.pageIndex;
+                      _c.setMode(
+                        mode == ComicReaderController.readerModeScroll
+                            ? ComicReaderController.readerModePage
+                            : ComicReaderController.readerModeScroll,
+                      );
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        if (_c.mode == ComicReaderController.readerModePage) {
+                          if (_pageCtrl.hasClients && page < _c.pageCount) {
+                            _pageCtrl.jumpToPage(page);
+                          }
+                        } else {
+                          _restoreVerticalOffset();
                         }
-                      } else {
-                        _restoreVerticalOffset();
+                      });
+                    },
+                    modeIcon: mode == ComicReaderController.readerModeScroll
+                        ? Icons.swap_vert_rounded
+                        : Icons.swap_horiz_rounded,
+                    modeTooltip: mode == ComicReaderController.readerModeScroll
+                        ? '切换为翻页'
+                        : '切换为滚动',
+                  ),
+                ),
+              if (_c.chromeVisible && _c.pageUrls.isNotEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _BottomBar(
+                    form: form,
+                    pageIndex: _c.pageIndex,
+                    pageCount: _c.pageCount,
+                    canPrevChapter: _c.hasPrevChapter,
+                    canNextChapter: _c.hasNextChapter,
+                    onPrevPage: () => _goToPage(_c.pageIndex - 1),
+                    onNextPage: () {
+                      if (_c.pageIndex + 1 < _c.pageCount) {
+                        _goToPage(_c.pageIndex + 1);
+                      } else if (_c.hasNextChapter) {
+                        _c.switchChapter(_c.chapterPos + 1);
                       }
-                    });
-                  },
-                  modeIcon: mode == ComicReaderController.readerModeScroll
-                      ? Icons.swap_vert_rounded
-                      : Icons.swap_horiz_rounded,
-                  modeTooltip: mode == ComicReaderController.readerModeScroll
-                      ? '切换为翻页'
-                      : '切换为滚动',
+                    },
+                    onPrevChapter: () => _c.switchChapter(_c.chapterPos - 1),
+                    onNextChapter: () => _c.switchChapter(_c.chapterPos + 1),
+                    onSlider: (v) => _goToPage(v.round()),
+                  ),
                 ),
-              ),
-            if (_c.chromeVisible && _c.pageUrls.isNotEmpty)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _BottomBar(
-                  form: form,
-                  pageIndex: _c.pageIndex,
-                  pageCount: _c.pageCount,
-                  canPrevChapter: _c.hasPrevChapter,
-                  canNextChapter: _c.hasNextChapter,
-                  onPrevPage: () => _goToPage(_c.pageIndex - 1),
-                  onNextPage: () {
-                    if (_c.pageIndex + 1 < _c.pageCount) {
-                      _goToPage(_c.pageIndex + 1);
-                    } else if (_c.hasNextChapter) {
-                      _c.switchChapter(_c.chapterPos + 1);
-                    }
-                  },
-                  onPrevChapter: () => _c.switchChapter(_c.chapterPos - 1),
-                  onNextChapter: () => _c.switchChapter(_c.chapterPos + 1),
-                  onSlider: (v) => _goToPage(v.round()),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
