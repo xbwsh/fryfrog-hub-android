@@ -18,21 +18,30 @@ Future<T> runWithProgress<T>(
 ) async {
   final nav = Navigator.of(context);
   // Pushed synchronously; not awaited — we pop it ourselves in `finally`.
+  // Plain Dialog (not AlertDialog): AlertDialog's min-height constraint
+  // top-aligns a lone content row, which reads as "sitting too high".
   // ignore: unawaited_futures
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => AlertDialog(
-      content: Row(
-        children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-          const SizedBox(width: Dimens.spacingLg),
-          Expanded(child: Text(label)),
-        ],
+    builder: (_) => Dialog(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Dimens.spacingXl,
+          vertical: Dimens.spacingLg,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+            const SizedBox(width: Dimens.spacingLg),
+            Flexible(child: Text(label)),
+          ],
+        ),
       ),
     ),
   );
@@ -172,9 +181,7 @@ class _TmdbBindDialogState extends State<TmdbBindDialog> {
                         ),
                         child: Center(
                           child: Text(
-                            _keywordCtrl.text.isEmpty
-                                ? '输入标题关键词'
-                                : '无结果',
+                            _keywordCtrl.text.isEmpty ? '输入标题关键词' : '无结果',
                             style: TextStyle(
                               fontSize: 13,
                               color: theme.hintColor,
@@ -361,9 +368,8 @@ class _EditMetadataDialogState extends State<EditMetadataDialog> {
     if (_saving) return;
     final body = _buildBody();
     if (body.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有需要保存的修改')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有需要保存的修改')));
       return;
     }
     setState(() => _saving = true);
@@ -498,8 +504,7 @@ class CoverPickerSheet extends StatefulWidget {
 
   final Future<bool> Function() onDownloadCovers;
   final Future<List<FrameCandidate>> Function() onGenerateFrames;
-  final Future<void> Function(int index, {required String type})
-  onSelectFrame;
+  final Future<void> Function(int index, {required String type}) onSelectFrame;
 
   @override
   State<CoverPickerSheet> createState() => _CoverPickerSheetState();
@@ -835,9 +840,7 @@ class _LogoPickerDialogState extends State<LogoPickerDialog> {
                         width: 72,
                         height: 40,
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(
-                            Dimens.radiusSm,
-                          ),
+                          borderRadius: BorderRadius.circular(Dimens.radiusSm),
                           child: ServerImage(
                             url: o.url,
                             fit: BoxFit.contain,
@@ -860,10 +863,7 @@ class _LogoPickerDialogState extends State<LogoPickerDialog> {
                           if (o.voteCount != null)
                             '票数 ${o.voteCount!.toStringAsFixed(0)}',
                         ].join(' · '),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.hintColor,
-                        ),
+                        style: TextStyle(fontSize: 12, color: theme.hintColor),
                       ),
                       trailing: setting
                           ? const SizedBox(
