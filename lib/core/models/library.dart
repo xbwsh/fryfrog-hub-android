@@ -9,6 +9,8 @@ class MediaLibrary {
     required this.type,
     this.subType,
     this.enabled = true,
+    this.enableScraping = true,
+    this.isAdult = false,
     this.sortOrder,
     this.description,
   });
@@ -19,6 +21,8 @@ class MediaLibrary {
   final String type; // VIDEO / MUSIC / COMIC / EBOOK / AUDIOBOOK
   final String? subType; // VIDEO only: MOVIE / TV / MIXED
   final bool enabled;
+  final bool enableScraping;
+  final bool isAdult;
   final int? sortOrder;
   final String? description;
 
@@ -49,6 +53,8 @@ class MediaLibrary {
     type: json['type'] as String? ?? 'VIDEO',
     subType: json['subType'] as String?,
     enabled: json['enabled'] as bool? ?? true,
+    enableScraping: json['enableScraping'] as bool? ?? true,
+    isAdult: json['isAdult'] as bool? ?? false,
     sortOrder: (json['sortOrder'] as num?)?.toInt(),
     description: json['description'] as String?,
   );

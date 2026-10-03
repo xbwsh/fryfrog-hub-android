@@ -158,12 +158,11 @@ class ApiEbookGateway implements EbookGateway {
     int bookId, {
     required double positionPercent,
     required int chapterIndex,
-  }) => _api
-      .saveEbookProgress(
-        bookId,
-        positionPercent: positionPercent,
-        chapterIndex: chapterIndex,
-      );
+  }) => _api.saveEbookProgress(
+    bookId,
+    positionPercent: positionPercent,
+    chapterIndex: chapterIndex,
+  );
 }
 
 class ApiMediaLibraryGateway implements MediaLibraryGateway {
@@ -180,12 +179,16 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
     required String path,
     String? subType,
     required bool enabled,
+    bool enableScraping = true,
+    bool isAdult = false,
     String? description,
   }) => _api.createMediaLibrary(
     name: name,
     path: path,
     subType: subType,
     enabled: enabled,
+    enableScraping: enableScraping,
+    isAdult: isAdult,
     description: description,
   );
 
@@ -196,6 +199,8 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
     String? path,
     String? subType,
     bool? enabled,
+    bool? enableScraping,
+    bool? isAdult,
     String? description,
   }) => _api.updateMediaLibrary(
     id,
@@ -203,6 +208,8 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
     path: path,
     subType: subType,
     enabled: enabled,
+    enableScraping: enableScraping,
+    isAdult: isAdult,
     description: description,
   );
 

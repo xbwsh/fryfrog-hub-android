@@ -73,6 +73,8 @@ class MediaLibraryController extends ChangeNotifier {
     required String path,
     required String subType,
     required bool enabled,
+    bool enableScraping = true,
+    bool isAdult = false,
     String? description,
   }) async {
     busy = true;
@@ -84,6 +86,8 @@ class MediaLibraryController extends ChangeNotifier {
           path: path,
           subType: subType,
           enabled: enabled,
+          enableScraping: enableScraping,
+          isAdult: isAdult,
           description: description,
         );
         libraries = [...libraries, created];
@@ -94,6 +98,8 @@ class MediaLibraryController extends ChangeNotifier {
           path: path,
           subType: subType,
           enabled: enabled,
+          enableScraping: enableScraping,
+          isAdult: isAdult,
           description: description,
         );
         libraries = [

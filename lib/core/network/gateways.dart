@@ -55,7 +55,11 @@ abstract class VideoGateway {
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId);
 
   /// [type] = poster | fanart.
-  Future<void> selectFrame(int videoId, {required int index, required String type});
+  Future<void> selectFrame(
+    int videoId, {
+    required int index,
+    required String type,
+  });
 
   /// Long-running (300s timeout server-side).
   Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId);
@@ -109,6 +113,8 @@ abstract class MediaLibraryGateway {
     required String path,
     String? subType,
     required bool enabled,
+    bool enableScraping = true,
+    bool isAdult = false,
     String? description,
   });
 
@@ -118,6 +124,8 @@ abstract class MediaLibraryGateway {
     String? path,
     String? subType,
     bool? enabled,
+    bool? enableScraping,
+    bool? isAdult,
     String? description,
   });
 

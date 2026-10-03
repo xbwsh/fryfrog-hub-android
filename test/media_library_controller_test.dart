@@ -18,6 +18,8 @@ class _FakeGateway implements MediaLibraryGateway {
     required String path,
     String? subType,
     required bool enabled,
+    bool enableScraping = true,
+    bool isAdult = false,
     String? description,
   }) async {
     final created = MediaLibrary(
@@ -27,6 +29,8 @@ class _FakeGateway implements MediaLibraryGateway {
       type: 'VIDEO',
       subType: subType,
       enabled: enabled,
+      enableScraping: enableScraping,
+      isAdult: isAdult,
       sortOrder: libs.length,
       description: description,
     );
@@ -41,6 +45,8 @@ class _FakeGateway implements MediaLibraryGateway {
     String? path,
     String? subType,
     bool? enabled,
+    bool? enableScraping,
+    bool? isAdult,
     String? description,
   }) async {
     final lib = libs.firstWhere((l) => l.id == id);
@@ -51,6 +57,8 @@ class _FakeGateway implements MediaLibraryGateway {
       type: lib.type,
       subType: subType ?? lib.subType,
       enabled: enabled ?? lib.enabled,
+      enableScraping: enableScraping ?? lib.enableScraping,
+      isAdult: isAdult ?? lib.isAdult,
       sortOrder: lib.sortOrder,
       description: description ?? lib.description,
     );
@@ -73,6 +81,8 @@ class _FakeGateway implements MediaLibraryGateway {
       type: lib.type,
       subType: lib.subType,
       enabled: !lib.enabled,
+      enableScraping: lib.enableScraping,
+      isAdult: lib.isAdult,
       sortOrder: lib.sortOrder,
       description: lib.description,
     );
@@ -150,6 +160,38 @@ void main() {
     );
     expect(c.libraries.first.name, 'renamed');
     expect(c.libraries.first.subType, 'TV');
+  });
+
+  test('save passes scraping and adult flags through', () async {
+    final gateway = _FakeGateway([_lib(1, 'a')]);
+    final c = MediaLibraryController(gateway: gateway);
+    await c.load();
+
+    await c.save(
+      name: '成人库',
+      path: '/media/adult',
+      subType: 'MIXED',
+      enabled: true,
+      enableScraping: false,
+      isAdult: true,
+      description: null,
+    );
+    final created = c.libraries.last;
+    expect(created.enableScraping, isFalse);
+    expect(created.isAdult, isTrue);
+
+    await c.save(
+      edit: created,
+      name: '成人库',
+      path: '/media/adult',
+      subType: 'MIXED',
+      enabled: true,
+      enableScraping: true,
+      isAdult: false,
+      description: null,
+    );
+    expect(c.libraries.last.enableScraping, isTrue);
+    expect(c.libraries.last.isAdult, isFalse);
   });
 
   test('toggle flips enabled, remove drops the entry', () async {

@@ -492,6 +492,8 @@ class _LibraryFormDialogState extends State<_LibraryFormDialog> {
   late final TextEditingController _desc;
   late String _subType;
   late bool _enabled;
+  late bool _enableScraping;
+  late bool _isAdult;
   bool _saving = false;
 
   @override
@@ -503,6 +505,8 @@ class _LibraryFormDialogState extends State<_LibraryFormDialog> {
     _desc = TextEditingController(text: edit?.description ?? '');
     _subType = edit?.subType ?? 'MOVIE';
     _enabled = edit?.enabled ?? true;
+    _enableScraping = edit?.enableScraping ?? true;
+    _isAdult = edit?.isAdult ?? false;
   }
 
   @override
@@ -540,6 +544,8 @@ class _LibraryFormDialogState extends State<_LibraryFormDialog> {
           path: _path.text.trim(),
           subType: _subType,
           enabled: _enabled,
+          enableScraping: _enableScraping,
+          isAdult: _isAdult,
           description: _desc.text.trim(),
         );
       } else {
@@ -549,6 +555,8 @@ class _LibraryFormDialogState extends State<_LibraryFormDialog> {
           path: _path.text.trim(),
           subType: _subType,
           enabled: _enabled,
+          enableScraping: _enableScraping,
+          isAdult: _isAdult,
           description: _desc.text.trim(),
         );
       }
@@ -648,6 +656,53 @@ class _LibraryFormDialogState extends State<_LibraryFormDialog> {
                   ),
                 ],
               ),
+              // Video-only switches — other types ignore these flags on scan.
+              if (edit == null || edit.type == 'VIDEO') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '扫描时自动刮削',
+                        style: TextStyle(fontSize: 14 * form.typeScale),
+                      ),
+                    ),
+                    Switch(
+                      value: _enableScraping,
+                      onChanged: (v) => setState(() => _enableScraping = v),
+                    ),
+                  ],
+                ),
+                Text(
+                  '扫描到新视频时自动匹配并绑定 TMDB',
+                  style: TextStyle(
+                    fontSize: 11 * form.typeScale,
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+                const SizedBox(height: Dimens.spacingMd),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '成人内容库',
+                        style: TextStyle(fontSize: 14 * form.typeScale),
+                      ),
+                    ),
+                    Switch(
+                      value: _isAdult,
+                      activeThumbColor: AppColors.danger,
+                      onChanged: (v) => setState(() => _isAdult = v),
+                    ),
+                  ],
+                ),
+                Text(
+                  '入库视频标记为 18+',
+                  style: TextStyle(
+                    fontSize: 11 * form.typeScale,
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -857,6 +912,8 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
     required String path,
     String? subType,
     required bool enabled,
+    bool enableScraping = true,
+    bool isAdult = false,
     String? description,
   }) => throw UnsupportedError('未登录');
 
@@ -867,6 +924,8 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
     String? path,
     String? subType,
     bool? enabled,
+    bool? enableScraping,
+    bool? isAdult,
     String? description,
   }) => throw UnsupportedError('未登录');
 

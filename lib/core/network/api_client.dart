@@ -508,6 +508,8 @@ class ApiClient {
     String type = 'VIDEO',
     String? subType,
     bool enabled = true,
+    bool enableScraping = true,
+    bool isAdult = false,
     String? description,
   }) async {
     final json = await _send(
@@ -519,6 +521,8 @@ class ApiClient {
         'type': type,
         'subType': ?subType,
         'enabled': enabled,
+        'enableScraping': enableScraping,
+        'isAdult': isAdult,
         if (description != null && description.isNotEmpty)
           'description': description,
       },
@@ -537,6 +541,8 @@ class ApiClient {
     String? type,
     String? subType,
     bool? enabled,
+    bool? enableScraping,
+    bool? isAdult,
     String? description,
     int? sortOrder,
   }) async {
@@ -549,6 +555,8 @@ class ApiClient {
         'type': ?type,
         'subType': ?subType,
         'enabled': ?enabled,
+        'enableScraping': ?enableScraping,
+        'isAdult': ?isAdult,
         'description': ?description,
         'sortOrder': ?sortOrder,
       },
