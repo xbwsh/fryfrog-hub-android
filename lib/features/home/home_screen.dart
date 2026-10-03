@@ -77,8 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
               : ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    // Tablet portrait shows the small title in GlassAppBar
-                    // instead; phone has neither, landscape/TV keep the big one.
+                    // Only TV shows the big page title; phone and tablet
+                    // portrait stay clean (no top chrome).
                     if (form.isTv)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(

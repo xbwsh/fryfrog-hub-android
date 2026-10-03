@@ -26,8 +26,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _titles = ['视频', '书架', '音乐', '我的'];
-
   // Pages are long-lived inside the IndexedStack below — keep instances
   // stable so switching tabs does not recreate State.
   late final List<Widget> _pages = [
@@ -54,10 +52,8 @@ class _MainShellState extends State<MainShell> {
         body: body,
       ),
       DeviceForm.tabletPortrait => _TabletPortraitShell(
-        form: form,
         index: _index,
         onIndexChanged: (i) => setState(() => _index = i),
-        title: _titles[_index],
         body: body,
       ),
       DeviceForm.tabletLandscape => _SideRailShell(
@@ -144,17 +140,13 @@ class _PhoneShell extends StatelessWidget {
 
 class _TabletPortraitShell extends StatelessWidget {
   const _TabletPortraitShell({
-    required this.form,
     required this.index,
     required this.onIndexChanged,
-    required this.title,
     required this.body,
   });
 
-  final DeviceForm form;
   final int index;
   final ValueChanged<int> onIndexChanged;
-  final String title;
   final Widget body;
 
   @override
@@ -165,19 +157,6 @@ class _TabletPortraitShell extends StatelessWidget {
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
       edgeStyle: GlassScrollEdgeStyle.blur,
-      // Default +20 extends the blur 20px past the app bar onto page
-      // content (carousel, segmented controls) — retract it so the fade
-      // stays inside the bar area.
-      topEdgeFadeExtent: -Dimens.spacingLg,
-      appBar: GlassAppBar(
-        title: Text(title, style: TextStyle(fontSize: 17 * form.typeScale)),
-        actions: [
-          GlassIconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () {},
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           Positioned.fill(child: body),
