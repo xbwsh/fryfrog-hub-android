@@ -11,12 +11,14 @@ class ServerImage extends StatelessWidget {
     super.key,
     required this.url,
     this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
     this.borderRadius,
     this.session,
   });
 
   final String? url;
   final BoxFit fit;
+  final Alignment alignment;
   final BorderRadius? borderRadius;
   final Session? session;
 
@@ -62,6 +64,7 @@ class ServerImage extends StatelessWidget {
           return CachedNetworkImage(
             imageUrl: resolved,
             fit: fit,
+            alignment: alignment,
             width: double.infinity,
             height: double.infinity,
             httpHeaders: headers,

@@ -191,6 +191,12 @@ class _HomeCarouselState extends State<HomeCarousel> {
                       ServerImage(
                         url: item.fanartUrl ?? item.coverUrl,
                         borderRadius: BorderRadius.zero,
+                        // Cover crops centrally by default — in the wide
+                        // hero band that eats the top of the art; anchor
+                        // to the top so the picture starts at the screen top.
+                        alignment: widget.fullBleed
+                            ? Alignment.topCenter
+                            : Alignment.center,
                       ),
                       DecoratedBox(
                         decoration: BoxDecoration(
