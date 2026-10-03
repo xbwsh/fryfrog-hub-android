@@ -26,9 +26,10 @@ class HomeCarousel extends StatefulWidget {
   final double height;
   final Session? session;
 
-  /// Full-screen hero mode: card flush to all four edges (no inset padding,
-  /// no corner radius) with a deeper text scrim; top badge clears the
-  /// status bar overlay.
+  /// Full-screen hero mode: flush to the top/right screen edges (status-bar
+  /// bleed, no right gutter) while the left edge sits on the same 16px line
+  /// as the library rails below, with rounded left corners for a soft
+  /// transition into the rail column.
   final bool fullBleed;
 
   /// Viewport-relative height for the tablet-landscape full-width band.
@@ -148,8 +149,11 @@ class _HomeCarouselState extends State<HomeCarousel> {
             final item = widget.items[i];
             return Padding(
               key: ValueKey(item.id),
-              padding: EdgeInsets.symmetric(
-                horizontal: widget.fullBleed ? 0 : Dimens.spacingSm,
+              padding: EdgeInsets.only(
+                // Left gutter matches the library rails' spacingLg so the
+                // hero edge and the 分库 headers below share one line.
+                left: widget.fullBleed ? Dimens.spacingLg : Dimens.spacingSm,
+                right: widget.fullBleed ? 0 : Dimens.spacingSm,
               ),
               child: InkWell(
                 onTap: widget.session == null
@@ -166,7 +170,12 @@ class _HomeCarouselState extends State<HomeCarousel> {
                       },
                 child: ClipRRect(
                   borderRadius: widget.fullBleed
-                      ? BorderRadius.zero
+                      // Soft left corners facing the rails; the right side
+                      // runs off the screen edge square.
+                      ? BorderRadius.only(
+                          topLeft: Radius.circular(Dimens.radiusLg),
+                          bottomLeft: Radius.circular(Dimens.radiusLg),
+                        )
                       : BorderRadius.circular(Dimens.radiusLg),
                   child: Stack(
                     fit: StackFit.expand,
