@@ -677,17 +677,32 @@ class _DetailView extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              detail.displayTitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20 * form.typeScale,
-                                fontWeight: FontWeight.w800,
-                                height: 1.2,
+                            // TMDB artistic logo when the backend has one
+                            // (补全 Logo / 手动设置 / local file); plain title
+                            // otherwise.
+                            if (detail.logoUrl?.isNotEmpty == true)
+                              SizedBox(
+                                height: 46 * form.typeScale,
+                                width: double.infinity,
+                                child: ServerImage(
+                                  url: detail.logoUrl,
+                                  fit: BoxFit.contain,
+                                  alignment: Alignment.centerLeft,
+                                  borderRadius: BorderRadius.zero,
+                                ),
+                              )
+                            else
+                              Text(
+                                detail.displayTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20 * form.typeScale,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.2,
+                                ),
                               ),
-                            ),
                             const SizedBox(height: Dimens.spacingXs),
                             Text(
                               _metaLine(detail, ep),
