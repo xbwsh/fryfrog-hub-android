@@ -89,18 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: _HomeToolbar(form: form),
                       ),
-                    // Landscape renders the hero as a full-width band above
-                    // the side rail (see MainShell); other forms keep it here.
-                    if (!form.isTabletLandscape)
-                      HomeCarousel(
-                        items: session.carouselItems,
-                        session: session,
-                        height: form.isTv
-                            ? Dimens.carouselHeightTv
-                            : form.isTablet
-                            ? Dimens.carouselHeightTablet
-                            : Dimens.carouselHeightPhone,
-                      ),
+                    HomeCarousel(
+                      items: session.carouselItems,
+                      session: session,
+                      fullBleed: form.isTabletLandscape,
+                      height: form.isTv
+                          ? Dimens.carouselHeightTv
+                          : form.isTabletLandscape
+                          ? HomeCarousel.landscapeHeight(context)
+                          : form.isTablet
+                          ? Dimens.carouselHeightTablet
+                          : Dimens.carouselHeightPhone,
+                    ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: Dimens.spacingLg,

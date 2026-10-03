@@ -6,7 +6,6 @@ import '../core/adaptive/device_form.dart';
 import '../core/state/session.dart';
 import '../core/theme/dimens.dart';
 import '../features/books/books_screen.dart';
-import '../features/home/home_carousel.dart';
 import '../features/home/home_screen.dart';
 import '../features/music/music_screen.dart';
 import '../features/profile/profile_screen.dart';
@@ -67,7 +66,6 @@ class _MainShellState extends State<MainShell> {
         onIndexChanged: (i) => setState(() => _index = i),
         body: body,
         showLabels: true,
-        session: widget.session,
       ),
       DeviceForm.tv => _SideRailShell(
         form: form,
@@ -76,7 +74,6 @@ class _MainShellState extends State<MainShell> {
         body: body,
         showLabels: true,
         wide: true,
-        session: widget.session,
       ),
     };
 
@@ -224,7 +221,6 @@ class _SideRailShell extends StatefulWidget {
     required this.onIndexChanged,
     required this.body,
     required this.showLabels,
-    required this.session,
     this.wide = false,
   });
 
@@ -233,10 +229,8 @@ class _SideRailShell extends StatefulWidget {
   final ValueChanged<int> onIndexChanged;
   final Widget body;
   final bool showLabels;
-  final Session session;
 
-  /// TV variant: wider rail + large focus targets (TV keeps the home
-  /// carousel inside HomeScreen instead of the full-width hero band).
+  /// TV variant: wider rail + large focus targets.
   final bool wide;
 
   @override
@@ -274,14 +268,6 @@ class _SideRailShellState extends State<_SideRailShell> {
     final scale = form.typeScale;
     final scheme = Theme.of(context).colorScheme;
 
-    // Landscape home renders the carousel as a full-width band ABOVE the
-    // rail — the rail starts below it and the hero touches all four screen
-    // edges (status bar included) for the video-detail level of immersion.
-    final showHero =
-        !widget.wide &&
-        widget.index == 0 &&
-        widget.session.carouselItems.isNotEmpty;
-
     return GlassScaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
@@ -289,157 +275,128 @@ class _SideRailShellState extends State<_SideRailShell> {
       extendBody: true,
       edgeStyle: GlassScrollEdgeStyle.blur,
       // Content draws under the gesture bar; only the nav card keeps SafeArea.
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Row(
         children: [
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: showHero
-                ? HomeCarousel(
-                    items: widget.session.carouselItems,
-                    session: widget.session,
-                    height: HomeCarousel.landscapeHeight(context),
-                    fullBleed: true,
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-          Expanded(
-            child: Row(
-              children: [
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Dimens.spacingMd),
-                    child: GlassCard(
-                      child: SizedBox(
-                        width: width,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: Dimens.spacingLg),
-                            Text(
-                              'Fryfrog Hub',
-                              style: TextStyle(
-                                fontSize: 18 * scale,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: Dimens.spacingXl),
-                            for (var i = 0; i < 4; i++)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Dimens.spacingSm,
-                                  vertical: Dimens.spacingXs,
-                                ),
-                                child: Focus(
-                                  focusNode: _nodes[i],
-                                  // Keep D-pad focus on the active tab, not always Home.
-                                  autofocus: i == widget.index,
-                                  onKeyEvent: (node, event) {
-                                    if (event is KeyDownEvent &&
-                                        (event.logicalKey ==
-                                                LogicalKeyboardKey.select ||
-                                            event.logicalKey ==
-                                                LogicalKeyboardKey.enter ||
-                                            event.logicalKey ==
-                                                LogicalKeyboardKey
-                                                    .gameButtonA)) {
-                                      _select(i);
-                                      return KeyEventResult.handled;
-                                    }
-                                    return KeyEventResult.ignored;
-                                  },
-                                  child: Builder(
-                                    builder: (context) {
-                                      final focused = Focus.of(context)
-                                          .hasFocus;
-                                      final selected = widget.index == i;
-                                      return InkWell(
-                                        borderRadius: BorderRadius.circular(
-                                          Dimens.radiusMd,
-                                        ),
-                                        onTap: () => _select(i),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 180,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: Dimens.spacingLg,
-                                            vertical: Dimens.spacingMd + 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              Dimens.radiusMd,
-                                            ),
-                                            // Focus ring only on the item that has focus.
-                                            border: focused
-                                                ? Border.all(
-                                                    color: scheme.primary,
-                                                    width: Dimens.focusBorder,
-                                                  )
-                                                : null,
-                                            // Selection highlight is independent of focus.
-                                            color: selected
-                                                ? scheme.primary.withValues(
-                                                    alpha: 0.16,
-                                                  )
-                                                : null,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                _icons[i],
-                                                size:
-                                                    (widget.wide ? 28 : 22) *
-                                                    scale,
-                                                color: selected
-                                                    ? scheme.primary
-                                                    : null,
-                                              ),
-                                              const SizedBox(
-                                                width: Dimens.spacingMd,
-                                              ),
-                                              Text(
-                                                _labels[i],
-                                                style: TextStyle(
-                                                  fontSize:
-                                                      (widget.wide ? 18 : 15) *
-                                                      scale,
-                                                  fontWeight: selected
-                                                      ? FontWeight.w700
-                                                      : FontWeight.w500,
-                                                  color: selected
-                                                      ? scheme.primary
-                                                      : null,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                          ],
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(Dimens.spacingMd),
+              child: GlassCard(
+                child: SizedBox(
+                  width: width,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: Dimens.spacingLg),
+                      Text(
+                        'Fryfrog Hub',
+                        style: TextStyle(
+                          fontSize: 18 * scale,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: widget.body),
-                      // Mini player floats over content; no SafeArea strip when empty.
-                      const Positioned(
-                        left: Dimens.spacingLg,
-                        right: Dimens.spacingLg,
-                        bottom: Dimens.spacingLg,
-                        child: MiniPlayerBar(),
-                      ),
+                      const SizedBox(height: Dimens.spacingXl),
+                      for (var i = 0; i < 4; i++)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Dimens.spacingSm,
+                            vertical: Dimens.spacingXs,
+                          ),
+                          child: Focus(
+                            focusNode: _nodes[i],
+                            // Keep D-pad focus on the active tab, not always Home.
+                            autofocus: i == widget.index,
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent &&
+                                  (event.logicalKey ==
+                                          LogicalKeyboardKey.select ||
+                                      event.logicalKey ==
+                                          LogicalKeyboardKey.enter ||
+                                      event.logicalKey ==
+                                          LogicalKeyboardKey.gameButtonA)) {
+                                _select(i);
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: Builder(
+                              builder: (context) {
+                                final focused = Focus.of(context).hasFocus;
+                                final selected = widget.index == i;
+                                return InkWell(
+                                  borderRadius: BorderRadius.circular(
+                                    Dimens.radiusMd,
+                                  ),
+                                  onTap: () => _select(i),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Dimens.spacingLg,
+                                      vertical: Dimens.spacingMd + 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(
+                                        Dimens.radiusMd,
+                                      ),
+                                      // Focus ring only on the item that has focus.
+                                      border: focused
+                                          ? Border.all(
+                                              color: scheme.primary,
+                                              width: Dimens.focusBorder,
+                                            )
+                                          : null,
+                                      // Selection highlight is independent of focus.
+                                      color: selected
+                                          ? scheme.primary.withValues(
+                                              alpha: 0.16,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _icons[i],
+                                          size: (widget.wide ? 28 : 22) * scale,
+                                          color: selected
+                                              ? scheme.primary
+                                              : null,
+                                        ),
+                                        const SizedBox(width: Dimens.spacingMd),
+                                        Text(
+                                          _labels[i],
+                                          style: TextStyle(
+                                            fontSize:
+                                                (widget.wide ? 18 : 15) * scale,
+                                            fontWeight: selected
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            color: selected
+                                                ? scheme.primary
+                                                : null,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                     ],
                   ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(child: widget.body),
+                // Mini player floats over content; no SafeArea strip when empty.
+                const Positioned(
+                  left: Dimens.spacingLg,
+                  right: Dimens.spacingLg,
+                  bottom: Dimens.spacingLg,
+                  child: MiniPlayerBar(),
                 ),
               ],
             ),
