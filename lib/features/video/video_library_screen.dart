@@ -6,6 +6,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import '../home/home_carousel.dart' show SlideBadge;
 import 'video_detail_screen.dart';
 import 'unscraped_screen.dart';
 
@@ -253,9 +254,32 @@ class _LibraryPosterCard extends StatelessWidget {
                     ),
                   ),
                   ServerImage(url: url, borderRadius: radius),
+                  // Rating / 18+ chips share the top-left slot with the
+                  // home rails; the TV marker moves right to stay out of
+                  // their way.
+                  if (item.isAdult || (item.rating != null && item.rating! > 0))
+                    Positioned(
+                      left: Dimens.spacingXs,
+                      top: Dimens.spacingXs,
+                      child: Wrap(
+                        spacing: Dimens.spacingXs,
+                        children: [
+                          if (item.isAdult)
+                            const SlideBadge(
+                              text: '18+',
+                              color: AppColors.danger,
+                            ),
+                          if (item.rating != null && item.rating! > 0)
+                            SlideBadge(
+                              text: '★ ${item.rating!.toStringAsFixed(1)}',
+                              color: Colors.white,
+                            ),
+                        ],
+                      ),
+                    ),
                   if (!portrait && item.isTv)
                     Positioned(
-                      left: Dimens.spacingSm,
+                      right: Dimens.spacingSm,
                       top: Dimens.spacingSm,
                       child: Icon(
                         Icons.tv_rounded,
