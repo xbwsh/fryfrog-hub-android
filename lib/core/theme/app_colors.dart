@@ -24,4 +24,7 @@ class AppColors {
   static const Color danger = Color(0xFFFF453A);
   static const Color success = Color(0xFF30D158);
   static const Color warning = Color(0xFFFF9F0A);
+
+  /// Rating stars / score chips (IMDb-style gold).
+  static const Color gold = Color(0xFFF5C518);
 }

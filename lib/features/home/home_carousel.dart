@@ -236,7 +236,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
                             if (item.rating != null && item.rating! > 0)
                               SlideBadge(
                                 text: '★ ${item.rating!.toStringAsFixed(1)}',
-                                color: Colors.white,
+                                color: AppColors.gold,
                               ),
                           ],
                         ),
@@ -322,7 +322,7 @@ class ResolutionBadges extends StatelessWidget {
       spacing: Dimens.spacingXs,
       children: [
         for (final r in resolutions)
-          SlideBadge(text: _display(r), color: AppColors.accent),
+          SlideBadge(text: _display(r), color: Colors.white),
       ],
     );
   }

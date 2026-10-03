@@ -274,7 +274,7 @@ class _LibraryPosterCard extends StatelessWidget {
                           if (item.rating != null && item.rating! > 0)
                             SlideBadge(
                               text: '★ ${item.rating!.toStringAsFixed(1)}',
-                              color: Colors.white,
+                              color: AppColors.gold,
                             ),
                         ],
                       ),
