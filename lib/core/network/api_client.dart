@@ -117,15 +117,49 @@ class ApiClient {
     await _send('/api/v1/auth/logout', method: 'POST');
   }
 
+  /// Grouped series are paged **per library** (backend slices every library
+  /// with the same page/size, size clamped to 1..100). Walking all pages is
+  /// required — a single call silently truncates each library at `size`
+  /// items, which cut a 516-card library view down to 151.
   Future<List<LibrarySeriesGroup>> fetchGroupedSeries() async {
-    final json = await _send('/api/v1/video/series/grouped-by-library');
-    return _unwrap(json, (raw) {
-      final list = raw as List? ?? const [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(LibrarySeriesGroup.fromJson)
-          .toList(growable: false);
-    });
+    const size = 100;
+    final info = <int, LibrarySeriesGroup>{};
+    final seriesByLib = <int, List<SeriesListDto>>{};
+    final standaloneByLib = <int, List<SeriesListDto>>{};
+
+    for (var page = 0; page < 100; page++) {
+      final json = await _send(
+        '/api/v1/video/series/grouped-by-library',
+        query: {'page': '$page', 'size': '$size'},
+      );
+      final batch = _unwrap(json, (raw) {
+        final list = raw as List? ?? const [];
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(LibrarySeriesGroup.fromJson)
+            .toList(growable: true);
+      });
+      if (batch.isEmpty) break;
+      for (final g in batch) {
+        info.putIfAbsent(g.libraryId, () => g);
+        seriesByLib.putIfAbsent(g.libraryId, () => <SeriesListDto>[])
+            .addAll(g.series);
+        standaloneByLib.putIfAbsent(g.libraryId, () => <SeriesListDto>[])
+            .addAll(g.standaloneVideos);
+      }
+    }
+
+    return [
+      for (final lib in info.values)
+        LibrarySeriesGroup(
+          libraryId: lib.libraryId,
+          libraryName: lib.libraryName,
+          libraryPath: lib.libraryPath,
+          subType: lib.subType,
+          series: seriesByLib[lib.libraryId] ?? const [],
+          standaloneVideos: standaloneByLib[lib.libraryId] ?? const [],
+        ),
+    ];
   }
 
   Future<List<MusicLibraryGroup>> fetchMusicHome() async {
