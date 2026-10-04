@@ -59,16 +59,22 @@ Future<T> runWithProgress<T>(
 /// Search TMDB and pick a result; pops with the chosen [TmdbSearchItem].
 /// Binding + progress polling happen in the screen after the dialog closes.
 class TmdbBindDialog extends StatefulWidget {
-  const TmdbBindDialog({super.key, required this.onSearch});
+  const TmdbBindDialog({
+    super.key,
+    required this.onSearch,
+    this.initialKeyword = '',
+  });
 
   final Future<List<TmdbSearchItem>> Function(String query) onSearch;
+  final String initialKeyword;
 
   @override
   State<TmdbBindDialog> createState() => _TmdbBindDialogState();
 }
 
 class _TmdbBindDialogState extends State<TmdbBindDialog> {
-  final _keywordCtrl = TextEditingController();
+  late final TextEditingController _keywordCtrl =
+      TextEditingController(text: widget.initialKeyword);
   List<TmdbSearchItem> _results = const [];
   bool _searching = false;
   String? _error;

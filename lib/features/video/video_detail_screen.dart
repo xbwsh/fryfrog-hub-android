@@ -136,10 +136,13 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     }
   }
 
-  Future<void> _bindTmdb() async {
+  Future<void> _bindTmdb({String initialQuery = ''}) async {
     final item = await showDialog<TmdbSearchItem>(
       context: context,
-      builder: (_) => TmdbBindDialog(onSearch: _c.searchTmdb),
+      builder: (_) => TmdbBindDialog(
+        onSearch: _c.searchTmdb,
+        initialKeyword: initialQuery,
+      ),
     );
     if (item == null) return;
     if (!mounted) return;
@@ -236,11 +239,9 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
       case 'bind':
         await _bindTmdb();
       case 'refreshMeta':
-        await _runProgress(
-          '正在刷新元数据…',
-          _c.refreshMetadataWithPoll,
-          okMessage: '元数据刷新完成',
-          failPrefix: '刷新元数据失败',
+        // 重新刮削 = 重新搜索并选择目标（复用绑定弹窗，预填当前标题）
+        await _bindTmdb(
+          initialQuery: _c.detail?.title ?? _c.detail?.originalTitle ?? '',
         );
       case 'covers':
         await showModalBottomSheet<void>(
@@ -349,7 +350,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                   if (detail.tmdbId == null)
                     _adminItem('bind', Icons.link_rounded, '搜索并绑定 TMDB'),
                   if (detail.tmdbId != null)
-                    _adminItem('refreshMeta', Icons.refresh_rounded, '刷新元数据'),
+                    _adminItem('refreshMeta', Icons.refresh_rounded, '重新刮削'),
                   _adminItem('covers', Icons.image_rounded, '设置封面'),
                   _adminItem('editMeta', Icons.edit_rounded, '编辑元数据'),
                   if (!detail.isStandalone && detail.tmdbId != null)
@@ -497,10 +498,6 @@ class _NullVideoGateway implements VideoGateway {
     required int tmdbId,
     required String mediaType,
   }) => throw UnsupportedError('not logged in');
-
-  @override
-  Future<void> refreshTmdbMetadata(int videoId) =>
-      throw UnsupportedError('not logged in');
 
   @override
   Future<int> unbindTmdb(int videoId) =>

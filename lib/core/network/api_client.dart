@@ -690,12 +690,6 @@ class ApiClient {
     );
   }
 
-  /// Async refresh job — same `bind:{videoId}` progress module.
-  /// Backend: `POST /api/v1/video/{id}/tmdb/refresh`.
-  Future<void> refreshTmdbMetadata(int videoId) async {
-    await _send('/api/v1/video/$videoId/tmdb/refresh', method: 'POST');
-  }
-
   /// Backend: `POST /api/v1/video/{id}/tmdb/unbind` → `{tmdbId?, unbound}`.
   Future<int> unbindTmdb(int videoId) async {
     final json = await _send(

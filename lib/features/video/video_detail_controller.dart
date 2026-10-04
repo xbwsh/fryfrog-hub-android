@@ -152,22 +152,6 @@ class VideoDetailController extends ChangeNotifier {
     }
   }
 
-  /// Re-fetch TMDB metadata; same async job + `bind:{videoId}` progress.
-  Future<void> refreshMetadataWithPoll() async {
-    _ensureIdle();
-    final videoId = _requireVideoId();
-    busy = true;
-    if (!_disposed) notifyListeners();
-    try {
-      await gateway.refreshTmdbMetadata(videoId);
-      await _pollBindJob(videoId);
-      await refreshQuiet();
-    } finally {
-      busy = false;
-      if (!_disposed) notifyListeners();
-    }
-  }
-
   /// Poll every 1.5s, at most 40 times. Polling is best-effort: a failed
   /// progress fetch ends the wait instead of failing the whole operation.
   Future<void> _pollBindJob(int videoId) async {

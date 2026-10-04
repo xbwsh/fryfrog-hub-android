@@ -38,9 +38,6 @@ abstract class VideoGateway {
     required String mediaType,
   });
 
-  /// Async job — same `bind:{videoId}` progress module as [bindTmdb].
-  Future<void> refreshTmdbMetadata(int videoId);
-
   /// Returns how many rows were unbound (`data.unbound`).
   Future<int> unbindTmdb(int videoId);
 

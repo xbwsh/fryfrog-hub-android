@@ -54,10 +54,6 @@ class ApiVideoGateway implements VideoGateway {
   }) => _api.bindTmdb(videoId, tmdbId: tmdbId, mediaType: mediaType);
 
   @override
-  Future<void> refreshTmdbMetadata(int videoId) =>
-      _api.refreshTmdbMetadata(videoId);
-
-  @override
   Future<int> unbindTmdb(int videoId) => _api.unbindTmdb(videoId);
 
   @override
