@@ -18,7 +18,6 @@ class _FakeVideoGateway implements VideoGateway {
   int? lastBindVideoId;
   int? lastBindTmdbId;
   String? lastBindMediaType;
-  int refreshTmdbCalls = 0;
   int unbindCalls = 0;
   int? lastUnbindVideoId;
   final List<String> progressModules = [];
@@ -104,11 +103,6 @@ class _FakeVideoGateway implements VideoGateway {
     lastBindVideoId = videoId;
     lastBindTmdbId = tmdbId;
     lastBindMediaType = mediaType;
-  }
-
-  @override
-  Future<void> refreshTmdbMetadata(int videoId) async {
-    refreshTmdbCalls++;
   }
 
   @override
