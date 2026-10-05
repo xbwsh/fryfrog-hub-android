@@ -20,6 +20,43 @@ flutter build apk
 flutter build ios
 ```
 
+## Release（打 tag 发版）
+推送 `v*` 标签触发 CI（`.github/workflows/build.yml`）：校验标签格式 → 解码
+`KEYSTORE_*` Secrets 签名 → analyze + test → 按标签构建（`--build-name` 取自标签，
+`--build-number` = CI 流水号）→ 自动创建 GitHub Release 并挂 `fryfrog-hub-vX.Y.Z.apk`。
+
+### 步骤
+1. **先确认 HEAD 是绿的**（仓库常有其他会话的提交，必须在当前 HEAD 上验证）：
+   ```powershell
+   [Environment]::SetEnvironmentVariable('ProgramFiles(x86)', 'C:\Program Files (x86)', 'Process')
+   flutter analyze   # 必须 0 issues
+   flutter test      # 必须全过
+   ```
+2. 升 `pubspec.yaml`：`version: X.Y.(Z+1)+N`，提交信息 `chore(release): bump version to X.Y.Z+N`，push main。
+3. `git tag vX.Y.Z`（打在 bump 提交上）&& `git push origin vX.Y.Z`
+4. 轮询到 Release 出现（**查不到 run 时要继续等，不能退出循环**）：
+   ```powershell
+   $sha = (git rev-parse vX.Y.Z); $deadline = (Get-Date).AddMinutes(9); $run = $null
+   do {
+     Start-Sleep -Seconds 25
+     $runs = Invoke-RestMethod "https://api.github.com/repos/<owner>/<repo>/actions/runs?head_sha=$sha&per_page=5"
+     if ($runs.total_count -gt 0) {
+       $run = $runs.workflow_runs | Sort-Object created_at -Descending | Select-Object -First 1
+       Write-Host ("run#{0} {1}/{2}" -f $run.run_number, $run.status, $run.conclusion)
+     } else { Write-Host 'no run yet' }
+   } while (($null -eq $run -or $run.status -ne 'completed') -and (Get-Date) -lt $deadline)
+   ```
+5. 校验 `GET /releases/latest`：tag 正确 + 资产 `fryfrog-hub-vX.Y.Z.apk` 存在。
+
+### 红线与教训
+- **标签必须是 `v` + `X.Y.Z`**（工作流正则校验）；包内版本号来自标签，与 pubspec 无关（pubspec 只是惯例性同步）。
+- **打标签前必须在当前 HEAD 本地跑绿 analyze+test**——教训：v2.1.11 标签指向的提交测试是坏的（修复在下一个提交），且该 tag 推送没有触发任何 CI run（`head_sha` 查询为 0），只能改发 v2.1.12。
+- **绝不移动/覆盖已有标签**（`git tag -f` 会被沙箱拦截且危险）；若标签已存在但没有 Release → 直接发下一个版本号，留下悬空标签无害。
+- 轮询循环写法：`while (($null -eq $run -or $run.status -ne 'completed') -and ...)`；写成 `$run -and ...` 会在查不到 run 时提前退出（只等一轮）。
+- 签名 Secrets：仓库需 `KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD`；缺失时 **tag 构建直接失败**，普通 push 回退 debug 签名。
+- 本机 `flutter test` 若报 `%PROGRAMFILES(X86)% not found`，先执行上面的 `SetEnvironmentVariable`。
+- **后端发版与此无关**：fryfrog-hub-api push master 自动构建 ghcr 镜像，NAS 上 `docker compose pull && docker compose up -d` 部署（可能还需对媒体库跑一次扫描使数据修复生效）。
+
 ## Architecture
 ```
 lib/
