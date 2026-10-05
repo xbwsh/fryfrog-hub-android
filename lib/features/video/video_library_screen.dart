@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/adaptive/device_form.dart';
-import '../../core/models/media_models.dart';
+import '../../core/models/video.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
-import '../../widgets/server_image.dart';
-import '../home/home_carousel.dart' show ResolutionBadges, SlideBadge;
-import 'video_detail_screen.dart';
+import 'in_library_search_screen.dart';
+import 'library_poster_grid.dart';
 import 'unscraped_screen.dart';
 
 /// All items of one home library rail ("电影" / "电视剧" / …) in a grid,
@@ -52,6 +51,21 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: '搜索本库',
+            icon: const Icon(Icons.search_rounded),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => InLibrarySearchScreen(
+                    session: widget.session,
+                    libraryId: widget.group.libraryId,
+                    libraryName: widget.group.name,
+                  ),
+                ),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: Dimens.spacingLg),
             child: SegmentedButton<bool>(
@@ -87,64 +101,28 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                 ),
               ),
             )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final cols = form.overviewCrossAxisCount;
-                const spacing = Dimens.spacingLg;
-                final cellW =
-                    (constraints.maxWidth -
-                        spacing * 2 -
-                        spacing * (cols - 1)) /
-                    cols;
-                final imageH = _portrait
-                    ? cellW *
-                          1.5 // 2:3 poster
-                    : cellW * 9 / 16; // wide fanart
-                final cellAspect = cellW / (imageH + Dimens.videoMetaExtent);
-
-                return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(
-                    Dimens.spacingLg,
-                    Dimens.spacingSm,
-                    Dimens.spacingLg,
-                    Dimens.spacingXxl,
-                  ),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: cols,
-                    mainAxisSpacing: spacing,
-                    crossAxisSpacing: spacing,
-                    childAspectRatio: cellAspect,
-                  ),
-                  itemCount: items.length + (showUnscraped ? 1 : 0),
-                  itemBuilder: (context, i) {
-                    if (showUnscraped && i == 0) {
-                      return _UnscrapedEntryCard(
-                        key: const ValueKey('unscraped-entry'),
-                        form: form,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<bool>(
-                              builder: (_) => UnscrapedScreen(
-                                session: widget.session,
-                                libraryId: widget.group.libraryId,
-                                libraryName: widget.group.name,
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }
-                    final item = items[showUnscraped ? i - 1 : i];
-                    return _LibraryPosterCard(
-                      key: ValueKey(item.id),
-                      item: item,
-                      portrait: _portrait,
+          : LibraryPosterGrid(
+              items: items,
+              portrait: _portrait,
+              form: form,
+              session: widget.session,
+              leading: showUnscraped
+                  ? _UnscrapedEntryCard(
+                      key: const ValueKey('unscraped-entry'),
                       form: form,
-                      session: widget.session,
-                    );
-                  },
-                );
-              },
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<bool>(
+                            builder: (_) => UnscrapedScreen(
+                              session: widget.session,
+                              libraryId: widget.group.libraryId,
+                              libraryName: widget.group.name,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : null,
             ),
     );
   }
@@ -205,121 +183,6 @@ class _UnscrapedEntryCard extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LibraryPosterCard extends StatelessWidget {
-  const _LibraryPosterCard({
-    super.key,
-    required this.item,
-    required this.portrait,
-    required this.form,
-    required this.session,
-  });
-
-  final SeriesListDto item;
-  final bool portrait;
-  final DeviceForm form;
-  final Session session;
-
-  @override
-  Widget build(BuildContext context) {
-    // Portrait uses the cover; landscape falls back to the cover when the
-    // server has no fanart for this item.
-    final url = portrait ? item.coverUrl : (item.fanartUrl ?? item.coverUrl);
-    final radius = BorderRadius.circular(Dimens.radiusMd);
-
-    return InkWell(
-      borderRadius: radius,
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<bool>(
-            builder: (_) => VideoDetailScreen(session: session, item: item),
-          ),
-        );
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SizedBox.expand(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface(context),
-                      borderRadius: radius,
-                    ),
-                  ),
-                  ServerImage(url: url, borderRadius: radius),
-                  // Rating / 18+ chips share the top-left slot with the
-                  // home rails; the TV marker moves right to stay out of
-                  // their way.
-                  if (item.isAdult || (item.rating != null && item.rating! > 0))
-                    Positioned(
-                      left: Dimens.spacingXs,
-                      top: Dimens.spacingXs,
-                      child: Wrap(
-                        spacing: Dimens.spacingXs,
-                        children: [
-                          if (item.isAdult)
-                            const SlideBadge(
-                              text: '18+',
-                              color: AppColors.danger,
-                            ),
-                          if (item.rating != null && item.rating! > 0)
-                            SlideBadge(
-                              text: '★ ${item.rating!.toStringAsFixed(1)}',
-                              color: AppColors.gold,
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (!portrait && item.isTv)
-                    Positioned(
-                      right: Dimens.spacingSm,
-                      top: Dimens.spacingSm,
-                      child: Icon(
-                        Icons.tv_rounded,
-                        size: 16 * form.typeScale,
-                        color: Colors.white,
-                        shadows: const [
-                          Shadow(color: Colors.black54, blurRadius: 6),
-                        ],
-                      ),
-                    ),
-                  Positioned(
-                    right: Dimens.spacingXs,
-                    bottom: Dimens.spacingXs,
-                    child: ResolutionBadges(resolutions: item.resolutions),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingXs),
-          Text(
-            item.displayTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13 * form.typeScale,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (item.year != null)
-            Text(
-              '${item.year}',
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 11 * form.typeScale,
-                color: Theme.of(context).hintColor,
-              ),
-            ),
         ],
       ),
     );

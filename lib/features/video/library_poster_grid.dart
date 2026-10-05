@@ -1,0 +1,194 @@
+import 'package:flutter/material.dart';
+
+import '../../core/adaptive/device_form.dart';
+import '../../core/models/video.dart';
+import '../../core/state/session.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/dimens.dart';
+import '../../widgets/server_image.dart';
+import '../home/home_carousel.dart' show ResolutionBadges, SlideBadge;
+import 'video_detail_screen.dart';
+
+/// 海报网格，库详情与库内搜索共用同一套卡片渲染与网格布局。
+class LibraryPosterGrid extends StatelessWidget {
+  const LibraryPosterGrid({
+    super.key,
+    required this.items,
+    required this.portrait,
+    required this.form,
+    required this.session,
+    this.leading,
+  });
+
+  final List<SeriesListDto> items;
+  final bool portrait;
+  final DeviceForm form;
+  final Session session;
+
+  /// 网格首格的自定义入口卡（如库详情的“未刮削”入口），搜索页不传。
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = form.overviewCrossAxisCount;
+        const spacing = Dimens.spacingLg;
+        final cellW =
+            (constraints.maxWidth -
+                spacing * 2 -
+                spacing * (cols - 1)) /
+            cols;
+        final imageH = portrait
+            ? cellW * 1.5 // 2:3 poster
+            : cellW * 9 / 16; // wide fanart
+        final cellAspect = cellW / (imageH + Dimens.videoMetaExtent);
+
+        return GridView.builder(
+          padding: const EdgeInsets.fromLTRB(
+            Dimens.spacingLg,
+            Dimens.spacingSm,
+            Dimens.spacingLg,
+            Dimens.spacingXxl,
+          ),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: cellAspect,
+          ),
+          itemCount: items.length + (leading != null ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (leading != null && i == 0) {
+              return leading!;
+            }
+            final item = items[leading != null ? i - 1 : i];
+            return LibraryPosterCard(
+              key: ValueKey(item.id),
+              item: item,
+              portrait: portrait,
+              form: form,
+              session: session,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// 竖屏海报（cover）或横屏背景（fanart）的系列/单片卡片。
+class LibraryPosterCard extends StatelessWidget {
+  const LibraryPosterCard({
+    super.key,
+    required this.item,
+    required this.portrait,
+    required this.form,
+    required this.session,
+  });
+
+  final SeriesListDto item;
+  final bool portrait;
+  final DeviceForm form;
+  final Session session;
+
+  @override
+  Widget build(BuildContext context) {
+    // Portrait uses the cover; landscape falls back to the cover when the
+    // server has no fanart for this item.
+    final url = portrait ? item.coverUrl : (item.fanartUrl ?? item.coverUrl);
+    final radius = BorderRadius.circular(Dimens.radiusMd);
+
+    return InkWell(
+      borderRadius: radius,
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<bool>(
+            builder: (_) => VideoDetailScreen(session: session, item: item),
+          ),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SizedBox.expand(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.surface(context),
+                      borderRadius: radius,
+                    ),
+                  ),
+                  ServerImage(url: url, borderRadius: radius),
+                  // Rating / 18+ chips share the top-left slot with the
+                  // home rails; the TV marker moves right to stay out of
+                  // their way.
+                  if (item.isAdult || (item.rating != null && item.rating! > 0))
+                    Positioned(
+                      left: Dimens.spacingXs,
+                      top: Dimens.spacingXs,
+                      child: Wrap(
+                        spacing: Dimens.spacingXs,
+                        children: [
+                          if (item.isAdult)
+                            const SlideBadge(
+                              text: '18+',
+                              color: AppColors.danger,
+                            ),
+                          if (item.rating != null && item.rating! > 0)
+                            SlideBadge(
+                              text: '★ ${item.rating!.toStringAsFixed(1)}',
+                              color: AppColors.gold,
+                            ),
+                        ],
+                      ),
+                    ),
+                  if (!portrait && item.isTv)
+                    Positioned(
+                      right: Dimens.spacingSm,
+                      top: Dimens.spacingSm,
+                      child: Icon(
+                        Icons.tv_rounded,
+                        size: 16 * form.typeScale,
+                        color: Colors.white,
+                        shadows: const [
+                          Shadow(color: Colors.black54, blurRadius: 6),
+                        ],
+                      ),
+                    ),
+                  Positioned(
+                    right: Dimens.spacingXs,
+                    bottom: Dimens.spacingXs,
+                    child: ResolutionBadges(resolutions: item.resolutions),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: Dimens.spacingXs),
+          Text(
+            item.displayTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13 * form.typeScale,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (item.year != null)
+            Text(
+              '${item.year}',
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11 * form.typeScale,
+                color: Theme.of(context).hintColor,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -170,6 +170,30 @@ class ApiClient {
     ];
   }
 
+  /// 单库搜索，返回与首页库分组同构的结果（series + standaloneVideos）。
+  /// Backend: `GET /api/v1/video/search/library?libraryId=&q=&page=&size=`.
+  /// 两段各自按 size 截断，搜索场景一次取首页即可覆盖绝大多数命中。
+  Future<LibrarySeriesGroup> searchInLibrary({
+    required int libraryId,
+    required String q,
+    int page = 0,
+    int size = 100,
+  }) async {
+    final json = await _send(
+      '/api/v1/video/search/library',
+      query: {
+        'libraryId': '$libraryId',
+        'q': q,
+        'page': '$page',
+        'size': '$size',
+      },
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : LibrarySeriesGroup.fromJson(map);
+    });
+  }
+
   Future<List<MusicLibraryGroup>> fetchMusicHome() async {
     final json = await _send('/api/v1/music/home');
     return _unwrap(json, (raw) {
