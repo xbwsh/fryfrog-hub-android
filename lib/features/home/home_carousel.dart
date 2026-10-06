@@ -222,31 +222,8 @@ class _HomeCarouselState extends State<HomeCarousel> {
                           ),
                         ),
                       ),
-                      Positioned(
-                        // Full-bleed sits under the status bar — clear the
-                        // clock; inset modes are already below it.
-                        top:
-                            (widget.fullBleed
-                                ? MediaQuery.paddingOf(context).top
-                                : 0) +
-                            Dimens.spacingSm,
-                        left: Dimens.spacingLg,
-                        child: Wrap(
-                          spacing: Dimens.spacingXs,
-                          children: [
-                            if (item.isAdult)
-                              const SlideBadge(
-                                text: '18+',
-                                color: AppColors.danger,
-                              ),
-                            if (item.rating != null && item.rating! > 0)
-                              SlideBadge(
-                                text: '★ ${item.rating!.toStringAsFixed(1)}',
-                                color: AppColors.gold,
-                              ),
-                          ],
-                        ),
-                      ),
+                      // 轮播图不显示 18+ / 评分角标：英雄图上的小标签干扰画面，
+                      // 这些信息在详情页与海报网格里仍然可见。
                       Positioned(
                         left: Dimens.spacingLg,
                         right: Dimens.spacingLg,

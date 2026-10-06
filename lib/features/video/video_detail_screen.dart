@@ -9,6 +9,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import '../../widgets/video_logo.dart';
 import 'video_admin_dialogs.dart';
 import 'video_detail_controller.dart';
 import 'video_player_screen.dart';
@@ -691,32 +692,14 @@ class _DetailView extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // TMDB artistic logo when the backend has one
-                            // (补全 Logo / 手动设置 / local file); plain title
-                            // otherwise.
-                            if (detail.logoUrl?.isNotEmpty == true)
-                              SizedBox(
-                                height: 46 * form.typeScale,
-                                width: double.infinity,
-                                child: ServerImage(
-                                  url: detail.logoUrl,
-                                  fit: BoxFit.contain,
-                                  alignment: Alignment.centerLeft,
-                                  borderRadius: BorderRadius.zero,
-                                ),
-                              )
-                            else
-                              Text(
-                                detail.displayTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20 * form.typeScale,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.2,
-                                ),
-                              ),
+                            // 艺术字 Logo（TMDB / 本地 movie-logo.png / tvshow-logo.png）。
+                            // 形状或留白不可读时自动回落到文字标题——不再出现
+                            // “竖长条 logo 被压成 22px 细条、标题也没了”的情况。
+                            VideoLogo(
+                              url: detail.logoUrl,
+                              title: detail.displayTitle,
+                              height: 46,
+                            ),
                             const SizedBox(height: Dimens.spacingXs),
                             Text(
                               _metaLine(detail, ep),

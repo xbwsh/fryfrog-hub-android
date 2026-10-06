@@ -751,7 +751,9 @@ class ApiClient {
   /// Re-download covers from TMDB. `data.success` is a **string**.
   /// Backend: `POST /api/v1/video/{id}/covers`.
   Future<bool> downloadVideoCovers(int videoId) async {
-    final json = await _send('/api/v1/video/$videoId/covers', method: 'POST');
+    // 路径是 refresh-covers 而非 covers：后端中间件把 `.*/cover` 当静态图片
+    // 资源提前放行（不写当前用户），旧路径 /covers 的管理员校验永远失败。
+    final json = await _send('/api/v1/video/$videoId/refresh-covers', method: 'POST');
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       final success = map?['success'];
