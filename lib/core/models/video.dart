@@ -88,6 +88,25 @@ class LibrarySeriesGroup {
   String get name => libraryName.isEmpty ? '(未命名资源库)' : libraryName;
   List<SeriesListDto> get allItems => [...series, ...standaloneVideos];
 
+  /// 库内总条目数（剧卡 + 单片）。
+  int get itemCount => series.length + standaloneVideos.length;
+
+  /// 库内视频文件总数：剧按 episodeCount 累加，单片各算 1。
+  /// 后端分页返回时这里只统计**已加载**的部分，属预期。
+  int get videoCount =>
+      standaloneVideos.length +
+      series.fold<int>(0, (sum, s) => sum + (s.episodeCount ?? 0));
+
+  /// 库标题旁的统计文案：`12 个系列 · 340 个视频`；
+  /// 纯单片库用 `340 个视频`，空库用 `空`。
+  String get statsLabel {
+    final parts = <String>[
+      if (series.isNotEmpty) '${series.length} 个系列',
+      if (videoCount > 0) '$videoCount 个视频',
+    ];
+    return parts.isEmpty ? '空' : parts.join(' · ');
+  }
+
   factory LibrarySeriesGroup.fromJson(Map<String, dynamic> json) {
     List<SeriesListDto> parseList(Object? raw) => (raw as List? ?? const [])
         .whereType<Map<String, dynamic>>()
@@ -432,7 +451,7 @@ class LogoOption {
   );
 }
 
-/// One server-generated frame screenshot candidate (`POST .../frames`).
+/// One frame screenshot candidate (`POST .../frames`).
 /// [url] is server-relative and requires Bearer auth.
 class FrameCandidate {
   const FrameCandidate({required this.index, this.position, this.url});
@@ -445,6 +464,41 @@ class FrameCandidate {
     index: (json['index'] as num?)?.toInt() ?? 0,
     position: (json['position'] as num?)?.toDouble(),
     url: json['url'] as String?,
+  );
+}
+
+/// 一张 TMDB「本集剧照」（still）候选，来自 `GET /video/{id}/cover-options`。
+/// 分集横屏在本项目里就是本集 still；用户可从中挑一张作为横屏封面。
+class CoverOption {
+  const CoverOption({
+    this.filePath,
+    this.url,
+    this.width,
+    this.height,
+    this.voteCount,
+    this.iso6391,
+  });
+
+  /// TMDB 的 `still_path`，提交时回传这个值。
+  final String? filePath;
+
+  /// 走本站代理的预览地址（w780）。
+  final String? url;
+  final int? width;
+  final int? height;
+  final double? voteCount;
+  final String? iso6391;
+
+  String get sizeLabel =>
+      (width != null && height != null) ? '$width×$height' : '';
+
+  factory CoverOption.fromJson(Map<String, dynamic> json) => CoverOption(
+    filePath: json['filePath'] as String?,
+    url: json['url'] as String?,
+    width: (json['width'] as num?)?.toInt(),
+    height: (json['height'] as num?)?.toInt(),
+    voteCount: (json['voteCount'] as num?)?.toDouble(),
+    iso6391: json['iso6391'] as String?,
   );
 }
 

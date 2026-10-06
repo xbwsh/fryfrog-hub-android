@@ -762,10 +762,33 @@ class ApiClient {
     });
   }
 
+  /// 本集在 TMDB 的横屏图（本集剧照 still）候选。
+  /// Backend: `GET /api/v1/video/{id}/cover-options`.
+  Future<List<CoverOption>> fetchVideoCoverOptions(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/cover-options');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      final list = map?['options'] as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(CoverOption.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  /// 把选中的 TMDB 图应用为本集横屏封面。
+  /// Backend: `POST /api/v1/video/{id}/cover` `{filePath}`.
+  Future<void> setVideoCover(int videoId, {required String filePath}) async {
+    await _send(
+      '/api/v1/video/$videoId/cover',
+      method: 'POST',
+      body: {'filePath': filePath},
+    );
+  }
+
   /// Generate frame screenshot candidates (sync, a few seconds).
   /// Backend: `POST /api/v1/video/{id}/frames`.
-  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async {
-    final json = await _send('/api/v1/video/$videoId/frames', method: 'POST');
+  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async {    final json = await _send('/api/v1/video/$videoId/frames', method: 'POST');
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       final list = map?['candidates'] as List? ?? const [];

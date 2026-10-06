@@ -29,6 +29,11 @@ class _FakeVideoGateway implements VideoGateway {
   int setSeriesLogoCalls = 0;
   String? lastLogoFilePath;
 
+  // TMDB 本集图片（横屏封面）候选
+  List<CoverOption> coverOptions = const [];
+  int setCoverCalls = 0;
+  String? lastCoverFilePath;
+
   @override
   Future<SeriesDetail> fetchSeriesDetail(int id, {String? type}) async {
     fetchCalls++;
@@ -126,6 +131,16 @@ class _FakeVideoGateway implements VideoGateway {
 
   @override
   Future<bool> downloadVideoCovers(int videoId) async => true;
+
+  @override
+  Future<List<CoverOption>> fetchVideoCoverOptions(int videoId) async =>
+      coverOptions;
+
+  @override
+  Future<void> setVideoCover(int videoId, {required String filePath}) async {
+    setCoverCalls++;
+    lastCoverFilePath = filePath;
+  }
 
   @override
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async =>
@@ -311,6 +326,33 @@ void main() {
     await c.load();
     await c.unbind();
     expect(c.mutated, isTrue);
+    c.dispose();
+  });
+
+  test('fetchCoverOptions 透传候选，applyCover 提交选中图并标记 mutated', () async {
+    final gw = _FakeVideoGateway(detail: _detail(tmdbId: 77))
+      ..coverOptions = const [
+        CoverOption(filePath: '/a.jpg', url: '/proxy?path=/a.jpg', width: 1920, height: 1080),
+        CoverOption(filePath: '/b.jpg', url: '/proxy?path=/b.jpg'),
+      ];
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    expect(c.mutated, isFalse);
+
+    final options = await c.fetchCoverOptions();
+    expect(options, hasLength(2));
+    expect(options.first.filePath, '/a.jpg');
+    expect(options.first.sizeLabel, '1920×1080');
+    expect(c.mutated, isFalse, reason: '只读列候选不该标记已变更');
+
+    await c.applyCover('/b.jpg');
+    expect(gw.setCoverCalls, 1);
+    expect(gw.lastCoverFilePath, '/b.jpg');
+    expect(c.mutated, isTrue, reason: '换封面后列表需要重载');
+    expect(c.busy, isFalse);
     c.dispose();
   });
 

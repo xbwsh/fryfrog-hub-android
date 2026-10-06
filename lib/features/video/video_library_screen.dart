@@ -43,12 +43,27 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(
-          widget.group.name,
-          style: TextStyle(
-            fontSize: 17 * form.typeScale,
-            fontWeight: FontWeight.w700,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.group.name,
+              style: TextStyle(
+                fontSize: 17 * form.typeScale,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            // 库统计：系列数 / 视频数（纯单片库只显示视频数）
+            Text(
+              widget.group.statsLabel,
+              style: TextStyle(
+                fontSize: 12 * form.typeScale,
+                color: Theme.of(context).hintColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -106,6 +121,8 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
               portrait: _portrait,
               form: form,
               session: widget.session,
+              // 横屏封面是 16:9，比竖屏海报占横向空间；少一列让单张明显更大
+              columns: _portrait ? null : (form.overviewCrossAxisCount - 1).clamp(2, 12),
               leading: showUnscraped
                   ? _UnscrapedEntryCard(
                       key: const ValueKey('unscraped-entry'),

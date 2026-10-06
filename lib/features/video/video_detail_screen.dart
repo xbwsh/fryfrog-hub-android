@@ -260,6 +260,8 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
             onDownloadCovers: _c.downloadCovers,
             onGenerateFrames: _c.generateFrames,
             onSelectFrame: _c.selectFrame,
+            onFetchCoverOptions: _c.fetchCoverOptions,
+            onApplyCover: _c.applyCover,
           ),
         );
       case 'editMeta':
@@ -535,6 +537,14 @@ class _NullVideoGateway implements VideoGateway {
       throw UnsupportedError('not logged in');
 
   @override
+  Future<List<CoverOption>> fetchVideoCoverOptions(int videoId) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> setVideoCover(int videoId, {required String filePath}) =>
+      throw UnsupportedError('not logged in');
+
+  @override
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId) =>
       throw UnsupportedError('not logged in');
 
@@ -625,7 +635,14 @@ class _DetailView extends StatelessWidget {
         // ---- Hero ----
         SliverToBoxAdapter(
           child: SizedBox(
-            height: Dimens.videoHeroHeight * form.posterScale,
+            // 平板横屏：hero 跟随窗口宽度按比例（16:9 背景铺满不裁成横条），
+            // 其余形态沿用固定高度 × 缩放。
+            height: form.isTabletLandscape
+                ? (MediaQuery.sizeOf(context).width * 0.42).clamp(
+                    Dimens.videoHeroHeight,
+                    MediaQuery.sizeOf(context).height * 0.62,
+                  )
+                : Dimens.videoHeroHeight * form.posterScale,
             child: Stack(
               fit: StackFit.expand,
               children: [

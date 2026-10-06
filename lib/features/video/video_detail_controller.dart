@@ -304,8 +304,37 @@ class VideoDetailController extends ChangeNotifier {
     }
   }
 
-  Future<List<FrameCandidate>> generateFrames() async {
+  /// 本集在 TMDB 的横屏图（本集剧照 still）候选。
+  Future<List<CoverOption>> fetchCoverOptions() async {
     _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      return await gateway.fetchVideoCoverOptions(videoId);
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// 把选中的 TMDB 图应用为本集横屏封面。
+  Future<void> applyCover(String filePath) async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      await gateway.setVideoCover(videoId, filePath: filePath);
+      mutated = true;
+      await refreshQuiet();
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<List<FrameCandidate>> generateFrames() async {    _ensureIdle();
     final videoId = _requireVideoId();
     busy = true;
     if (!_disposed) notifyListeners();

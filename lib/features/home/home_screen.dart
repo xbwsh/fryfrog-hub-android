@@ -462,15 +462,16 @@ class PosterCard extends StatelessWidget {
                       child: Wrap(
                         spacing: Dimens.spacingXs,
                         children: [
-                          if (item.isAdult)
-                            const SlideBadge(
-                              text: '18+',
-                              color: AppColors.danger,
-                            ),
+                          // 评分在前、18+ 在后
                           if (item.rating != null && item.rating! > 0)
                             SlideBadge(
                               text: '★ ${item.rating!.toStringAsFixed(1)}',
                               color: AppColors.gold,
+                            ),
+                          if (item.isAdult)
+                            const SlideBadge(
+                              text: '18+',
+                              color: AppColors.danger,
                             ),
                         ],
                       ),

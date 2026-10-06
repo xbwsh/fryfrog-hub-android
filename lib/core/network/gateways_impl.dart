@@ -73,6 +73,14 @@ class ApiVideoGateway implements VideoGateway {
       _api.downloadVideoCovers(videoId);
 
   @override
+  Future<List<CoverOption>> fetchVideoCoverOptions(int videoId) =>
+      _api.fetchVideoCoverOptions(videoId);
+
+  @override
+  Future<void> setVideoCover(int videoId, {required String filePath}) =>
+      _api.setVideoCover(videoId, filePath: filePath);
+
+  @override
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId) =>
       _api.generateFrameCandidates(videoId);
 

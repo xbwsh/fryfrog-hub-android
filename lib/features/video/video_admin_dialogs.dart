@@ -506,11 +506,19 @@ class CoverPickerSheet extends StatefulWidget {
     required this.onDownloadCovers,
     required this.onGenerateFrames,
     required this.onSelectFrame,
+    required this.onFetchCoverOptions,
+    required this.onApplyCover,
   });
 
   final Future<bool> Function() onDownloadCovers;
   final Future<List<FrameCandidate>> Function() onGenerateFrames;
   final Future<void> Function(int index, {required String type}) onSelectFrame;
+
+  /// 本集在 TMDB 的横屏图（still）候选。
+  final Future<List<CoverOption>> Function() onFetchCoverOptions;
+
+  /// 把选中的 TMDB 图应用为本集横屏封面。
+  final Future<void> Function(String filePath) onApplyCover;
 
   @override
   State<CoverPickerSheet> createState() => _CoverPickerSheetState();
@@ -518,12 +526,50 @@ class CoverPickerSheet extends StatefulWidget {
 
 class _CoverPickerSheetState extends State<CoverPickerSheet> {
   List<FrameCandidate>? _frames;
+  List<CoverOption>? _stills;
   bool _working = false;
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// 拉取 TMDB 的本集剧照候选，让用户自己挑，而不是只自动取一张。
+  Future<void> _loadStills() async {
+    if (_working) return;
+    setState(() => _working = true);
+    try {
+      final list = await runWithProgress(
+        context,
+        '正在读取 TMDB 本集图片…',
+        widget.onFetchCoverOptions,
+      );
+      if (!mounted) return;
+      setState(() => _stills = list);
+      if (list.isEmpty) _snack('TMDB 没有这一集的图片候选');
+    } catch (e) {
+      _snack('读取 TMDB 图片失败：$e');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  Future<void> _applyStill(CoverOption option) async {
+    final path = option.filePath;
+    if (_working || path == null) return;
+    setState(() => _working = true);
+    try {
+      await runWithProgress(
+        context,
+        '正在应用为横屏封面…',
+        () => widget.onApplyCover(path),
+      );
+      _snack('已设为本集横屏封面');
+    } catch (e) {
+      _snack('设置失败：$e');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
   }
 
   Future<void> _download() async {
@@ -606,6 +652,7 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final frames = _frames;
+    final stills = _stills;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface(context),
@@ -651,11 +698,12 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
           const SizedBox(height: Dimens.spacingSm),
           Row(
             children: [
+              // 主路径：让用户从 TMDB 的本集剧照里挑一张
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _working ? null : _download,
-                  icon: const Icon(Icons.cloud_download_rounded, size: 18),
-                  label: const Text('从 TMDB 拉取'),
+                  onPressed: _working ? null : _loadStills,
+                  icon: const Icon(Icons.image_search_rounded, size: 18),
+                  label: const Text('TMDB 本集图片'),
                 ),
               ),
               const SizedBox(width: Dimens.spacingSm),
@@ -668,13 +716,100 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
               ),
             ],
           ),
+          const SizedBox(height: Dimens.spacingSm),
+          // 一键拉取（自动取默认那张）——想自己挑就用上面那个
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _working ? null : _download,
+              icon: const Icon(Icons.cloud_download_rounded, size: 18),
+              label: const Text('一键从 TMDB 拉取（默认图）'),
+            ),
+          ),
           const SizedBox(height: Dimens.spacingMd),
+          if (stills != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '本集图片（${stills.length}）· 点选设为横屏封面',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).hintColor,
+                ),
+              ),
+            ),
+            const SizedBox(height: Dimens.spacingSm),
+            if (stills.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: GridView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  physics: const ClampingScrollPhysics(),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: Dimens.spacingSm,
+                        crossAxisSpacing: Dimens.spacingSm,
+                        childAspectRatio: 16 / 9,
+                      ),
+                  itemCount: stills.length,
+                  itemBuilder: (context, i) {
+                    final s = stills[i];
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(Dimens.radiusSm),
+                      onTap: _working ? null : () => _applyStill(s),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(Dimens.radiusSm),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ServerImage(
+                              url: s.url,
+                              fit: BoxFit.cover,
+                              borderRadius: BorderRadius.zero,
+                            ),
+                            if (s.sizeLabel.isNotEmpty)
+                              Positioned(
+                                right: Dimens.spacingSm,
+                                bottom: Dimens.spacingSm,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Dimens.spacingSm,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(
+                                      Dimens.radiusSm,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    s.sizeLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: Dimens.spacingMd),
+          ],
           if (frames == null)
+            // stills 区块在上方已渲染，这里只负责「尚未生成截帧」的提示
             Padding(
               padding: const EdgeInsets.symmetric(vertical: Dimens.spacingLg),
               child: Center(
                 child: Text(
-                  '可从 TMDB 拉取封面，或生成视频截帧后点选应用',
+                  '可从 TMDB 选本集图片，或生成视频截帧后点选应用',
                   style: TextStyle(
                     fontSize: 13,
                     color: Theme.of(context).hintColor,

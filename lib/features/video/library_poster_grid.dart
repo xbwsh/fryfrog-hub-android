@@ -18,12 +18,16 @@ class LibraryPosterGrid extends StatelessWidget {
     required this.form,
     required this.session,
     this.leading,
+    this.columns,
   });
 
   final List<SeriesListDto> items;
   final bool portrait;
   final DeviceForm form;
   final Session session;
+
+  /// 覆盖列数：横屏封面（16:9）单张更占地方，库页会传更少的列数。
+  final int? columns;
 
   /// 网格首格的自定义入口卡（如库详情的“未刮削”入口），搜索页不传。
   final Widget? leading;
@@ -32,7 +36,7 @@ class LibraryPosterGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cols = form.overviewCrossAxisCount;
+        final cols = columns ?? form.overviewCrossAxisCount;
         const spacing = Dimens.spacingLg;
         final cellW =
             (constraints.maxWidth -
@@ -138,20 +142,23 @@ class LibraryPosterCard extends StatelessWidget {
                       child: Wrap(
                         spacing: Dimens.spacingXs,
                         children: [
-                          if (item.isAdult)
-                            const SlideBadge(
-                              text: '18+',
-                              color: AppColors.danger,
-                            ),
+                          // 评分在前、18+ 在后
                           if (item.rating != null && item.rating! > 0)
                             SlideBadge(
                               text: '★ ${item.rating!.toStringAsFixed(1)}',
                               color: AppColors.gold,
                             ),
+                          if (item.isAdult)
+                            const SlideBadge(
+                              text: '18+',
+                              color: AppColors.danger,
+                            ),
                         ],
                       ),
                     ),
-                  if (!portrait && item.isTv)
+                  // 剧集标识：区分「剧」与「单片」。原来只在横屏封面模式显示
+                  // （!portrait 写反了），导致竖屏海报下看不出是剧还是单片。
+                  if (item.isTv)
                     Positioned(
                       right: Dimens.spacingSm,
                       top: Dimens.spacingSm,

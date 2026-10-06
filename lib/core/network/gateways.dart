@@ -49,6 +49,12 @@ abstract class VideoGateway {
 
   Future<bool> downloadVideoCovers(int videoId);
 
+  /// 本集在 TMDB 的横屏图（本集剧照 still）候选；空列表 = 没有候选。
+  Future<List<CoverOption>> fetchVideoCoverOptions(int videoId);
+
+  /// 把选中的 TMDB 图应用为本集横屏封面（落 fanart.jpg）。
+  Future<void> setVideoCover(int videoId, {required String filePath});
+
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId);
 
   /// [type] = poster | fanart.
