@@ -670,6 +670,16 @@ class ApiClient {
     });
   }
 
+  /// Backend: `POST /api/v1/video/tmdb/rescrape-library/{id}`.
+  /// 安全刷新：只处理已绑定视频，用已有 TMDB ID 拉取，不搜索、不清绑定。
+  Future<String> refreshLibraryMetadata(int libraryId) async {
+    final json = await _send(
+      '/api/v1/video/tmdb/rescrape-library/$libraryId',
+      method: 'POST',
+    );
+    return _unwrap(json, (raw) => raw is String ? raw : '已启动') ?? '已启动';
+  }
+
   /// Backend: `POST /api/v1/video/nfo/regenerate-all?libraryId=`.
   /// 后台任务，立即返回提示语；进度走 `fetchPipelineProgress`。
   Future<String> regenerateNfo({int? libraryId}) async {

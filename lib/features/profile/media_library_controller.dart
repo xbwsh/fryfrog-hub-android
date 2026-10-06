@@ -156,6 +156,14 @@ class MediaLibraryController extends ChangeNotifier {
     return null;
   }
 
+  /// 批量刷新该库已绑定视频的元数据（后台任务，立即返回提示语）。
+  ///
+  /// 后端只处理已绑定的记录，未刮削的会被跳过——那些是用户刻意留在未绑定
+  /// 状态的（TMDB 上没有），强搜只会写入错误内容。
+  Future<String> refreshLibraryMetadata(int libraryId) async {
+    return gateway.refreshLibraryMetadata(libraryId);
+  }
+
   /// 批量重写该库的剧级/季级 NFO（后台任务，立即返回提示语）。
   ///
   /// 不复用扫描进度：这是独立任务，进度键是 `nfo:{libraryId}`，

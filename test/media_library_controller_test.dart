@@ -119,6 +119,9 @@ class _FakeGateway implements MediaLibraryGateway {
   Future<String> regenerateNfo({int? libraryId}) async => '已启动';
 
   @override
+  Future<String> refreshLibraryMetadata(int libraryId) async => '已启动';
+
+  @override
   Future<List<LibraryDirItem>> browse({String? path}) async => const [];
 }
 

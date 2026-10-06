@@ -78,6 +78,43 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
     }
   }
 
+  /// 批量刷新该库已绑定视频的元数据。
+  ///
+  /// 关键语义：**只处理已绑定的**（用已有 TMDB ID 拉取，不搜索、不清绑定）。
+  /// 未刮削的视频是用户刻意留着不绑的——那些在 TMDB 上不存在，强搜只会写入
+  /// 错误内容，所以必须排除。因此这里不需要"会改坏数据"的警告。
+  Future<void> _refreshMetadata(MediaLibrary lib) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('刷新「${lib.name}」已绑定元数据'),
+        content: const Text(
+          '对已绑定 TMDB 的视频重新拉取资料（简介/评分/年份/封面/NFO）。\n\n'
+          '· 只处理已绑定的，未刮削的视频会被跳过（它们本来就不在 TMDB 上）\n'
+          '· 用已有绑定 ID 拉取，不会改绑定，也不会把对的搜成错的\n'
+          '· NFO 会统一成当前格式（剧根 tvshow.nfo + 季级 season.nfo）\n\n'
+          '后台执行，大库需要一些时间。绑错的条目请到详情页逐个重绑。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('开始'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      _snack(await _c.refreshLibraryMetadata(lib.id));
+    } catch (e) {
+      _snack('刷新失败：$e');
+    }
+  }
+
   /// 批量重写该库的剧级/季级 NFO。
   /// 为什么需要确认框：会**覆盖**已有的 tvshow.nfo / season.nfo（这正是"统一格式"
   /// 的语义），虽然是后台任务但影响面是整个库。
@@ -280,6 +317,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
                     onEdit: () => _showForm(edit: lib),
                     onDelete: () => _delete(lib),
                     onRegenerateNfo: () => _regenerateNfo(lib),
+                    onRefreshMetadata: () => _refreshMetadata(lib),
                   ),
                   const SizedBox(height: Dimens.spacingMd),
                 ],
@@ -374,6 +412,7 @@ class _LibraryCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onRegenerateNfo,
+    required this.onRefreshMetadata,
   });
 
   final MediaLibrary lib;
@@ -385,6 +424,7 @@ class _LibraryCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onRegenerateNfo;
+  final VoidCallback onRefreshMetadata;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +487,8 @@ class _LibraryCard extends StatelessWidget {
             switch (action) {
               case 'scan':
                 onScan();
+              case 'refresh':
+                onRefreshMetadata();
               case 'nfo':
                 onRegenerateNfo();
               case 'edit':
@@ -464,6 +506,21 @@ class _LibraryCard extends StatelessWidget {
                   const Icon(Icons.sync_rounded, size: 18),
                   const SizedBox(width: Dimens.spacingMd),
                   Text('扫描', style: TextStyle(fontSize: 14 * form.typeScale)),
+                ],
+              ),
+            ),
+            // 刷新已绑定元数据：用已有 TMDB ID 拉取，跳过未刮削的
+            PopupMenuItem(
+              value: 'refresh',
+              enabled: !busy,
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_sync_outlined, size: 18),
+                  const SizedBox(width: Dimens.spacingMd),
+                  Text(
+                    '刷新元数据',
+                    style: TextStyle(fontSize: 14 * form.typeScale),
+                  ),
                 ],
               ),
             ),
@@ -1007,6 +1064,10 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
 
   @override
   Future<StaleRecords> fetchStaleRecords(int libraryId) =>
+      throw UnsupportedError('未登录');
+
+  @override
+  Future<String> refreshLibraryMetadata(int libraryId) =>
       throw UnsupportedError('未登录');
 
   @override

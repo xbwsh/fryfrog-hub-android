@@ -165,6 +165,13 @@ abstract class MediaLibraryGateway {
   /// 清理残留记录，返回删除条数；[dryRun] 只统计。
   Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false});
 
+  /// 批量刷新该库**已绑定**视频的元数据，返回提示语。
+  ///
+  /// 只处理有 TMDB 绑定的记录，用**已有 ID** 拉取：不搜索、不清绑定，
+  /// 因此不会把正确的绑定改坏，也不会去动用户刻意留在未刮削状态的视频
+  /// （那些在 TMDB 上不存在，强搜只会写入错误内容）。绑错的请逐个手动重绑。
+  Future<String> refreshLibraryMetadata(int libraryId);
+
   /// 批量（重新）生成该库的剧级 `tvshow.nfo` 与季级 `season.nfo`，返回提示语。
   ///
   /// 后端是后台任务：`scrape_video_if_needed` 开头就是 `if video.tmdb_id: return`，
