@@ -502,6 +502,53 @@ class CoverOption {
   );
 }
 
+/// 某层级（总览/季/单集）某一类（海报/背景图/剧照）的 TMDB 图片候选。
+/// 来自 `GET /video/{id}/tmdb-images?level=`.
+class TmdbImageOptions {
+  const TmdbImageOptions({
+    required this.level,
+    this.poster = const [],
+    this.backdrop = const [],
+    this.still = const [],
+    this.seasonNumber,
+    this.episodeNumber,
+  });
+
+  /// series | season | episode
+  final String level;
+  final List<CoverOption> poster;
+  final List<CoverOption> backdrop;
+  final List<CoverOption> still;
+  final int? seasonNumber;
+  final int? episodeNumber;
+
+  List<CoverOption> byKind(String kind) => switch (kind) {
+    'poster' => poster,
+    'backdrop' => backdrop,
+    'still' => still,
+    _ => const [],
+  };
+
+  factory TmdbImageOptions.fromJson(Map<String, dynamic> json) {
+    List<CoverOption> parse(Object? raw) => (raw as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(CoverOption.fromJson)
+        .toList(growable: false);
+    final options = json['options'];
+    final map = options is Map<String, dynamic>
+        ? options
+        : const <String, dynamic>{};
+    return TmdbImageOptions(
+      level: json['level'] as String? ?? 'episode',
+      poster: parse(map['poster']),
+      backdrop: parse(map['backdrop']),
+      still: parse(map['still']),
+      seasonNumber: (json['seasonNumber'] as num?)?.toInt(),
+      episodeNumber: (json['episodeNumber'] as num?)?.toInt(),
+    );
+  }
+}
+
 /// Background scrape/bind task progress
 /// (`GET /api/v1/video/scrape/progress?module=`).
 class ScrapeProgress {

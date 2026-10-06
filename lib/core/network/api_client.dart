@@ -786,6 +786,37 @@ class ApiClient {
     );
   }
 
+  /// 某层级的 TMDB 图片候选。
+  /// Backend: `GET /api/v1/video/{id}/tmdb-images?level=series|season|episode`.
+  Future<TmdbImageOptions> fetchTmdbImages(
+    int videoId, {
+    required String level,
+  }) async {
+    final json = await _send(
+      '/api/v1/video/$videoId/tmdb-images',
+      query: {'level': level},
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : TmdbImageOptions.fromJson(map);
+    }) ?? const TmdbImageOptions(level: 'episode');
+  }
+
+  /// 把选中的 TMDB 图落到指定层级。
+  /// Backend: `POST /api/v1/video/{id}/tmdb-image` `{filePath, level, kind}`.
+  Future<void> applyTmdbImage(
+    int videoId, {
+    required String filePath,
+    required String level,
+    required String kind,
+  }) async {
+    await _send(
+      '/api/v1/video/$videoId/tmdb-image',
+      method: 'POST',
+      body: {'filePath': filePath, 'level': level, 'kind': kind},
+    );
+  }
+
   /// Generate frame screenshot candidates (sync, a few seconds).
   /// Backend: `POST /api/v1/video/{id}/frames`.
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async {    final json = await _send('/api/v1/video/$videoId/frames', method: 'POST');

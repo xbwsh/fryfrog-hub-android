@@ -508,6 +508,11 @@ class CoverPickerSheet extends StatefulWidget {
     required this.onSelectFrame,
     required this.onFetchCoverOptions,
     required this.onApplyCover,
+    this.onFetchTmdbImages,
+    this.onApplyTmdbImage,
+    this.seasonNumber,
+    this.episodeNumber,
+    this.isEpisode = true,
   });
 
   final Future<bool> Function() onDownloadCovers;
@@ -520,33 +525,95 @@ class CoverPickerSheet extends StatefulWidget {
   /// 把选中的 TMDB 图应用为本集横屏封面。
   final Future<void> Function(String filePath) onApplyCover;
 
+  /// 分层取图（总览/季/单集）；为空则退化成只做单集剧照。
+  final Future<TmdbImageOptions> Function(String level)? onFetchTmdbImages;
+
+  /// 把图落到指定层级（level × kind）。
+  final Future<void> Function(String filePath, String level, String kind)?
+  onApplyTmdbImage;
+
+  final int? seasonNumber;
+  final int? episodeNumber;
+
+  /// false（电影/单片）时不显示季/单集层级。
+  final bool isEpisode;
+
   @override
   State<CoverPickerSheet> createState() => _CoverPickerSheetState();
 }
 
 class _CoverPickerSheetState extends State<CoverPickerSheet> {
   List<FrameCandidate>? _frames;
-  List<CoverOption>? _stills;
   bool _working = false;
+
+  /// 当前层级：series（总览）| season（季）| episode（单集）
+  String _level = 'episode';
+
+  /// 当前类型：poster（海报）| backdrop（背景图）| still（剧照）
+  String _kind = 'still';
+
+  /// 按层级缓存候选，切回来不用重新请求
+  final Map<String, TmdbImageOptions> _byLevel = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // 电影没有季/单集维度，只能设总览图
+    if (!widget.isEpisode) {
+      _level = 'series';
+      _kind = 'poster';
+    }
+  }
+
+  TmdbImageOptions? get _current => _byLevel[_level];
+
+  List<CoverOption> get _visibleOptions => _current?.byKind(_kind) ?? const [];
+
+  /// 每层可选类型：总览=海报/背景图，季=海报，单集=剧照（本集横版图）
+  List<String> get _kindsForLevel => switch (_level) {
+    'series' => const ['poster', 'backdrop'],
+    'season' => const ['poster'],
+    _ => const ['still'],
+  };
+
+  String get _levelLabel => switch (_level) {
+    'series' => '总览',
+    'season' => widget.seasonNumber != null ? '第 ${widget.seasonNumber} 季' : '季',
+    _ => widget.episodeNumber != null ? '第 ${widget.episodeNumber} 集' : '单集',
+  };
+
+  String _kindLabel(String kind) => switch (kind) {
+    'poster' => '海报',
+    'backdrop' => '背景图',
+    _ => '剧照',
+  };
 
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// 拉取 TMDB 的本集剧照候选，让用户自己挑，而不是只自动取一张。
-  Future<void> _loadStills() async {
+  /// 拉取当前层级的 TMDB 图片候选（一次拿到该层所有类型）。
+  Future<void> _loadLayer() async {
+    final fetch = widget.onFetchTmdbImages;
     if (_working) return;
+    if (fetch == null) return;
     setState(() => _working = true);
     try {
-      final list = await runWithProgress(
+      final result = await runWithProgress(
         context,
-        '正在读取 TMDB 本集图片…',
-        widget.onFetchCoverOptions,
+        '正在读取 TMDB「$_levelLabel」图片…',
+        () => fetch(_level),
       );
       if (!mounted) return;
-      setState(() => _stills = list);
-      if (list.isEmpty) _snack('TMDB 没有这一集的图片候选');
+      setState(() {
+        _byLevel[_level] = result;
+        final kinds = _kindsForLevel;
+        if (!kinds.contains(_kind)) _kind = kinds.first;
+      });
+      if (_visibleOptions.isEmpty) {
+        _snack('TMDB 这一层没有「${_kindLabel(_kind)}」候选');
+      }
     } catch (e) {
       _snack('读取 TMDB 图片失败：$e');
     } finally {
@@ -554,23 +621,27 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
     }
   }
 
-  Future<void> _applyStill(CoverOption option) async {
+  /// 把选中的图落到当前层级。
+  Future<void> _applyLayer(CoverOption option) async {
     final path = option.filePath;
-    if (_working || path == null) return;
+    final apply = widget.onApplyTmdbImage;
+    if (_working || path == null || apply == null) return;
     setState(() => _working = true);
     try {
       await runWithProgress(
         context,
-        '正在应用为横屏封面…',
-        () => widget.onApplyCover(path),
+        '正在应用为「$_levelLabel · ${_kindLabel(_kind)}」…',
+        () => apply(path, _level, _kind),
       );
-      _snack('已设为本集横屏封面');
+      _snack('已设为$_levelLabel${_kindLabel(_kind)}');
     } catch (e) {
       _snack('设置失败：$e');
     } finally {
       if (mounted) setState(() => _working = false);
     }
   }
+
+
 
   Future<void> _download() async {
     if (_working) return;
@@ -652,7 +723,6 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final frames = _frames;
-    final stills = _stills;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface(context),
@@ -696,14 +766,18 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
             ],
           ),
           const SizedBox(height: Dimens.spacingSm),
+          // ── TMDB 分层取图：总览 / 季 / 单集 ─────────────────────────
           Row(
             children: [
-              // 主路径：让用户从 TMDB 的本集剧照里挑一张
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _working ? null : _loadStills,
+                  onPressed: _working ? null : _loadLayer,
                   icon: const Icon(Icons.image_search_rounded, size: 18),
-                  label: const Text('TMDB 本集图片'),
+                  label: Text(
+                    _current == null
+                        ? '读取 TMDB 图片'
+                        : '重新读取（${_visibleOptions.length}）',
+                  ),
                 ),
               ),
               const SizedBox(width: Dimens.spacingSm),
@@ -717,7 +791,57 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
             ],
           ),
           const SizedBox(height: Dimens.spacingSm),
-          // 一键拉取（自动取默认那张）——想自己挑就用上面那个
+          if (widget.isEpisode)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                segments: [
+                  const ButtonSegment(value: 'series', label: Text('总览')),
+                  ButtonSegment(
+                    value: 'season',
+                    label: Text(
+                      widget.seasonNumber != null ? '第 ${widget.seasonNumber} 季' : '季',
+                    ),
+                  ),
+                  ButtonSegment(
+                    value: 'episode',
+                    label: Text(
+                      widget.episodeNumber != null ? '第 ${widget.episodeNumber} 集' : '单集',
+                    ),
+                  ),
+                ],
+                selected: {_level},
+                onSelectionChanged: (s) => setState(() {
+                  _level = s.first;
+                  final kinds = _kindsForLevel;
+                  if (!kinds.contains(_kind)) _kind = kinds.first;
+                }),
+              ),
+            ),
+          const SizedBox(height: Dimens.spacingSm),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: Dimens.spacingSm,
+              children: [
+                for (final k in _kindsForLevel)
+                  ChoiceChip(
+                    label: Text(_kindLabel(k)),
+                    selected: _kind == k,
+                    onSelected: _working
+                        ? null
+                        : (_) => setState(() => _kind = k),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Dimens.spacingSm),
+          // 一键拉取（自动取默认那张）——想自己挑就用上面的分层入口
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -727,11 +851,11 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
             ),
           ),
           const SizedBox(height: Dimens.spacingMd),
-          if (stills != null) ...[
+          if (_current != null) ...[
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '本集图片（${stills.length}）· 点选设为横屏封面',
+                '$_levelLabel · ${_kindLabel(_kind)}（${_visibleOptions.length}）· 点选应用',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -740,71 +864,18 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
               ),
             ),
             const SizedBox(height: Dimens.spacingSm),
-            if (stills.isNotEmpty)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 320),
-                child: GridView.builder(
-                  padding: EdgeInsets.zero,
-                  shrinkWrap: true,
-                  physics: const ClampingScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: Dimens.spacingSm,
-                        crossAxisSpacing: Dimens.spacingSm,
-                        childAspectRatio: 16 / 9,
-                      ),
-                  itemCount: stills.length,
-                  itemBuilder: (context, i) {
-                    final s = stills[i];
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(Dimens.radiusSm),
-                      onTap: _working ? null : () => _applyStill(s),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(Dimens.radiusSm),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ServerImage(
-                              url: s.url,
-                              fit: BoxFit.cover,
-                              borderRadius: BorderRadius.zero,
-                            ),
-                            if (s.sizeLabel.isNotEmpty)
-                              Positioned(
-                                right: Dimens.spacingSm,
-                                bottom: Dimens.spacingSm,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: Dimens.spacingSm,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.6),
-                                    borderRadius: BorderRadius.circular(
-                                      Dimens.radiusSm,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    s.sizeLabel,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+            if (_visibleOptions.isNotEmpty)
+              _ImageOptionGrid(
+                options: _visibleOptions,
+                // 竖版海报按 2:3 显示，横图/剧照按 16:9
+                aspectRatio: _kind == 'poster' ? 2 / 3 : 16 / 9,
+                enabled: !_working,
+                onTap: _applyLayer,
               ),
             const SizedBox(height: Dimens.spacingMd),
           ],
           if (frames == null)
-            // stills 区块在上方已渲染，这里只负责「尚未生成截帧」的提示
+            // 分层图区块在上方已渲染，这里只负责「尚未生成截帧」的提示
             Padding(
               padding: const EdgeInsets.symmetric(vertical: Dimens.spacingLg),
               child: Center(
@@ -896,10 +967,85 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
   }
 }
 
+/// TMDB 图片候选网格：点选即应用。竖版海报用 2:3，横图/剧照用 16:9。
+class _ImageOptionGrid extends StatelessWidget {
+  const _ImageOptionGrid({
+    required this.options,
+    required this.aspectRatio,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final List<CoverOption> options;
+  final double aspectRatio;
+  final bool enabled;
+  final Future<void> Function(CoverOption option) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: GridView.builder(
+        padding: EdgeInsets.zero,
+        shrinkWrap: true,
+        physics: const ClampingScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: Dimens.spacingSm,
+          crossAxisSpacing: Dimens.spacingSm,
+          childAspectRatio: aspectRatio,
+        ),
+        itemCount: options.length,
+        itemBuilder: (context, i) {
+          final option = options[i];
+          return InkWell(
+            borderRadius: BorderRadius.circular(Dimens.radiusSm),
+            onTap: enabled ? () => onTap(option) : null,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(Dimens.radiusSm),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ServerImage(
+                    url: option.url,
+                    fit: BoxFit.cover,
+                    borderRadius: BorderRadius.zero,
+                  ),
+                  if (option.sizeLabel.isNotEmpty)
+                    Positioned(
+                      right: Dimens.spacingSm,
+                      bottom: Dimens.spacingSm,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Dimens.spacingSm,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(Dimens.radiusSm),
+                        ),
+                        child: Text(
+                          option.sizeLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Manual logo picking
 // ─────────────────────────────────────────────────────────────────────────
-
 /// Candidate list (thumbnail + language + size + votes); pops with `true`
 /// after [onSet] succeeds.
 class LogoPickerDialog extends StatefulWidget {

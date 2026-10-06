@@ -34,6 +34,12 @@ class _FakeVideoGateway implements VideoGateway {
   int setCoverCalls = 0;
   String? lastCoverFilePath;
 
+  // TMDB 分层图片
+  TmdbImageOptions tmdbImages = const TmdbImageOptions(level: 'episode');
+  final List<String> fetchedLevels = [];
+  int applyImageCalls = 0;
+  (String, String, String)? lastImageSelection;
+
   @override
   Future<SeriesDetail> fetchSeriesDetail(int id, {String? type}) async {
     fetchCalls++;
@@ -41,6 +47,7 @@ class _FakeVideoGateway implements VideoGateway {
     return detail!;
   }
 
+  @override
   @override
   Future<VideoItem> fetchVideoDetail(int id) => throw UnimplementedError();
 
@@ -140,6 +147,26 @@ class _FakeVideoGateway implements VideoGateway {
   Future<void> setVideoCover(int videoId, {required String filePath}) async {
     setCoverCalls++;
     lastCoverFilePath = filePath;
+  }
+
+  @override
+  Future<TmdbImageOptions> fetchTmdbImages(
+    int videoId, {
+    required String level,
+  }) async {
+    fetchedLevels.add(level);
+    return tmdbImages;
+  }
+
+  @override
+  Future<void> applyTmdbImage(
+    int videoId, {
+    required String filePath,
+    required String level,
+    required String kind,
+  }) async {
+    applyImageCalls++;
+    lastImageSelection = (filePath, level, kind);
   }
 
   @override
@@ -354,6 +381,66 @@ void main() {
     expect(c.mutated, isTrue, reason: '换封面后列表需要重载');
     expect(c.busy, isFalse);
     c.dispose();
+  });
+
+  test('fetchTmdbImages 按层级取图，applyTmdbImage 提交并标记 mutated', () async {
+    final gw = _FakeVideoGateway(detail: _detail(tmdbId: 77))
+      ..tmdbImages = const TmdbImageOptions(
+        level: 'series',
+        poster: [CoverOption(filePath: '/p1.jpg', width: 1000, height: 1500)],
+        backdrop: [CoverOption(filePath: '/b1.jpg', width: 1920, height: 1080)],
+      );
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    expect(c.mutated, isFalse);
+
+    final options = await c.fetchTmdbImages('series');
+    expect(gw.fetchedLevels, ['series']);
+    expect(options.byKind('poster'), hasLength(1));
+    expect(options.byKind('backdrop'), hasLength(1));
+    expect(options.byKind('still'), isEmpty);
+    expect(c.mutated, isFalse, reason: '只读列候选不该标记已变更');
+
+    await c.applyTmdbImage('/b1.jpg', 'series', 'backdrop');
+    expect(gw.applyImageCalls, 1);
+    expect(gw.lastImageSelection, ('/b1.jpg', 'series', 'backdrop'));
+    expect(c.mutated, isTrue);
+    expect(c.busy, isFalse);
+    c.dispose();
+  });
+
+  test('isEpisodeTarget 区分分集与单片（决定是否给出季/单集层级）', () async {
+    // 剧集：item.type=series → 允许季/单集层级
+    final ep = VideoItem(
+      id: 5,
+      title: 'E1',
+      isSeries: true,
+      seasonNumber: 1,
+      episodeNumber: 7,
+    );
+    final seriesGw = _FakeVideoGateway(detail: _detail(eps: [ep]));
+    final c1 = VideoDetailController(
+      gateway: seriesGw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c1.load();
+    expect(c1.isEpisodeTarget, isTrue);
+    expect(c1.targetSeasonNumber, 1);
+    expect(c1.targetEpisodeNumber, 7);
+    c1.dispose();
+
+    // 单片：item.type=standalone → 只给总览层级
+    final movieGw = _FakeVideoGateway(detail: _detail(eps: const []));
+    final c2 = VideoDetailController(
+      gateway: movieGw,
+      item: const SeriesListDto(id: 2, type: 'standalone', title: 'Movie'),
+    );
+    await c2.load();
+    expect(c2.isEpisodeTarget, isFalse, reason: '单片不该给出季/单集层级');
+    c2.dispose();
   });
 
   test('fetchLogoOptions routes to the series endpoint', () async {

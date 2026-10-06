@@ -334,6 +334,61 @@ class VideoDetailController extends ChangeNotifier {
     }
   }
 
+  /// 当前作用对象是否是「剧集分集」——决定封面面板是否给出季/单集层级。
+  /// 以 item.type 为准（控制器已经用它区分 standalone/series 请求）：
+  /// 单片只有一个总览层级，给季/单集只会误导。
+  bool get isEpisodeTarget => _type == 'series';
+
+  int? get targetSeasonNumber {
+    final ep = selected;
+    if (ep?.seasonNumber != null) return ep!.seasonNumber;
+    // SeriesDetail 没有单值季号，取第一季兜底
+    final d = detail;
+    if (d == null || d.seasons.isEmpty) return null;
+    return d.seasons.first.seasonNumber;
+  }
+
+  int? get targetEpisodeNumber => selected?.episodeNumber;
+
+  /// 某层级（series/season/episode）的 TMDB 图片候选。
+  Future<TmdbImageOptions> fetchTmdbImages(String level) async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      return await gateway.fetchTmdbImages(videoId, level: level);
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// 把选中的 TMDB 图落到指定层级。
+  Future<void> applyTmdbImage(
+    String filePath,
+    String level,
+    String kind,
+  ) async {
+    _ensureIdle();
+    final videoId = _requireVideoId();
+    busy = true;
+    if (!_disposed) notifyListeners();
+    try {
+      await gateway.applyTmdbImage(
+        videoId,
+        filePath: filePath,
+        level: level,
+        kind: kind,
+      );
+      mutated = true;
+      await refreshQuiet();
+    } finally {
+      busy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   Future<List<FrameCandidate>> generateFrames() async {    _ensureIdle();
     final videoId = _requireVideoId();
     busy = true;

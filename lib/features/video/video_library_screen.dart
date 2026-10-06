@@ -29,13 +29,41 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   /// true = 竖屏海报 (cover) · false = 横屏海报 (fanart backdrop).
   bool _portrait = true;
 
+  /// 本库未刮削条数：null = 还在探测（先不显示入口卡，避免闪一下又消失）。
+  int? _unscrapedCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _probeUnscraped();
+  }
+
+  /// 只有真有未刮削内容时才显示入口卡——否则点进去是空列表，很怪。
+  /// size=1 只为拿 totalElements，开销可忽略。
+  Future<void> _probeUnscraped() async {
+    if (widget.session.user?.isAdmin != true) return;
+    final api = widget.session.api;
+    if (api == null) return;
+    try {
+      final page = await api.fetchUnscrapedVideos(
+        page: 0,
+        size: 1,
+        libraryId: widget.group.libraryId,
+      );
+      if (mounted) setState(() => _unscrapedCount = page.totalElements);
+    } catch (_) {
+      // 探测失败就按「有」处理，保证管理员仍能进入后台
+      if (mounted) setState(() => _unscrapedCount = 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
     final items = widget.group.allItems;
-    // Admin entry into this library's unscraped backlog — same cell as a
-    // poster, placeholder art, first grid position.
-    final showUnscraped = widget.session.user?.isAdmin == true;
+    // 管理员 + 本库确实有未刮削内容，才给入口
+    final showUnscraped =
+        widget.session.user?.isAdmin == true && (_unscrapedCount ?? 0) > 0;
 
     return Scaffold(
       backgroundColor: AppColors.background(context),
@@ -104,8 +132,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
           ),
         ],
       ),
-      // Unscraped-only libraries still need the grid: the admin entry card
-      // is the only door into their backlog.
+      // 有无未刮削入口卡由 _unscrapedCount 决定（非管理员/无内容时不显示）
       body: items.isEmpty && !showUnscraped
           ? Center(
               child: Text(
@@ -127,6 +154,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                   ? _UnscrapedEntryCard(
                       key: const ValueKey('unscraped-entry'),
                       form: form,
+                      count: _unscrapedCount,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<bool>(
@@ -152,10 +180,14 @@ class _UnscrapedEntryCard extends StatelessWidget {
     super.key,
     required this.form,
     required this.onTap,
+    this.count,
   });
 
   final DeviceForm form;
   final VoidCallback onTap;
+
+  /// 本库未刮削条数；显示出来比光写「未刮削」有用。
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +223,7 @@ class _UnscrapedEntryCard extends StatelessWidget {
           ),
           const SizedBox(height: Dimens.spacingXs),
           Text(
-            '未刮削',
+            count != null && count! > 0 ? '未刮削 ($count)' : '未刮削',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

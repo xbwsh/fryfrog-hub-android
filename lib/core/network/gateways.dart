@@ -55,6 +55,17 @@ abstract class VideoGateway {
   /// 把选中的 TMDB 图应用为本集横屏封面（落 fanart.jpg）。
   Future<void> setVideoCover(int videoId, {required String filePath});
 
+  /// 某层级（series/season/episode）的 TMDB 图片候选。
+  Future<TmdbImageOptions> fetchTmdbImages(int videoId, {required String level});
+
+  /// 把选中的 TMDB 图落到指定层级（level × kind）。
+  Future<void> applyTmdbImage(
+    int videoId, {
+    required String filePath,
+    required String level,
+    required String kind,
+  });
+
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId);
 
   /// [type] = poster | fanart.

@@ -81,6 +81,25 @@ class ApiVideoGateway implements VideoGateway {
       _api.setVideoCover(videoId, filePath: filePath);
 
   @override
+  Future<TmdbImageOptions> fetchTmdbImages(
+    int videoId, {
+    required String level,
+  }) => _api.fetchTmdbImages(videoId, level: level);
+
+  @override
+  Future<void> applyTmdbImage(
+    int videoId, {
+    required String filePath,
+    required String level,
+    required String kind,
+  }) => _api.applyTmdbImage(
+    videoId,
+    filePath: filePath,
+    level: level,
+    kind: kind,
+  );
+
+  @override
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId) =>
       _api.generateFrameCandidates(videoId);
 

@@ -262,6 +262,11 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
             onSelectFrame: _c.selectFrame,
             onFetchCoverOptions: _c.fetchCoverOptions,
             onApplyCover: _c.applyCover,
+            onFetchTmdbImages: _c.fetchTmdbImages,
+            onApplyTmdbImage: _c.applyTmdbImage,
+            seasonNumber: _c.targetSeasonNumber,
+            episodeNumber: _c.targetEpisodeNumber,
+            isEpisode: _c.isEpisodeTarget,
           ),
         );
       case 'editMeta':
@@ -543,6 +548,20 @@ class _NullVideoGateway implements VideoGateway {
   @override
   Future<void> setVideoCover(int videoId, {required String filePath}) =>
       throw UnsupportedError('not logged in');
+
+  @override
+  Future<TmdbImageOptions> fetchTmdbImages(
+    int videoId, {
+    required String level,
+  }) => throw UnsupportedError('not logged in');
+
+  @override
+  Future<void> applyTmdbImage(
+    int videoId, {
+    required String filePath,
+    required String level,
+    required String kind,
+  }) => throw UnsupportedError('not logged in');
 
   @override
   Future<List<FrameCandidate>> generateFrameCandidates(int videoId) =>
