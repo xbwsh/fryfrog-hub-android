@@ -21,11 +21,16 @@ class HomeCarousel extends StatefulWidget {
     this.session,
     this.fullBleed = false,
     this.railAligned = false,
+    this.onChanged,
   });
 
   final List<SeriesListDto> items;
   final double height;
   final Session? session;
+
+  /// 从详情页返回且页面改过数据（绑定/元数据/封面）时回调，让首页重载，
+  /// 否则要杀进程才看到新名字。
+  final VoidCallback? onChanged;
 
   /// Immersive mode: flush to the screen edges (no side gutters, no corner
   /// radius), runs under the transparent status bar, deeper text scrim and
@@ -164,8 +169,8 @@ class _HomeCarouselState extends State<HomeCarousel> {
               child: InkWell(
                 onTap: widget.session == null
                     ? null
-                    : () {
-                        Navigator.of(context).push(
+                    : () async {
+                        final changed = await Navigator.of(context).push<bool>(
                           MaterialPageRoute<bool>(
                             builder: (_) => VideoDetailScreen(
                               session: widget.session!,
@@ -173,6 +178,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
                             ),
                           ),
                         );
+                        if (changed == true) widget.onChanged?.call();
                       },
                 child: ClipRRect(
                   borderRadius: !widget.fullBleed

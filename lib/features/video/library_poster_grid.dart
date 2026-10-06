@@ -101,12 +101,17 @@ class LibraryPosterCard extends StatelessWidget {
 
     return InkWell(
       borderRadius: radius,
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        // 详情页里绑定 TMDB / 改元数据后会 pop(true)；据此把「数据已变」
+        // 继续往上传，让上层列表重载——否则要杀进程才看得到新名字。
+        final changed = await Navigator.of(context).push<bool>(
           MaterialPageRoute<bool>(
             builder: (_) => VideoDetailScreen(session: session, item: item),
           ),
         );
+        if (changed == true && context.mounted) {
+          Navigator.of(context).pop(true);
+        }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,15 +183,16 @@ class LibraryPosterCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          if (item.year != null)
-            Text(
-              '${item.year}',
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 11 * form.typeScale,
-                color: Theme.of(context).hintColor,
-              ),
+          // 年份行**始终**占位：卡片高度由网格固定，缺这一行会让海报区域变高，
+          // 导致有年份/无年份的卡片高度不齐（"未刮削"入口卡同理）。
+          Text(
+            item.year == null ? '\u00A0' : '${item.year}',
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 11 * form.typeScale,
+              color: Theme.of(context).hintColor,
             ),
+          ),
         ],
       ),
     );

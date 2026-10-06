@@ -85,7 +85,8 @@ extension DeviceFormX on DeviceForm {
   int get overviewCrossAxisCount => switch (this) {
     DeviceForm.phone => 3,
     DeviceForm.tabletPortrait => 4,
-    DeviceForm.tabletLandscape => 6,
-    DeviceForm.tv => 6,
+    // 横屏原来 6 列，卡片偏小；5 列让海报明显变大
+    DeviceForm.tabletLandscape => 5,
+    DeviceForm.tv => 5,
   };
 }

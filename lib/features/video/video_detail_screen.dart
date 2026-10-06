@@ -56,6 +56,13 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     if (mounted) setState(() {});
   }
 
+  /// 返回时把「本页改过数据」的结果交给上一级，列表才能自动重载
+  /// （不然绑定/改元数据后要杀进程重进才看得到）。
+  void _leave() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) nav.pop(_c.mutated);
+  }
+
   @override
   void dispose() {
     _c
@@ -287,18 +294,24 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     final detail = _c.detail;
 
     // Light icons: hero image is dark under the status bar.
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ),
-      child: Scaffold(
-        // Hero fills from y=0 so the backdrop sits under the status bar.
-        extendBodyBehindAppBar: true,
-        backgroundColor: AppColors.background(context),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ),
+        child: Scaffold(
+          // Hero fills from y=0 so the backdrop sits under the status bar.
+          extendBodyBehindAppBar: true,
+          backgroundColor: AppColors.background(context),
+          appBar: AppBar(
+            leading: BackButton(onPressed: _leave),
+            backgroundColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
           foregroundColor: Colors.white,
@@ -447,6 +460,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
                 onToggleEpisodeGrid: () =>
                     setState(() => _episodeGrid = !_episodeGrid),
               ),
+        ),
       ),
     );
   }

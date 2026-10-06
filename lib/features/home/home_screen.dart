@@ -93,6 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     HomeCarousel(
                       items: session.carouselItems,
                       session: session,
+                      // 详情页改过数据（绑定/元数据/封面）→ 重载目录
+                      onChanged: session.loadCatalog,
                       fullBleed: !form.isTv,
                       railAligned: form.isTabletLandscape,
                       height: form.isTv
@@ -430,13 +432,15 @@ class PosterCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(Dimens.radiusMd),
       onTap: session == null
           ? null
-          : () {
-              Navigator.of(context).push(
+          : () async {
+              final changed = await Navigator.of(context).push<bool>(
                 MaterialPageRoute<bool>(
                   builder: (_) =>
                       VideoDetailScreen(session: session!, item: item),
                 ),
               );
+              // 详情页改过数据 → 重载目录，避免新名字要杀进程才可见
+              if (changed == true) await session!.loadCatalog();
             },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

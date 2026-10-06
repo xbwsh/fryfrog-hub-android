@@ -183,6 +183,12 @@ class _UnscrapedEntryCard extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
+          // 与海报卡片对齐：年份行始终占位，否则这张卡比别的卡高
+          Text(
+            '\u00A0',
+            maxLines: 1,
+            style: TextStyle(fontSize: 11 * form.typeScale),
+          ),
         ],
       ),
     );

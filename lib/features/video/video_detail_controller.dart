@@ -23,6 +23,15 @@ class VideoDetailController extends ChangeNotifier {
   bool busy = false;
   bool _disposed = false;
 
+  /// 本页发生过会改库的操作（绑定/解绑/改元数据/换封面/Logo）。返回上级时
+  /// 用它决定要不要让列表重载——否则新名字要杀进程才看得到。
+  bool mutated = false;
+
+  /// 标记发生了写操作。
+  void markMutated() {
+    mutated = true;
+  }
+
   String get _type => item.type == 'standalone' ? 'standalone' : 'series';
 
   Future<void> load() async {
@@ -145,6 +154,7 @@ class VideoDetailController extends ChangeNotifier {
     try {
       await gateway.bindTmdb(videoId, tmdbId: tmdbId, mediaType: mediaType);
       await _pollBindJob(videoId);
+      mutated = true;
       await refreshQuiet();
     } finally {
       busy = false;
@@ -175,6 +185,7 @@ class VideoDetailController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
     try {
       final unbound = await gateway.unbindTmdb(videoId);
+      mutated = true;
       await refreshQuiet();
       return unbound;
     } finally {
@@ -195,6 +206,7 @@ class VideoDetailController extends ChangeNotifier {
       } else {
         await gateway.updateSeriesMetadata(d.id, body);
       }
+      mutated = true;
       await refreshQuiet();
     } finally {
       busy = false;
@@ -211,6 +223,7 @@ class VideoDetailController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
     try {
       final result = await gateway.refreshSeasonCovers(d.id);
+      mutated = true;
       await refreshQuiet();
       return result;
     } finally {
@@ -230,6 +243,7 @@ class VideoDetailController extends ChangeNotifier {
       final ok = d.isStandalone
           ? await gateway.refreshVideoLogo(_requireVideoId())
           : await gateway.refreshSeriesLogo(d.id);
+      mutated = true;
       await refreshQuiet();
       return ok;
     } finally {
@@ -265,6 +279,7 @@ class VideoDetailController extends ChangeNotifier {
       } else {
         await gateway.setSeriesLogo(d.id, filePath: filePath);
       }
+      mutated = true;
       await refreshQuiet();
     } finally {
       busy = false;
@@ -280,6 +295,7 @@ class VideoDetailController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
     try {
       final ok = await gateway.downloadVideoCovers(videoId);
+      mutated = true;
       await refreshQuiet();
       return ok;
     } finally {
@@ -309,6 +325,7 @@ class VideoDetailController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
     try {
       await gateway.selectFrame(videoId, index: index, type: type);
+      mutated = true;
       await refreshQuiet();
     } finally {
       busy = false;

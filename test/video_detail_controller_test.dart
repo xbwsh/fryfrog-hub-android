@@ -284,6 +284,36 @@ void main() {
     c.dispose();
   });
 
+  test('mutated 只在写操作后置位，返回上级据此决定是否重载', () async {
+    final gw = _FakeVideoGateway(detail: _detail(tmdbId: null));
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    expect(c.mutated, isFalse, reason: '只读加载不该标记为已变更');
+
+    await c.toggleFavorite();
+    expect(c.mutated, isFalse, reason: '收藏不影响列表显示，无需重载');
+
+    await c.bindTmdbWithPoll(tmdbId: 500, mediaType: 'tv');
+    expect(c.mutated, isTrue, reason: '绑定会改标题，必须让列表重载');
+
+    c.dispose();
+  });
+
+  test('unbind 也标记 mutated', () async {
+    final gw = _FakeVideoGateway(detail: _detail(tmdbId: 77));
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    await c.unbind();
+    expect(c.mutated, isTrue);
+    c.dispose();
+  });
+
   test('fetchLogoOptions routes to the series endpoint', () async {
     const option = LogoOption(
       filePath: '/tmp/logo.png',
