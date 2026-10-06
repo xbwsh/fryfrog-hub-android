@@ -904,8 +904,13 @@ class ApiClient {
   /// 文件，所以先落一份到缓存目录。
   Future<Uint8List> fetchImageBytes(String path) async {
     final uri = _uri(path);
+    // 没 token 时别发 "Bearer null"（会得到含义不明的 401）
+    final auth = token;
+    if (auth == null || auth.isEmpty) {
+      throw ApiException(401, '登录已过期，请重新登录');
+    }
     final res = await http
-        .get(uri, headers: {'Authorization': 'Bearer $token'})
+        .get(uri, headers: {'Authorization': 'Bearer $auth'})
         .timeout(const Duration(seconds: 60));
     if (res.statusCode >= 400) {
       throw ApiException(res.statusCode, '图片下载失败 (${res.statusCode})');
