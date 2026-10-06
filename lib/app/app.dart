@@ -121,20 +121,31 @@ class _FryfrogHubAppState extends State<FryfrogHubApp> {
   }
 
   ThemeData _buildTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    // `fromSeed` **不会**把 primary 设成种子色：它会算出一整套色调板，
+    // 实测暗色主题下 primary = #AAC7FF（浅蓝），而轮播图的播放按钮用的是
+    // AppColors.accent = #0A84FF（亮蓝）——两个播放按钮颜色不一致就是这么来的。
+    // 这里显式把 primary 钉回 accent，让「详情页播放按钮」与轮播图统一。
+    //
+    // tabbar 不走这里：底部/顶部用的是三方 GlassTabBar，它不读 Material 主题，
+    // 颜色在 main_shell.dart 里显式给（同样是 accent）。
     final scheme =
         ColorScheme.fromSeed(
           seedColor: AppColors.accent,
           brightness: brightness,
         ).copyWith(
-          surface: brightness == Brightness.dark
-              ? AppColors.surfaceDark
-              : AppColors.surfaceLight,
+          primary: AppColors.accent,
+          // accent(#0A84FF) 上配**白字只有 3.65:1**，达不到 WCAG AA(4.5)；
+          // 配深色字是 4.52:1，达标。深色底亮蓝按钮配深字也是 iOS 亮色主题的
+          // 常见观感，所以选它而不是把蓝改暗（用户要的就是这个蓝）。
+          onPrimary: AppColors.backgroundDark,
+          surface: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: brightness == Brightness.dark
+      scaffoldBackgroundColor: isDark
           ? AppColors.backgroundDark
           : AppColors.backgroundLight,
       splashFactory: InkSparkle.splashFactory,

@@ -4,12 +4,27 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../core/adaptive/device_form.dart';
 import '../core/state/session.dart';
+import '../core/theme/app_colors.dart';
 import '../core/theme/dimens.dart';
 import '../features/books/books_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/music/music_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../widgets/mini_player.dart';
+
+/// 底部/顶部玻璃 tabbar 的四个 tab（手机与平板共用同一份）。
+const _kGlassTabs = [
+  GlassTab(icon: Icon(Icons.video_library_rounded), label: '视频'),
+  GlassTab(icon: Icon(Icons.auto_stories_rounded), label: '书架'),
+  GlassTab(icon: Icon(Icons.library_music_rounded), label: '音乐'),
+  GlassTab(icon: Icon(Icons.person_rounded), label: '我的'),
+];
+
+/// 选中态统一用 `AppColors.accent`（与轮播图/详情页播放按钮同一个蓝）。
+///
+/// `GlassTabBar` 是三方玻璃控件，**不读** Material 的 `NavigationBarTheme`，
+/// 所以必须显式给色；否则选中态会是控件自带的颜色，与播放按钮对不上。
+const _kTabIndicatorAlpha = 0.22;
 
 /// Adaptive chrome matching apple MainTabView:
 /// phone = glass bottom dock · tablet portrait = glass top tabs ·
@@ -125,12 +140,13 @@ class _PhoneShell extends StatelessWidget {
           child: GlassTabBar.bottom(
             selectedIndex: index,
             onTabSelected: onIndexChanged,
-            tabs: const [
-              GlassTab(icon: Icon(Icons.video_library_rounded), label: '视频'),
-              GlassTab(icon: Icon(Icons.auto_stories_rounded), label: '书架'),
-              GlassTab(icon: Icon(Icons.library_music_rounded), label: '音乐'),
-              GlassTab(icon: Icon(Icons.person_rounded), label: '我的'),
-            ],
+            indicatorColor: AppColors.accent.withValues(
+              alpha: _kTabIndicatorAlpha,
+            ),
+            selectedIconColor: AppColors.accent,
+            selectedLabelColor: AppColors.accent,
+            interactionGlowColor: AppColors.accent,
+            tabs: _kGlassTabs,
           ),
         ),
       ),
@@ -180,12 +196,13 @@ class _TabletPortraitShell extends StatelessWidget {
           child: GlassTabBar.bottom(
             selectedIndex: index,
             onTabSelected: onIndexChanged,
-            tabs: const [
-              GlassTab(icon: Icon(Icons.video_library_rounded), label: '视频'),
-              GlassTab(icon: Icon(Icons.auto_stories_rounded), label: '书架'),
-              GlassTab(icon: Icon(Icons.library_music_rounded), label: '音乐'),
-              GlassTab(icon: Icon(Icons.person_rounded), label: '我的'),
-            ],
+            indicatorColor: AppColors.accent.withValues(
+              alpha: _kTabIndicatorAlpha,
+            ),
+            selectedIconColor: AppColors.accent,
+            selectedLabelColor: AppColors.accent,
+            interactionGlowColor: AppColors.accent,
+            tabs: _kGlassTabs,
           ),
         ),
       ),
