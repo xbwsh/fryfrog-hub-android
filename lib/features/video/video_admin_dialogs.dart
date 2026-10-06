@@ -570,7 +570,9 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
 
   List<CoverOption> get _visibleOptions => _current?.byKind(_kind) ?? const [];
 
-  /// 每层可选类型：总览=海报/背景图，季=海报，单集=剧照（本集横版图）
+  /// 每层可选类型。
+  /// 单集只有 `still`：实测 TMDB 的单集 `/images` 只返回 stills，没有竖版海报
+  /// （所以这里没有「海报」选项），而 still 是 16:9 横版图，落的是 fanart.jpg。
   List<String> get _kindsForLevel => switch (_level) {
     'series' => const ['poster', 'backdrop'],
     'season' => const ['poster'],
@@ -584,10 +586,23 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
     _ => widget.episodeNumber != null ? '第 ${widget.episodeNumber} 集' : '单集',
   };
 
+  /// 标签必须说明「落成哪一种图」：剧照/背景图都是横版（fanart），海报才是竖版。
+  /// 之前单集层只写「剧照」，容易被当成竖封面——设完发现竖封面没变，其实是
+  /// 本集的横版图。
   String _kindLabel(String kind) => switch (kind) {
-    'poster' => '海报',
-    'backdrop' => '背景图',
-    _ => '剧照',
+    'poster' => '海报（竖版）',
+    'backdrop' => '背景图（横版）',
+    _ => '剧照（横版）',
+  };
+
+  /// 当前层级设置的图会落到哪里、影响哪个位置——避免"设了没生效"的误解。
+  String get _kindHint => switch ((_level, _kind)) {
+    ('episode', _) =>
+      '存为本集横版图（fanart.jpg），影响本集详情页顶部大图与横屏卡片。'
+          '竖封面整季共用季海报，不在这里设置。',
+    ('season', _) => '存为该季的竖版封面（tvshow-poster.jpg），整季共用。',
+    ('series', 'backdrop') => '存为剧集级横版图（tvshow-fanart.jpg），作为各集的兜底横图。',
+    (_, _) => '存为剧集级竖版海报（tvshow-poster.jpg）。',
   };
 
   void _snack(String message) {
@@ -894,6 +909,20 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
                                 : (_) => setState(() => _kind = k),
                           ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: Dimens.spacingXs),
+                  // 说清「设完落到哪个文件、影响哪个位置」：单集层只有横版剧照，
+                  // 竖封面整季共用季海报，不讲清楚会被误当成竖封面。
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _kindHint,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        color: Theme.of(context).hintColor,
+                      ),
                     ),
                   ),
                   const SizedBox(height: Dimens.spacingMd),
