@@ -147,10 +147,8 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
   Future<void> _bindTmdb({String initialQuery = ''}) async {
     final item = await showDialog<TmdbSearchItem>(
       context: context,
-      builder: (_) => TmdbBindDialog(
-        onSearch: _c.searchTmdb,
-        initialKeyword: initialQuery,
-      ),
+      builder: (_) =>
+          TmdbBindDialog(onSearch: _c.searchTmdb, initialKeyword: initialQuery),
     );
     if (item == null) return;
     if (!mounted) return;
@@ -320,154 +318,156 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
           appBar: AppBar(
             leading: BackButton(onPressed: _leave),
             backgroundColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          foregroundColor: Colors.white,
-          title: Text(
-            detail?.displayTitle ?? widget.item.displayTitle,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              shadows: [Shadow(color: Colors.black54, blurRadius: 8)],
-            ),
-          ),
-          actions: [
-            if (detail != null)
-              IconButton(
-                tooltip: (detail.favorite ?? false) ? '取消收藏' : '收藏',
-                icon: Icon(
-                  (detail.favorite ?? false)
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded,
-                  color: (detail.favorite ?? false)
-                      ? AppColors.danger
-                      : Colors.white,
-                  shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
-                ),
-                onPressed: _c.busy ? null : _toggleFavorite,
-              ),
-            IconButton(
-              tooltip: '刷新',
-              icon: const Icon(
-                Icons.refresh_rounded,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            foregroundColor: Colors.white,
+            title: Text(
+              detail?.displayTitle ?? widget.item.displayTitle,
+              style: const TextStyle(
                 color: Colors.white,
+                fontWeight: FontWeight.w700,
                 shadows: [Shadow(color: Colors.black54, blurRadius: 8)],
               ),
-              onPressed: _c.loading ? null : _c.load,
             ),
-            if (_isAdmin && detail != null)
-              PopupMenuButton<String>(
-                tooltip: '管理',
+            actions: [
+              if (detail != null)
+                IconButton(
+                  tooltip: (detail.favorite ?? false) ? '取消收藏' : '收藏',
+                  icon: Icon(
+                    (detail.favorite ?? false)
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    color: (detail.favorite ?? false)
+                        ? AppColors.danger
+                        : Colors.white,
+                    shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 8),
+                    ],
+                  ),
+                  onPressed: _c.busy ? null : _toggleFavorite,
+                ),
+              IconButton(
+                tooltip: '刷新',
                 icon: const Icon(
-                  Icons.more_vert,
+                  Icons.refresh_rounded,
                   color: Colors.white,
                   shadows: [Shadow(color: Colors.black54, blurRadius: 8)],
                 ),
-                color: AppColors.surface(context),
-                onSelected: _onAdminAction,
-                itemBuilder: (context) => [
-                  // Bind only while unbound — a bound detail shows the
-                  // refresh/logo/unbind family instead (rebind = unbind first).
-                  if (detail.tmdbId == null)
-                    _adminItem('bind', Icons.link_rounded, '搜索并绑定 TMDB'),
-                  if (detail.tmdbId != null)
-                    _adminItem('refreshMeta', Icons.refresh_rounded, '重新刮削'),
-                  _adminItem('covers', Icons.image_rounded, '设置封面'),
-                  _adminItem('editMeta', Icons.edit_rounded, '编辑元数据'),
-                  if (!detail.isStandalone && detail.tmdbId != null)
-                    _adminItem(
-                      'seasonCovers',
-                      Icons.photo_library_rounded,
-                      '刷新季海报',
-                    ),
-                  if (detail.tmdbId != null) ...[
-                    _adminItem('logoFill', Icons.download_rounded, '补全 Logo'),
-                    _adminItem('logoPick', Icons.title_rounded, '手动设置 Logo'),
-                    PopupMenuItem(
-                      value: 'unbind',
-                      enabled: !_c.busy,
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.link_off_rounded,
-                            size: 18,
-                            color: AppColors.danger,
-                          ),
-                          SizedBox(width: Dimens.spacingMd),
-                          Text(
-                            '解绑 TMDB',
-                            style: TextStyle(
-                              fontSize: 14,
+                onPressed: _c.loading ? null : _c.load,
+              ),
+              if (_isAdmin && detail != null)
+                PopupMenuButton<String>(
+                  tooltip: '管理',
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: Colors.white,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 8)],
+                  ),
+                  color: AppColors.surface(context),
+                  onSelected: _onAdminAction,
+                  itemBuilder: (context) => [
+                    // Bind only while unbound — a bound detail shows the
+                    // refresh/logo/unbind family instead (rebind = unbind first).
+                    if (detail.tmdbId == null)
+                      _adminItem('bind', Icons.link_rounded, '搜索并绑定 TMDB'),
+                    if (detail.tmdbId != null)
+                      _adminItem('refreshMeta', Icons.refresh_rounded, '重新刮削'),
+                    _adminItem('covers', Icons.image_rounded, '设置封面'),
+                    _adminItem('editMeta', Icons.edit_rounded, '编辑元数据'),
+                    if (!detail.isStandalone && detail.tmdbId != null)
+                      _adminItem(
+                        'seasonCovers',
+                        Icons.photo_library_rounded,
+                        '刷新季海报',
+                      ),
+                    if (detail.tmdbId != null) ...[
+                      _adminItem('logoFill', Icons.download_rounded, '补全 Logo'),
+                      _adminItem('logoPick', Icons.title_rounded, '手动设置 Logo'),
+                      PopupMenuItem(
+                        value: 'unbind',
+                        enabled: !_c.busy,
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.link_off_rounded,
+                              size: 18,
                               color: AppColors.danger,
                             ),
+                            SizedBox(width: Dimens.spacingMd),
+                            Text(
+                              '解绑 TMDB',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.danger,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+          body: _c.loading
+              ? const SafeArea(
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.accent,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                )
+              : _c.error != null
+              ? SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Dimens.spacingXl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _c.error!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14 * form.typeScale,
+                              color: Theme.of(context).hintColor,
+                            ),
+                          ),
+                          const SizedBox(height: Dimens.spacingLg),
+                          FilledButton(
+                            onPressed: _c.load,
+                            child: const Text('重试'),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ],
-              ),
-          ],
-        ),
-        body: _c.loading
-            ? const SafeArea(
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.accent,
-                    strokeWidth: 2.5,
                   ),
+                )
+              : _DetailView(
+                  detail: detail!,
+                  selected: _c.selected,
+                  actors: _c.actors,
+                  form: form,
+                  session: widget.session,
+                  onPlay: () => _play(),
+                  onPlayRestart: () => _play(restart: true),
+                  onSelectEpisode: (ep) {
+                    // First tap on another episode only selects it — the hero
+                    // backdrop swaps to that episode's fanart; tapping the
+                    // already-selected episode plays it.
+                    if (_c.selected?.id == ep.id) {
+                      _play(video: ep);
+                    } else {
+                      _c.selectOnly(ep);
+                    }
+                  },
+                  onSelectOnly: _c.selectOnly,
+                  onMarkWatched: _markWatched,
+                  episodeGrid: _episodeGrid,
+                  onToggleEpisodeGrid: () =>
+                      setState(() => _episodeGrid = !_episodeGrid),
                 ),
-              )
-            : _c.error != null
-            ? SafeArea(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Dimens.spacingXl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _c.error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14 * form.typeScale,
-                            color: Theme.of(context).hintColor,
-                          ),
-                        ),
-                        const SizedBox(height: Dimens.spacingLg),
-                        FilledButton(
-                          onPressed: _c.load,
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            : _DetailView(
-                detail: detail!,
-                selected: _c.selected,
-                actors: _c.actors,
-                form: form,
-                session: widget.session,
-                onPlay: () => _play(),
-                onPlayRestart: () => _play(restart: true),
-                onSelectEpisode: (ep) {
-                  // First tap on another episode only selects it — the hero
-                  // backdrop swaps to that episode's fanart; tapping the
-                  // already-selected episode plays it.
-                  if (_c.selected?.id == ep.id) {
-                    _play(video: ep);
-                  } else {
-                    _c.selectOnly(ep);
-                  }
-                },
-                onSelectOnly: _c.selectOnly,
-                onMarkWatched: _markWatched,
-                episodeGrid: _episodeGrid,
-                onToggleEpisodeGrid: () =>
-                    setState(() => _episodeGrid = !_episodeGrid),
-              ),
         ),
       ),
     );
@@ -649,413 +649,441 @@ class _DetailView extends StatelessWidget {
               ? '继续播放'
               : '播放');
 
-    return CustomScrollView(
-      slivers: [
-        // ---- Hero ----
-        SliverToBoxAdapter(
-          child: SizedBox(
-            // 平板横屏：hero 跟随窗口宽度按比例（16:9 背景铺满不裁成横条），
-            // 其余形态沿用固定高度 × 缩放。
-            height: form.isTabletLandscape
-                ? (MediaQuery.sizeOf(context).width * 0.42).clamp(
-                    Dimens.videoHeroHeight,
-                    MediaQuery.sizeOf(context).height * 0.62,
-                  )
-                : Dimens.videoHeroHeight * form.posterScale,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ServerImage(
-                  url: backdrop,
-                  fit: BoxFit.cover,
-                  borderRadius: BorderRadius.zero,
-                ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.15),
-                        Colors.black.withValues(alpha: 0.85),
-                      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // hero 里的内容（海报 + 文字列）尺寸是固定的，不随窗口宽度变。
+        // 只按宽度算高度会在「矮而宽」的窗口下小于内容高度 → bottom overflow。
+        // 所以先算内容下限，再按宽度给理想值，最后夹在视口内。
+        final posterH = Dimens.videoPosterWidth * form.posterScale * 1.5;
+        final minHero = posterH + Dimens.spacingLg * 2;
+        final ideal = MediaQuery.sizeOf(context).width * 0.42;
+        final maxHero = constraints.maxHeight.isFinite
+            ? constraints.maxHeight * 0.75
+            : MediaQuery.sizeOf(context).height * 0.75;
+        final heroHeight = ideal.clamp(
+          minHero,
+          maxHero < minHero ? minHero : maxHero,
+        );
+
+        return CustomScrollView(
+          slivers: [
+            // ---- Hero ----
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: form.isTabletLandscape
+                    ? heroHeight
+                    : Dimens.videoHeroHeight * form.posterScale,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ServerImage(
+                      url: backdrop,
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.zero,
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: Dimens.spacingLg,
-                  right: Dimens.spacingLg,
-                  bottom: Dimens.spacingLg,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      SizedBox(
-                        width: Dimens.videoPosterWidth * form.posterScale,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(Dimens.radiusMd),
-                          child: AspectRatio(
-                            aspectRatio: 2 / 3,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                ServerImage(
-                                  url: poster,
-                                  fit: BoxFit.cover,
-                                  borderRadius: BorderRadius.circular(
-                                    Dimens.radiusMd,
-                                  ),
-                                ),
-                                if (showBadge)
-                                  Positioned(
-                                    right: Dimens.spacingSm,
-                                    bottom: Dimens.spacingSm,
-                                    child: _ProgressBadge(
-                                      value: progress.clamp(0.0, 1.0),
-                                      completed: isDone,
-                                      size:
-                                          Dimens.videoProgressRing *
-                                          form.posterScale,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: Dimens.spacingLg),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // 艺术字 Logo（TMDB / 本地 movie-logo.png / tvshow-logo.png）。
-                            // 形状或留白不可读时自动回落到文字标题——不再出现
-                            // “竖长条 logo 被压成 22px 细条、标题也没了”的情况。
-                            VideoLogo(
-                              url: detail.logoUrl,
-                              title: detail.displayTitle,
-                              height: 46,
-                            ),
-                            const SizedBox(height: Dimens.spacingXs),
-                            Text(
-                              _metaLine(detail, ep),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.85),
-                                fontSize: 12 * form.typeScale,
-                              ),
-                            ),
-                            const SizedBox(height: Dimens.spacingMd),
-                            Wrap(
-                              spacing: Dimens.spacingSm,
-                              runSpacing: Dimens.spacingSm,
-                              children: [
-                                FilledButton.icon(
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: Size(0, 42 * form.posterScale),
-                                  ),
-                                  onPressed: onPlay,
-                                  icon: const Icon(Icons.play_arrow_rounded),
-                                  label: Text(resumeLabel),
-                                ),
-                                if ((ep?.watchPosition ?? 0) > 1 &&
-                                    ep?.watched != true)
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: BorderSide(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                      ),
-                                      minimumSize: Size(
-                                        0,
-                                        42 * form.posterScale,
-                                      ),
-                                    ),
-                                    onPressed: onPlayRestart,
-                                    icon: const Icon(
-                                      Icons.replay_rounded,
-                                      size: 18,
-                                    ),
-                                    label: const Text('从头播放'),
-                                  ),
-                              ],
-                            ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.15),
+                            Colors.black.withValues(alpha: 0.85),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            Dimens.spacingLg,
-            Dimens.spacingLg,
-            Dimens.spacingLg,
-            0,
-          ),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (detail.overview != null && detail.overview!.isNotEmpty) ...[
-                  Text(
-                    '简介',
-                    style: TextStyle(
-                      fontSize: 16 * form.typeScale,
-                      fontWeight: FontWeight.w700,
                     ),
-                  ),
-                  const SizedBox(height: Dimens.spacingSm),
-                  Text(
-                    detail.overview!,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14 * form.typeScale,
-                      height: 1.5,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.85,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: Dimens.spacingXl),
-                ],
-                if (ep != null &&
-                    (ep.director != null || ep.actors != null)) ...[
-                  Text(
-                    '主创',
-                    style: TextStyle(
-                      fontSize: 16 * form.typeScale,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: Dimens.spacingSm),
-                  if (ep.director != null && ep.director!.isNotEmpty)
-                    Text(
-                      '导演：${ep.director}',
-                      style: TextStyle(
-                        fontSize: 13 * form.typeScale,
-                        height: 1.4,
-                      ),
-                    ),
-                  if (ep.actors != null && ep.actors!.isNotEmpty)
-                    Text(
-                      '主演：${ep.actors}',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13 * form.typeScale,
-                        height: 1.4,
-                        color: theme.hintColor,
-                      ),
-                    ),
-                  const SizedBox(height: Dimens.spacingMd),
-                ],
-                if (actors.isNotEmpty) ...[
-                  Text(
-                    '演职人员',
-                    style: TextStyle(
-                      fontSize: 16 * form.typeScale,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: Dimens.spacingMd),
-                  SizedBox(
-                    height: 96,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: actors.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(width: Dimens.spacingMd),
-                      itemBuilder: (context, i) {
-                        final a = actors[i];
-                        return SizedBox(
-                          width: 72,
-                          child: Column(
-                            children: [
-                              SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: ClipOval(
-                                  child: ServerImage(
-                                    url: a.imageUrl,
-                                    fit: BoxFit.cover,
-                                    borderRadius: BorderRadius.zero,
-                                  ),
+                    Positioned(
+                      left: Dimens.spacingLg,
+                      right: Dimens.spacingLg,
+                      bottom: Dimens.spacingLg,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          SizedBox(
+                            width: Dimens.videoPosterWidth * form.posterScale,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                Dimens.radiusMd,
+                              ),
+                              child: AspectRatio(
+                                aspectRatio: 2 / 3,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    ServerImage(
+                                      url: poster,
+                                      fit: BoxFit.cover,
+                                      borderRadius: BorderRadius.circular(
+                                        Dimens.radiusMd,
+                                      ),
+                                    ),
+                                    if (showBadge)
+                                      Positioned(
+                                        right: Dimens.spacingSm,
+                                        bottom: Dimens.spacingSm,
+                                        child: _ProgressBadge(
+                                          value: progress.clamp(0.0, 1.0),
+                                          completed: isDone,
+                                          size:
+                                              Dimens.videoProgressRing *
+                                              form.posterScale,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: Dimens.spacingXs),
-                              Text(
-                                a.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11 * form.typeScale),
-                              ),
-                            ],
+                            ),
                           ),
-                        );
-                      },
+                          const SizedBox(width: Dimens.spacingLg),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // 艺术字 Logo（TMDB / 本地 movie-logo.png / tvshow-logo.png）。
+                                // 形状或留白不可读时自动回落到文字标题——不再出现
+                                // “竖长条 logo 被压成 22px 细条、标题也没了”的情况。
+                                VideoLogo(
+                                  url: detail.logoUrl,
+                                  title: detail.displayTitle,
+                                  height: 46,
+                                ),
+                                const SizedBox(height: Dimens.spacingXs),
+                                Text(
+                                  _metaLine(detail, ep),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 12 * form.typeScale,
+                                  ),
+                                ),
+                                const SizedBox(height: Dimens.spacingMd),
+                                Wrap(
+                                  spacing: Dimens.spacingSm,
+                                  runSpacing: Dimens.spacingSm,
+                                  children: [
+                                    FilledButton.icon(
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: Size(
+                                          0,
+                                          42 * form.posterScale,
+                                        ),
+                                      ),
+                                      onPressed: onPlay,
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                      ),
+                                      label: Text(resumeLabel),
+                                    ),
+                                    if ((ep?.watchPosition ?? 0) > 1 &&
+                                        ep?.watched != true)
+                                      OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white,
+                                          side: BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                          ),
+                                          minimumSize: Size(
+                                            0,
+                                            42 * form.posterScale,
+                                          ),
+                                        ),
+                                        onPressed: onPlayRestart,
+                                        icon: const Icon(
+                                          Icons.replay_rounded,
+                                          size: 18,
+                                        ),
+                                        label: const Text('从头播放'),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: Dimens.spacingXl),
-                ],
-                if (ep != null && (ep.isWatched || ep.hasProgress)) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          ep.isWatched
-                              ? '已看完'
-                              : '已看 ${(ep.watchProgressPercent ?? 0).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                            fontSize: 13 * form.typeScale,
-                            color: ep.isWatched
-                                ? AppColors.success
-                                : theme.hintColor,
-                            fontWeight: FontWeight.w600,
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(
+                Dimens.spacingLg,
+                Dimens.spacingLg,
+                Dimens.spacingLg,
+                0,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (detail.overview != null &&
+                        detail.overview!.isNotEmpty) ...[
+                      Text(
+                        '简介',
+                        style: TextStyle(
+                          fontSize: 16 * form.typeScale,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: Dimens.spacingSm),
+                      Text(
+                        detail.overview!,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14 * form.typeScale,
+                          height: 1.5,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.85,
                           ),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => onMarkWatched(!ep.isWatched),
-                        child: Text(ep.isWatched ? '标为未看' : '标为已看'),
-                      ),
+                      const SizedBox(height: Dimens.spacingXl),
                     ],
-                  ),
-                  const SizedBox(height: Dimens.spacingSm),
-                ],
-              ],
-            ),
-          ),
-        ),
-        if (detail.seasons.isNotEmpty) ...[
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              Dimens.spacingLg,
-              0,
-              Dimens.spacingLg,
-              0,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      detail.isStandalone
-                          ? '正片'
-                          : '剧集 · ${detail.episodeCount ?? detail.allEpisodes.length}',
-                      style: TextStyle(
-                        fontSize: 16 * form.typeScale,
-                        fontWeight: FontWeight.w700,
+                    if (ep != null &&
+                        (ep.director != null || ep.actors != null)) ...[
+                      Text(
+                        '主创',
+                        style: TextStyle(
+                          fontSize: 16 * form.typeScale,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ),
-                  if (detail.allEpisodes.length > 1)
-                    IconButton(
-                      tooltip: episodeGrid ? '卡片列表' : '数字网格',
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        episodeGrid
-                            ? Icons.view_list_rounded
-                            : Icons.tag_rounded,
-                        size: 20 * form.typeScale,
+                      const SizedBox(height: Dimens.spacingSm),
+                      if (ep.director != null && ep.director!.isNotEmpty)
+                        Text(
+                          '导演：${ep.director}',
+                          style: TextStyle(
+                            fontSize: 13 * form.typeScale,
+                            height: 1.4,
+                          ),
+                        ),
+                      if (ep.actors != null && ep.actors!.isNotEmpty)
+                        Text(
+                          '主演：${ep.actors}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13 * form.typeScale,
+                            height: 1.4,
+                            color: theme.hintColor,
+                          ),
+                        ),
+                      const SizedBox(height: Dimens.spacingMd),
+                    ],
+                    if (actors.isNotEmpty) ...[
+                      Text(
+                        '演职人员',
+                        style: TextStyle(
+                          fontSize: 16 * form.typeScale,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                      onPressed: onToggleEpisodeGrid,
-                    ),
-                ],
+                      const SizedBox(height: Dimens.spacingMd),
+                      SizedBox(
+                        height: 96,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: actors.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(width: Dimens.spacingMd),
+                          itemBuilder: (context, i) {
+                            final a = actors[i];
+                            return SizedBox(
+                              width: 72,
+                              child: Column(
+                                children: [
+                                  SizedBox(
+                                    width: 56,
+                                    height: 56,
+                                    child: ClipOval(
+                                      child: ServerImage(
+                                        url: a.imageUrl,
+                                        fit: BoxFit.cover,
+                                        borderRadius: BorderRadius.zero,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: Dimens.spacingXs),
+                                  Text(
+                                    a.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11 * form.typeScale,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: Dimens.spacingXl),
+                    ],
+                    if (ep != null && (ep.isWatched || ep.hasProgress)) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ep.isWatched
+                                  ? '已看完'
+                                  : '已看 ${(ep.watchProgressPercent ?? 0).toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                fontSize: 13 * form.typeScale,
+                                color: ep.isWatched
+                                    ? AppColors.success
+                                    : theme.hintColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => onMarkWatched(!ep.isWatched),
+                            child: Text(ep.isWatched ? '标为未看' : '标为已看'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: Dimens.spacingSm),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
-          for (final season in detail.seasons) ...[
-            if (detail.seasons.length > 1)
+            if (detail.seasons.isNotEmpty) ...[
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(
                   Dimens.spacingLg,
-                  Dimens.spacingSm,
+                  0,
                   Dimens.spacingLg,
-                  Dimens.spacingXs,
+                  0,
                 ),
                 sliver: SliverToBoxAdapter(
-                  child: Text(
-                    '第 ${season.seasonNumber} 季',
-                    style: TextStyle(
-                      fontSize: 14 * form.typeScale,
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.primary,
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          detail.isStandalone
+                              ? '正片'
+                              : '剧集 · ${detail.episodeCount ?? detail.allEpisodes.length}',
+                          style: TextStyle(
+                            fontSize: 16 * form.typeScale,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (detail.allEpisodes.length > 1)
+                        IconButton(
+                          tooltip: episodeGrid ? '卡片列表' : '数字网格',
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            episodeGrid
+                                ? Icons.view_list_rounded
+                                : Icons.tag_rounded,
+                            size: 20 * form.typeScale,
+                          ),
+                          onPressed: onToggleEpisodeGrid,
+                        ),
+                    ],
                   ),
                 ),
               ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingLg),
-              sliver: episodeGrid
-                  ? SliverGrid(
-                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 64 * form.typeScale,
-                        mainAxisSpacing: Dimens.spacingSm,
-                        crossAxisSpacing: Dimens.spacingSm,
-                        childAspectRatio: 1.4,
+              for (final season in detail.seasons) ...[
+                if (detail.seasons.length > 1)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      Dimens.spacingLg,
+                      Dimens.spacingSm,
+                      Dimens.spacingLg,
+                      Dimens.spacingXs,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Text(
+                        '第 ${season.seasonNumber} 季',
+                        style: TextStyle(
+                          fontSize: 14 * form.typeScale,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
-                      delegate: SliverChildBuilderDelegate((context, i) {
-                        final e = season.episodes[i];
-                        return _EpisodeNumberChip(
-                          key: ValueKey(e.id),
-                          label: e.episodeNumber?.toString() ?? '${i + 1}',
-                          selected: selected?.id == e.id,
-                          watched: e.isWatched,
-                          form: form,
-                          onTap: () => onSelectEpisode(e),
-                          onLongPress: () => onSelectOnly(e),
-                        );
-                      }, childCount: season.episodes.length),
-                    )
-                  : SliverList.builder(
-                      itemCount: season.episodes.length,
-                      itemBuilder: (context, i) {
-                        final e = season.episodes[i];
-                        // Clip to the same radius as the surface fill — otherwise
-                        // the selected/ink tint paints square corners over the
-                        // rounded card (very visible in dark mode).
-                        final radius = BorderRadius.vertical(
-                          top: i == 0
-                              ? Radius.circular(Dimens.radiusLg)
-                              : Radius.zero,
-                          bottom: i == season.episodes.length - 1
-                              ? Radius.circular(Dimens.radiusLg)
-                              : Radius.zero,
-                        );
-                        return ClipRRect(
-                          key: ValueKey(e.id),
-                          borderRadius: radius,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: AppColors.surface(context),
-                              borderRadius: radius,
-                            ),
-                            child: _EpisodeTile(
-                              episode: e,
+                    ),
+                  ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Dimens.spacingLg,
+                  ),
+                  sliver: episodeGrid
+                      ? SliverGrid(
+                          gridDelegate:
+                              SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 64 * form.typeScale,
+                                mainAxisSpacing: Dimens.spacingSm,
+                                crossAxisSpacing: Dimens.spacingSm,
+                                childAspectRatio: 1.4,
+                              ),
+                          delegate: SliverChildBuilderDelegate((context, i) {
+                            final e = season.episodes[i];
+                            return _EpisodeNumberChip(
+                              key: ValueKey(e.id),
+                              label: e.episodeNumber?.toString() ?? '${i + 1}',
                               selected: selected?.id == e.id,
+                              watched: e.isWatched,
                               form: form,
                               onTap: () => onSelectEpisode(e),
                               onLongPress: () => onSelectOnly(e),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          }, childCount: season.episodes.length),
+                        )
+                      : SliverList.builder(
+                          itemCount: season.episodes.length,
+                          itemBuilder: (context, i) {
+                            final e = season.episodes[i];
+                            // Clip to the same radius as the surface fill — otherwise
+                            // the selected/ink tint paints square corners over the
+                            // rounded card (very visible in dark mode).
+                            final radius = BorderRadius.vertical(
+                              top: i == 0
+                                  ? Radius.circular(Dimens.radiusLg)
+                                  : Radius.zero,
+                              bottom: i == season.episodes.length - 1
+                                  ? Radius.circular(Dimens.radiusLg)
+                                  : Radius.zero,
+                            );
+                            return ClipRRect(
+                              key: ValueKey(e.id),
+                              borderRadius: radius,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface(context),
+                                  borderRadius: radius,
+                                ),
+                                child: _EpisodeTile(
+                                  episode: e,
+                                  selected: selected?.id == e.id,
+                                  form: form,
+                                  onTap: () => onSelectEpisode(e),
+                                  onLongPress: () => onSelectOnly(e),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ],
+            const SliverToBoxAdapter(
+              child: SizedBox(height: Dimens.spacingXxl),
             ),
+            const SliverToBoxAdapter(child: SizedBox(height: Dimens.spacingLg)),
           ],
-        ],
-        const SliverToBoxAdapter(child: SizedBox(height: Dimens.spacingXxl)),
-        const SliverToBoxAdapter(child: SizedBox(height: Dimens.spacingLg)),
-      ],
+        );
+      },
     );
   }
 
