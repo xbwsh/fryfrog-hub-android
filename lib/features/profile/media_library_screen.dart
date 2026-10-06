@@ -78,6 +78,42 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
     }
   }
 
+  /// 批量重写该库的剧级/季级 NFO。
+  /// 为什么需要确认框：会**覆盖**已有的 tvshow.nfo / season.nfo（这正是"统一格式"
+  /// 的语义），虽然是后台任务但影响面是整个库。
+  Future<void> _regenerateNfo(MediaLibrary lib) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('重写「${lib.name}」的 NFO'),
+        content: const Text(
+          '为该库每部剧重写剧根 tvshow.nfo（剧名/简介/评分/绑定 ID）'
+          '与各季目录 season.nfo（季名/季简介）。\n\n'
+          '已有文件会被覆盖，磁盘上的视频与图片不受影响。\n'
+          '分集 NFO 不在这里处理（由扫描/刮削按集生成）。\n\n'
+          '后台执行，大库需要一些时间。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('开始'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final msg = await _c.regenerateNfo(libraryId: lib.id);
+      _snack(msg);
+    } catch (e) {
+      _snack('重写 NFO 失败：$e');
+    }
+  }
+
   Future<void> _toggle(MediaLibrary lib) async {
     try {
       await _c.toggle(lib);
@@ -243,6 +279,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
                     onScan: () => _scanOne(lib),
                     onEdit: () => _showForm(edit: lib),
                     onDelete: () => _delete(lib),
+                    onRegenerateNfo: () => _regenerateNfo(lib),
                   ),
                   const SizedBox(height: Dimens.spacingMd),
                 ],
@@ -336,6 +373,7 @@ class _LibraryCard extends StatelessWidget {
     required this.onScan,
     required this.onEdit,
     required this.onDelete,
+    required this.onRegenerateNfo,
   });
 
   final MediaLibrary lib;
@@ -346,6 +384,7 @@ class _LibraryCard extends StatelessWidget {
   final VoidCallback onScan;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onRegenerateNfo;
 
   @override
   Widget build(BuildContext context) {
@@ -408,6 +447,8 @@ class _LibraryCard extends StatelessWidget {
             switch (action) {
               case 'scan':
                 onScan();
+              case 'nfo':
+                onRegenerateNfo();
               case 'edit':
                 onEdit();
               case 'delete':
@@ -423,6 +464,21 @@ class _LibraryCard extends StatelessWidget {
                   const Icon(Icons.sync_rounded, size: 18),
                   const SizedBox(width: Dimens.spacingMd),
                   Text('扫描', style: TextStyle(fontSize: 14 * form.typeScale)),
+                ],
+              ),
+            ),
+            // 批量重写剧级/季级 NFO：重新刮削刷不到（已绑定的剧会被 scrape 跳过）
+            PopupMenuItem(
+              value: 'nfo',
+              enabled: !busy,
+              child: Row(
+                children: [
+                  const Icon(Icons.description_outlined, size: 18),
+                  const SizedBox(width: Dimens.spacingMd),
+                  Text(
+                    '重写 NFO',
+                    style: TextStyle(fontSize: 14 * form.typeScale),
+                  ),
                 ],
               ),
             ),
@@ -951,6 +1007,10 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
 
   @override
   Future<StaleRecords> fetchStaleRecords(int libraryId) =>
+      throw UnsupportedError('未登录');
+
+  @override
+  Future<String> regenerateNfo({int? libraryId}) =>
       throw UnsupportedError('未登录');
 
   @override

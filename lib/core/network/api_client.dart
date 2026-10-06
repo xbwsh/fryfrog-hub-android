@@ -670,6 +670,17 @@ class ApiClient {
     });
   }
 
+  /// Backend: `POST /api/v1/video/nfo/regenerate-all?libraryId=`.
+  /// 后台任务，立即返回提示语；进度走 `fetchPipelineProgress`。
+  Future<String> regenerateNfo({int? libraryId}) async {
+    final json = await _send(
+      '/api/v1/video/nfo/regenerate-all',
+      method: 'POST',
+      query: {if (libraryId != null) 'libraryId': '$libraryId'},
+    );
+    return _unwrap(json, (raw) => raw is String ? raw : '已启动') ?? '已启动';
+  }
+
   /// Backend: `GET /api/v1/media-libraries/browse?path=`.
   /// Null/empty path lists the server's disk roots.
   Future<List<LibraryDirItem>> browseLibraryDirs({String? path}) async {

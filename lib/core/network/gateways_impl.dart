@@ -265,6 +265,10 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
       _api.purgeStaleRecords(libraryId, dryRun: dryRun);
 
   @override
+  Future<String> regenerateNfo({int? libraryId}) =>
+      _api.regenerateNfo(libraryId: libraryId);
+
+  @override
   Future<List<LibraryDirItem>> browse({String? path}) =>
       _api.browseLibraryDirs(path: path);
 }

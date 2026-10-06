@@ -156,6 +156,14 @@ class MediaLibraryController extends ChangeNotifier {
     return null;
   }
 
+  /// 批量重写该库的剧级/季级 NFO（后台任务，立即返回提示语）。
+  ///
+  /// 不复用扫描进度：这是独立任务，进度键是 `nfo:{libraryId}`，
+  /// 混进扫描进度会让「扫描中」的显示错乱。
+  Future<String> regenerateNfo({int? libraryId}) async {
+    return gateway.regenerateNfo(libraryId: libraryId);
+  }
+
   void _beginScan(int? id, String stage) {
     _hideDone?.cancel();
     scanning = true;

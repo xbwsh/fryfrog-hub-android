@@ -56,7 +56,10 @@ abstract class VideoGateway {
   Future<void> setVideoCover(int videoId, {required String filePath});
 
   /// 某层级（series/season/episode）的 TMDB 图片候选。
-  Future<TmdbImageOptions> fetchTmdbImages(int videoId, {required String level});
+  Future<TmdbImageOptions> fetchTmdbImages(
+    int videoId, {
+    required String level,
+  });
 
   /// 把选中的 TMDB 图落到指定层级（level × kind）。
   Future<void> applyTmdbImage(
@@ -161,6 +164,13 @@ abstract class MediaLibraryGateway {
 
   /// 清理残留记录，返回删除条数；[dryRun] 只统计。
   Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false});
+
+  /// 批量（重新）生成该库的剧级 `tvshow.nfo` 与季级 `season.nfo`，返回提示语。
+  ///
+  /// 后端是后台任务：`scrape_video_if_needed` 开头就是 `if video.tmdb_id: return`，
+  /// 已绑定的剧重新刮削也刷不到 NFO，只能用这个入口补齐/统一格式。
+  /// [libraryId] 为 null 时处理全部剧。
+  Future<String> regenerateNfo({int? libraryId});
 
   /// Null/empty [path] lists the server's disk roots.
   Future<List<LibraryDirItem>> browse({String? path});
