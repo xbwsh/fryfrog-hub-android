@@ -32,10 +32,68 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   /// 本库未刮削条数：null = 还在探测（先不显示入口卡，避免闪一下又消失）。
   int? _unscrapedCount;
 
+  /// 本库「文件已不在磁盘上」的残留条数；>0 才显示清理入口。
+  int _staleCount = 0;
+
   @override
   void initState() {
     super.initState();
     _probeUnscraped();
+    _probeStale();
+  }
+
+  /// 残留体检：文件已被移走/改名时旧记录会滞留到宽限期结束，期间新旧并存、
+  /// 旧的点开会失败。这里探测一次，给管理员一个主动清理的入口。
+  Future<void> _probeStale() async {
+    if (widget.session.user?.isAdmin != true) return;
+    final api = widget.session.api;
+    if (api == null) return;
+    try {
+      final n = await api.fetchStaleRecordCount(widget.group.libraryId);
+      if (mounted) setState(() => _staleCount = n);
+    } catch (_) {
+      // 探测失败就不显示入口，不影响正常浏览
+    }
+  }
+
+  Future<void> _purgeStale() async {
+    final api = widget.session.api;
+    if (api == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清理残留记录'),
+        content: Text(
+          '本库有 $_staleCount 条记录指向已不存在的文件（多半是改名/删除后的旧条目）。\n\n'
+          '清理只删数据库记录，不动磁盘上的任何文件。磁盘异常时后端会拒绝执行。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('清理'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final removed = await api.purgeStaleRecords(widget.group.libraryId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(removed > 0 ? '已清理 $removed 条残留记录' : '没有可清理的记录'),
+        ),
+      );
+      await _probeStale();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('清理失败：$e')));
+    }
   }
 
   /// 只有真有未刮削内容时才显示入口卡——否则点进去是空列表，很怪。
@@ -94,6 +152,16 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
           ],
         ),
         actions: [
+          // 有残留（文件已不存在的旧记录）时才出现，避免平时占位
+          if (_staleCount > 0)
+            IconButton(
+              tooltip: '清理残留记录（$_staleCount）',
+              icon: Badge(
+                label: Text('$_staleCount'),
+                child: const Icon(Icons.cleaning_services_rounded),
+              ),
+              onPressed: _purgeStale,
+            ),
           IconButton(
             tooltip: '搜索本库',
             icon: const Icon(Icons.search_rounded),
@@ -149,7 +217,9 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
               form: form,
               session: widget.session,
               // 横屏封面是 16:9，比竖屏海报占横向空间；少一列让单张明显更大
-              columns: _portrait ? null : (form.overviewCrossAxisCount - 1).clamp(2, 12),
+              columns: _portrait
+                  ? null
+                  : (form.overviewCrossAxisCount - 1).clamp(2, 12),
               leading: showUnscraped
                   ? _UnscrapedEntryCard(
                       key: const ValueKey('unscraped-entry'),

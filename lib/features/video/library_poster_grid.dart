@@ -39,12 +39,10 @@ class LibraryPosterGrid extends StatelessWidget {
         final cols = columns ?? form.overviewCrossAxisCount;
         const spacing = Dimens.spacingLg;
         final cellW =
-            (constraints.maxWidth -
-                spacing * 2 -
-                spacing * (cols - 1)) /
-            cols;
+            (constraints.maxWidth - spacing * 2 - spacing * (cols - 1)) / cols;
         final imageH = portrait
-            ? cellW * 1.5 // 2:3 poster
+            ? cellW *
+                  1.5 // 2:3 poster
             : cellW * 9 / 16; // wide fanart
         final cellAspect = cellW / (imageH + Dimens.videoMetaExtent);
 
@@ -102,105 +100,125 @@ class LibraryPosterCard extends StatelessWidget {
     // server has no fanart for this item.
     final url = portrait ? item.coverUrl : (item.fanartUrl ?? item.coverUrl);
     final radius = BorderRadius.circular(Dimens.radiusMd);
+    // 文件已不在磁盘上（改名/删除后等清理的旧记录）：置灰 + 不可点，
+    // 避免误点开一条注定播放失败的条目。
+    final stale = item.fileMissing;
 
     return InkWell(
       borderRadius: radius,
-      onTap: () async {
-        // 详情页里绑定 TMDB / 改元数据后会 pop(true)；据此把「数据已变」
-        // 继续往上传，让上层列表重载——否则要杀进程才看得到新名字。
-        final changed = await Navigator.of(context).push<bool>(
-          MaterialPageRoute<bool>(
-            builder: (_) => VideoDetailScreen(session: session, item: item),
-          ),
-        );
-        if (changed == true && context.mounted) {
-          Navigator.of(context).pop(true);
-        }
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SizedBox.expand(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface(context),
-                      borderRadius: radius,
-                    ),
-                  ),
-                  ServerImage(url: url, borderRadius: radius),
-                  // Rating / 18+ chips share the top-left slot with the
-                  // home rails; the TV marker moves right to stay out of
-                  // their way.
-                  if (item.isAdult || (item.rating != null && item.rating! > 0))
-                    Positioned(
-                      left: Dimens.spacingXs,
-                      top: Dimens.spacingXs,
-                      child: Wrap(
-                        spacing: Dimens.spacingXs,
-                        children: [
-                          // 评分在前、18+ 在后
-                          if (item.rating != null && item.rating! > 0)
-                            SlideBadge(
-                              text: '★ ${item.rating!.toStringAsFixed(1)}',
-                              color: AppColors.gold,
-                            ),
-                          if (item.isAdult)
-                            const SlideBadge(
-                              text: '18+',
-                              color: AppColors.danger,
-                            ),
-                        ],
+      onTap: stale
+          ? () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('这条记录的文件已不存在，可用右上角「清理残留记录」移除')),
+            )
+          : () async {
+              // 详情页里绑定 TMDB / 改元数据后会 pop(true)；据此把「数据已变」
+              // 继续往上传，让上层列表重载——否则要杀进程才看得到新名字。
+              final changed = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (_) =>
+                      VideoDetailScreen(session: session, item: item),
+                ),
+              );
+              if (changed == true && context.mounted) {
+                Navigator.of(context).pop(true);
+              }
+            },
+      child: Opacity(
+        opacity: stale ? 0.45 : 1,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SizedBox.expand(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface(context),
+                        borderRadius: radius,
                       ),
                     ),
-                  // 剧集标识：区分「剧」与「单片」。原来只在横屏封面模式显示
-                  // （!portrait 写反了），导致竖屏海报下看不出是剧还是单片。
-                  if (item.isTv)
-                    Positioned(
-                      right: Dimens.spacingSm,
-                      top: Dimens.spacingSm,
-                      child: Icon(
-                        Icons.tv_rounded,
-                        size: 16 * form.typeScale,
-                        color: Colors.white,
-                        shadows: const [
-                          Shadow(color: Colors.black54, blurRadius: 6),
-                        ],
+                    ServerImage(url: url, borderRadius: radius),
+                    if (stale)
+                      Center(
+                        child: Icon(
+                          Icons.error_outline_rounded,
+                          size: 32 * form.typeScale,
+                          color: AppColors.danger,
+                        ),
                       ),
+                    // Rating / 18+ chips share the top-left slot with the
+                    // home rails; the TV marker moves right to stay out of
+                    // their way.
+                    if (item.isAdult ||
+                        (item.rating != null && item.rating! > 0))
+                      Positioned(
+                        left: Dimens.spacingXs,
+                        top: Dimens.spacingXs,
+                        child: Wrap(
+                          spacing: Dimens.spacingXs,
+                          children: [
+                            // 评分在前、18+ 在后
+                            if (item.rating != null && item.rating! > 0)
+                              SlideBadge(
+                                text: '★ ${item.rating!.toStringAsFixed(1)}',
+                                color: AppColors.gold,
+                              ),
+                            if (item.isAdult)
+                              const SlideBadge(
+                                text: '18+',
+                                color: AppColors.danger,
+                              ),
+                          ],
+                        ),
+                      ),
+                    // 剧集标识：区分「剧」与「单片」。原来只在横屏封面模式显示
+                    // （!portrait 写反了），导致竖屏海报下看不出是剧还是单片。
+                    if (item.isTv)
+                      Positioned(
+                        right: Dimens.spacingSm,
+                        top: Dimens.spacingSm,
+                        child: Icon(
+                          Icons.tv_rounded,
+                          size: 16 * form.typeScale,
+                          color: Colors.white,
+                          shadows: const [
+                            Shadow(color: Colors.black54, blurRadius: 6),
+                          ],
+                        ),
+                      ),
+                    Positioned(
+                      right: Dimens.spacingXs,
+                      bottom: Dimens.spacingXs,
+                      child: ResolutionBadges(resolutions: item.resolutions),
                     ),
-                  Positioned(
-                    right: Dimens.spacingXs,
-                    bottom: Dimens.spacingXs,
-                    child: ResolutionBadges(resolutions: item.resolutions),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: Dimens.spacingXs),
-          Text(
-            item.displayTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13 * form.typeScale,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: Dimens.spacingXs),
+            Text(
+              item.displayTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13 * form.typeScale,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          // 年份行**始终**占位：卡片高度由网格固定，缺这一行会让海报区域变高，
-          // 导致有年份/无年份的卡片高度不齐（"未刮削"入口卡同理）。
-          Text(
-            item.year == null ? '\u00A0' : '${item.year}',
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: 11 * form.typeScale,
-              color: Theme.of(context).hintColor,
+            // 年份行**始终**占位：卡片高度由网格固定，缺这一行会让海报区域变高，
+            // 导致有年份/无年份的卡片高度不齐（"未刮削"入口卡同理）。
+            Text(
+              item.year == null ? '\u00A0' : '${item.year}',
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11 * form.typeScale,
+                color: Theme.of(context).hintColor,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

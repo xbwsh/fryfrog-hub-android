@@ -643,6 +643,32 @@ class ApiClient {
     });
   }
 
+  /// Backend: `GET /api/v1/media-libraries/{id}/stale-records`.
+  /// 残留体检：文件已不在磁盘上的记录数（只报告不删）。
+  Future<int> fetchStaleRecordCount(int libraryId) async {
+    final json = await _send(
+      '/api/v1/media-libraries/$libraryId/stale-records',
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return (map?['staleCount'] as num?)?.toInt() ?? 0;
+    });
+  }
+
+  /// Backend: `POST /api/v1/media-libraries/{id}/purge-stale`.
+  /// 返回删除条数；[dryRun] 只统计。后端带磁盘护栏，异常时会拒绝并返回 0。
+  Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false}) async {
+    final json = await _send(
+      '/api/v1/media-libraries/$libraryId/purge-stale',
+      method: 'POST',
+      query: {'dryRun': '$dryRun'},
+    );
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return (map?['deleted'] as num?)?.toInt() ?? 0;
+    });
+  }
+
   /// Backend: `GET /api/v1/media-libraries/browse?path=`.
   /// Null/empty path lists the server's disk roots.
   Future<List<LibraryDirItem>> browseLibraryDirs({String? path}) async {
@@ -753,7 +779,10 @@ class ApiClient {
   Future<bool> downloadVideoCovers(int videoId) async {
     // 路径是 refresh-covers 而非 covers：后端中间件把 `.*/cover` 当静态图片
     // 资源提前放行（不写当前用户），旧路径 /covers 的管理员校验永远失败。
-    final json = await _send('/api/v1/video/$videoId/refresh-covers', method: 'POST');
+    final json = await _send(
+      '/api/v1/video/$videoId/refresh-covers',
+      method: 'POST',
+    );
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       final success = map?['success'];
@@ -797,9 +826,10 @@ class ApiClient {
       query: {'level': level},
     );
     return _unwrap(json, (raw) {
-      final map = raw as Map<String, dynamic>?;
-      return map == null ? null : TmdbImageOptions.fromJson(map);
-    }) ?? const TmdbImageOptions(level: 'episode');
+          final map = raw as Map<String, dynamic>?;
+          return map == null ? null : TmdbImageOptions.fromJson(map);
+        }) ??
+        const TmdbImageOptions(level: 'episode');
   }
 
   /// 把选中的 TMDB 图落到指定层级。
@@ -819,7 +849,8 @@ class ApiClient {
 
   /// Generate frame screenshot candidates (sync, a few seconds).
   /// Backend: `POST /api/v1/video/{id}/frames`.
-  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async {    final json = await _send('/api/v1/video/$videoId/frames', method: 'POST');
+  Future<List<FrameCandidate>> generateFrameCandidates(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/frames', method: 'POST');
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
       final list = map?['candidates'] as List? ?? const [];

@@ -18,6 +18,8 @@ class SeriesListDto {
     this.isAdult = false,
     this.favorite = false,
     this.episodeCount,
+    this.fileMissing = false,
+    this.nfoBackfilled = false,
     this.resolutions = const [],
   });
 
@@ -35,6 +37,13 @@ class SeriesListDto {
   final bool isAdult;
   final bool favorite;
   final int? episodeCount;
+
+  /// 文件已不在磁盘上（等宽限期清理的残留行）。改名后新旧条目会并存一段时间，
+  /// 旧的那条点开会失败——据此置灰并引导用户清理。
+  final bool fileMissing;
+
+  /// 绑定标识来自本地 NFO 回填（而非 TMDB 刮削）。
+  final bool nfoBackfilled;
 
   /// Distinct resolution labels across the item's episodes,
   /// backend-sorted high → low (4K, 2K, 1080p, …).
@@ -61,6 +70,8 @@ class SeriesListDto {
     isAdult: json['isAdult'] == true,
     favorite: json['favorite'] == true,
     episodeCount: (json['episodeCount'] as num?)?.toInt(),
+    fileMissing: json['fileMissing'] == true,
+    nfoBackfilled: json['nfoBackfilledAt'] != null,
     resolutions: [
       for (final r in (json['resolutions'] as List? ?? const []))
         if (r is String) r,
@@ -178,6 +189,7 @@ class VideoItem {
     this.watchPosition,
     this.watchProgressPercent,
     this.watched,
+    this.fileMissing = false,
   });
 
   final int id;
@@ -205,6 +217,9 @@ class VideoItem {
   final double? watchPosition;
   final double? watchProgressPercent;
   final bool? watched;
+
+  /// 文件已不在磁盘上（改名/删除后等宽限期清理的残留行）。
+  final bool fileMissing;
 
   bool get isWatched => watched == true;
   bool get hasProgress => (watchProgressPercent ?? 0) > 0;
@@ -247,6 +262,7 @@ class VideoItem {
     watchPosition: (json['watchPosition'] as num?)?.toDouble(),
     watchProgressPercent: (json['watchProgressPercent'] as num?)?.toDouble(),
     watched: json['watched'] as bool?,
+    fileMissing: json['fileMissing'] == true,
   );
 }
 

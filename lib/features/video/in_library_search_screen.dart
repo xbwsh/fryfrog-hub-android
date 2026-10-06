@@ -141,7 +141,7 @@ class _InLibrarySearchScreenState extends State<InLibrarySearchScreen> {
   Widget _buildBody() {
     final form = AdaptiveScope.of(context);
     if (_query.isEmpty) {
-      return _hint(form, '输入关键词搜索本库内容');
+      return _hint(form, '输入关键词搜索「${widget.libraryName}」库内容');
     }
     if (_error != null) {
       return _hint(form, _error!);

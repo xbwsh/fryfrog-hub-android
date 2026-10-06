@@ -257,6 +257,14 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
       _api.fetchLibraryPipelineProgress(id);
 
   @override
+  Future<int> fetchStaleRecordCount(int libraryId) =>
+      _api.fetchStaleRecordCount(libraryId);
+
+  @override
+  Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false}) =>
+      _api.purgeStaleRecords(libraryId, dryRun: dryRun);
+
+  @override
   Future<List<LibraryDirItem>> browse({String? path}) =>
       _api.browseLibraryDirs(path: path);
 }

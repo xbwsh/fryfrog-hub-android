@@ -108,6 +108,12 @@ class _FakeGateway implements MediaLibraryGateway {
       );
 
   @override
+  Future<int> fetchStaleRecordCount(int libraryId) async => 0;
+
+  @override
+  Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false}) async => 0;
+
+  @override
   Future<List<LibraryDirItem>> browse({String? path}) async => const [];
 }
 

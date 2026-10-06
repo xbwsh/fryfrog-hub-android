@@ -156,6 +156,12 @@ abstract class MediaLibraryGateway {
 
   Future<LibraryPipelineProgress> fetchPipelineProgress(int id);
 
+  /// 残留体检：文件已不在磁盘上的记录数（只报告不删）。
+  Future<int> fetchStaleRecordCount(int libraryId);
+
+  /// 清理残留记录，返回删除条数；[dryRun] 只统计。
+  Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false});
+
   /// Null/empty [path] lists the server's disk roots.
   Future<List<LibraryDirItem>> browse({String? path});
 }

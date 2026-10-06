@@ -822,8 +822,10 @@ class _DetailView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (detail.overview != null &&
-                        detail.overview!.isNotEmpty) ...[
+                    // 分集简介优先：TMDB 每集都有独立简介（我们已刮削到
+                    // VideoItem.overview），原来只显示剧集级简介，选中某一集
+                    // 时看不到本集剧情。没有分集简介才回退剧集简介。
+                    if ((_synopsisOf(detail, ep) ?? '').isNotEmpty) ...[
                       Text(
                         '简介',
                         style: TextStyle(
@@ -833,8 +835,8 @@ class _DetailView extends StatelessWidget {
                       ),
                       const SizedBox(height: Dimens.spacingSm),
                       Text(
-                        detail.overview!,
-                        maxLines: 4,
+                        _synopsisOf(detail, ep) ?? '',
+                        maxLines: 6,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14 * form.typeScale,
@@ -1085,6 +1087,17 @@ class _DetailView extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// 简介：优先当前选中分集的（TMDB 每集独立），没有才回退剧集级简介。
+  String? _synopsisOf(SeriesDetail detail, VideoItem? ep) {
+    final epOverview = ep?.overview;
+    if (epOverview != null && epOverview.trim().isNotEmpty) return epOverview;
+    final seriesOverview = detail.overview;
+    if (seriesOverview != null && seriesOverview.trim().isNotEmpty) {
+      return seriesOverview;
+    }
+    return null;
   }
 
   String _metaLine(SeriesDetail detail, VideoItem? ep) {

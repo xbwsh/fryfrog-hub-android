@@ -950,6 +950,14 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
       throw UnsupportedError('未登录');
 
   @override
+  Future<int> fetchStaleRecordCount(int libraryId) =>
+      throw UnsupportedError('未登录');
+
+  @override
+  Future<int> purgeStaleRecords(int libraryId, {bool dryRun = false}) =>
+      throw UnsupportedError('未登录');
+
+  @override
   Future<List<LibraryDirItem>> browse({String? path}) =>
       throw UnsupportedError('未登录');
 }
