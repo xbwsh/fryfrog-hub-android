@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/media_models.dart';
 import 'api_client.dart';
 import 'gateways.dart';
@@ -109,6 +111,24 @@ class ApiVideoGateway implements VideoGateway {
     required int index,
     required String type,
   }) => _api.selectFrame(videoId, index: index, type: type);
+
+  @override
+  Future<Uint8List> fetchImageBytes(String path) => _api.fetchImageBytes(path);
+
+  @override
+  Future<String> uploadCover(
+    int videoId, {
+    required Uint8List bytes,
+    required String filename,
+    required String level,
+    required String kind,
+  }) => _api.uploadCover(
+    videoId,
+    bytes: bytes,
+    filename: filename,
+    level: level,
+    kind: kind,
+  );
 
   @override
   Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId) =>

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -240,6 +242,33 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     );
   }
 
+  /// 取帧图字节（帧 URL 需签名 + Bearer；裁剪器只吃本地文件）。
+  Future<Uint8List> _fetchFrameBytes(String url) {
+    final api = widget.session.api;
+    if (api == null) throw StateError('未登录');
+    return api.fetchImageBytes(url);
+  }
+
+  /// 上传裁剪后的图片：level × kind 决定落盘位置，与 TMDB 取图同一套约定。
+  Future<void> _uploadCover(
+    File file, {
+    required String level,
+    required String kind,
+  }) async {
+    final api = widget.session.api;
+    final videoId = _c.targetVideoId;
+    if (api == null || videoId == null) throw StateError('未登录');
+    await api.uploadCover(
+      videoId,
+      bytes: await file.readAsBytes(),
+      filename: file.uri.pathSegments.last,
+      level: level,
+      kind: kind,
+    );
+    // 刷新详情，否则新图要重进页面才可见
+    await _c.load();
+  }
+
   Future<void> _onAdminAction(String action) async {
     switch (action) {
       case 'bind':
@@ -262,6 +291,8 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
             onApplyCover: _c.applyCover,
             onFetchTmdbImages: _c.fetchTmdbImages,
             onApplyTmdbImage: _c.applyTmdbImage,
+            onFetchFrameBytes: _fetchFrameBytes,
+            onUploadCover: _uploadCover,
             seasonNumber: _c.targetSeasonNumber,
             episodeNumber: _c.targetEpisodeNumber,
             isEpisode: _c.isEpisodeTarget,
@@ -572,6 +603,19 @@ class _NullVideoGateway implements VideoGateway {
     int videoId, {
     required int index,
     required String type,
+  }) => throw UnsupportedError('not logged in');
+
+  @override
+  Future<Uint8List> fetchImageBytes(String path) =>
+      throw UnsupportedError('not logged in');
+
+  @override
+  Future<String> uploadCover(
+    int videoId, {
+    required Uint8List bytes,
+    required String filename,
+    required String level,
+    required String kind,
   }) => throw UnsupportedError('not logged in');
 
   @override

@@ -4,6 +4,8 @@
 /// `ApiVideoGateway` adapts `ApiClient` (infra) to this port.
 library;
 
+import 'dart:typed_data';
+
 import '../models/media_models.dart';
 
 abstract class VideoGateway {
@@ -76,6 +78,25 @@ abstract class VideoGateway {
     int videoId, {
     required int index,
     required String type,
+  });
+
+  /// 下载需要鉴权的图片字节（帧截图等）。
+  ///
+  /// 帧图 URL 是签名 + Bearer，`Image.network` 拿不到；而裁剪器只接受本地文件，
+  /// 所以要先落一份到临时目录再进裁剪界面。
+  Future<Uint8List> fetchImageBytes(String path);
+
+  /// 上传本地图片作为封面/背景（multipart），返回后端落盘路径。
+  ///
+  /// [level] = series（总览）| season（季）| episode（单集）；
+  /// [kind] = poster（竖版）| backdrop / still（横版）。
+  /// 后端校验格式与大小并统一转 JPEG，失败时抛出的 message 可直接展示。
+  Future<String> uploadCover(
+    int videoId, {
+    required Uint8List bytes,
+    required String filename,
+    required String level,
+    required String kind,
   });
 
   /// Long-running (300s timeout server-side).

@@ -28,6 +28,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- image_cropper 的裁剪界面（uCrop）。不加这条会抛
+             "Unable to resolve activity for Intent ... UCropActivity"。
+             screenOrientation 用 unspecified：本应用支持平板横屏，写死 portrait
+             会让横屏下裁剪界面强行竖过来。 -->
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

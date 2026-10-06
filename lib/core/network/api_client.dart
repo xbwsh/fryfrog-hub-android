@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -895,6 +896,64 @@ class ApiClient {
       method: 'POST',
       body: {'index': index, 'type': type},
     );
+  }
+
+  /// 下载一张需要鉴权的图片（帧截图等）为字节。
+  ///
+  /// 帧图的 URL 走签名 + Bearer，不能直接用 `NetworkAsset`；裁剪器又只吃本地
+  /// 文件，所以先落一份到缓存目录。
+  Future<Uint8List> fetchImageBytes(String path) async {
+    final uri = _uri(path);
+    final res = await http
+        .get(uri, headers: {'Authorization': 'Bearer $token'})
+        .timeout(const Duration(seconds: 60));
+    if (res.statusCode >= 400) {
+      throw ApiException(res.statusCode, '图片下载失败 (${res.statusCode})');
+    }
+    return res.bodyBytes;
+  }
+
+  /// 上传本地图片作为封面/背景。
+  ///
+  /// [level] = series（总览）| season（季）| episode（单集）；
+  /// [kind] = poster（竖版）| backdrop|still（横版）。
+  /// 后端会校验格式/大小并统一转 JPEG，失败时 message 可直接展示给用户。
+  /// Backend: `POST /api/v1/video/{id}/cover-upload`（multipart）。
+  Future<String> uploadCover(
+    int videoId, {
+    required Uint8List bytes,
+    required String filename,
+    required String level,
+    required String kind,
+  }) async {
+    final req =
+        http.MultipartRequest(
+            'POST',
+            _uri('/api/v1/video/$videoId/cover-upload'),
+          )
+          ..headers['Authorization'] = 'Bearer $token'
+          ..fields['level'] = level
+          ..fields['kind'] = kind
+          ..files.add(
+            http.MultipartFile.fromBytes('file', bytes, filename: filename),
+          );
+
+    final streamed = await req.send().timeout(const Duration(seconds: 120));
+    final body = await streamed.stream.bytesToString();
+    Map<String, dynamic> map;
+    try {
+      map = body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException(streamed.statusCode, '上传响应格式错误');
+    }
+    // 后端校验失败走 success=false + 中文 message，直接透出
+    return _unwrap(map, (raw) {
+          final m = raw as Map<String, dynamic>?;
+          return (m?['path'] as String?) ?? '';
+        }) ??
+        '';
   }
 
   /// Slow (all seasons) — uses a 300s timeout instead of the default 15s.

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fryfrog_hub/core/models/media_models.dart';
 import 'package:fryfrog_hub/core/network/gateways.dart';
@@ -179,6 +181,18 @@ class _FakeVideoGateway implements VideoGateway {
     required int index,
     required String type,
   }) async {}
+  @override
+  Future<Uint8List> fetchImageBytes(String path) async => Uint8List(0);
+
+  @override
+  Future<String> uploadCover(
+    int videoId, {
+    required Uint8List bytes,
+    required String filename,
+    required String level,
+    required String kind,
+  }) async => '/tmp/cover.jpg';
+
 
   @override
   Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId) async =>

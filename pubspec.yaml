@@ -1,7 +1,7 @@
 name: fryfrog_hub
 description: Fryfrog Hub media client — Flutter rewrite with liquid glass UI.
 publish_to: 'none'
-version: 2.1.14+16
+version: 2.1.15+17
 
 environment:
   sdk: ^3.13.4
@@ -17,6 +17,9 @@ dependencies:
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
+  image_cropper: ^12.2.1
+  file_selector: ^1.1.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,14 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/media_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import 'cover_crop_dialog.dart';
 
 /// Admin dialogs/sheets for the video detail page (TMDB binding, metadata
 /// editing, covers, logo picking). The screen only dispatches menu actions;
@@ -511,6 +516,8 @@ class CoverPickerSheet extends StatefulWidget {
     required this.onApplyCover,
     this.onFetchTmdbImages,
     this.onApplyTmdbImage,
+    this.onFetchFrameBytes,
+    this.onUploadCover,
     this.seasonNumber,
     this.episodeNumber,
     this.isEpisode = true,
@@ -532,6 +539,17 @@ class CoverPickerSheet extends StatefulWidget {
   /// 把图落到指定层级（level × kind）。
   final Future<void> Function(String filePath, String level, String kind)?
   onApplyTmdbImage;
+
+  /// 取帧图的原始字节（帧 URL 需签名 + Bearer，裁剪器只吃本地文件）。
+  final Future<Uint8List> Function(String url)? onFetchFrameBytes;
+
+  /// 上传裁剪后的图片（level × kind 决定落盘位置，与 TMDB 取图同一套约定）。
+  final Future<void> Function(
+    File file, {
+    required String level,
+    required String kind,
+  })?
+  onUploadCover;
 
   final int? seasonNumber;
   final int? episodeNumber;
@@ -695,6 +713,75 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
     }
   }
 
+  /// 上传本地图片作为该层级的封面/背景。
+  ///
+  /// 为什么要有这条路：帧截图是视频原始比例（多为 16:9），当竖版封面用时
+  /// 要么被裁切要么留黑边；让用户自己挑图并裁成正确比例，才是真正的解法。
+  Future<void> _uploadLocal() async {
+    if (_working) return;
+    final upload = widget.onUploadCover;
+    if (upload == null) return;
+
+    final kind = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('上传本地图片'),
+        content: Text(
+          '为「$_levelLabel」上传一张图。\n\n'
+          '下一步可以裁剪成 2:3 竖版、16:9 横版，或保持原比例。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, 'backdrop'),
+            child: const Text('横版背景'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, 'poster'),
+            child: const Text('竖版封面'),
+          ),
+        ],
+      ),
+    );
+    if (kind == null || !mounted) return;
+
+    setState(() => _working = true);
+    try {
+      // 选图由 file_selector 完成；Android 上会走系统的图片选择器
+      const typeGroup = XTypeGroup(
+        label: '图片',
+        extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'],
+      );
+      final picked = await openFile(acceptedTypeGroups: const [typeGroup]);
+      if (picked == null) return; // 用户取消
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+
+      final ok = await cropAndUploadCover(
+        context,
+        sourceBytes: bytes,
+        kind: kind == 'poster' ? CoverCropKind.poster : CoverCropKind.fanart,
+        onUpload: (file) => upload(
+          file,
+          level: _level,
+          kind: kind == 'poster' ? 'poster' : 'still',
+        ),
+      );
+      if (!mounted) return;
+      if (ok) {
+        _snack(kind == 'poster' ? '已上传竖版封面' : '已上传横版背景');
+        Navigator.pop(context); // close the sheet
+      }
+    } catch (e) {
+      _snack('上传失败：$e');
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   Future<void> _pick(FrameCandidate frame) async {
     if (_working) return;
     final type = await showDialog<String>(
@@ -720,6 +807,44 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
     );
     if (type == null) return;
     if (!mounted) return;
+
+    // 帧截图是视频原始比例（通常 16:9），直接当竖版封面会被裁切/留黑边。
+    // 先让用户裁一刀，再上传裁剪结果——用户自己定构图，比我们猜怎么裁更好。
+    final fetchBytes = widget.onFetchFrameBytes;
+    final upload = widget.onUploadCover;
+    if (fetchBytes != null && upload != null && (frame.url ?? '').isNotEmpty) {
+      setState(() => _working = true);
+      try {
+        final bytes = await runWithProgress(
+          context,
+          '正在读取帧…',
+          () => fetchBytes(frame.url!),
+        );
+        if (!mounted) return;
+        final ok = await cropAndUploadCover(
+          context,
+          sourceBytes: bytes,
+          kind: type == 'poster' ? CoverCropKind.poster : CoverCropKind.fanart,
+          onUpload: (file) => upload(
+            file,
+            level: _level,
+            kind: type == 'poster' ? 'poster' : 'still',
+          ),
+        );
+        if (!mounted) return;
+        if (ok) {
+          _snack(type == 'poster' ? '已设为封面' : '已设为背景图');
+          Navigator.pop(context); // close the sheet
+        }
+      } catch (e) {
+        _snack('设置封面失败：$e');
+      } finally {
+        if (mounted) setState(() => _working = false);
+      }
+      return;
+    }
+
+    // 没提供字节/上传通道时退回旧行为（直接应用该帧）
     setState(() => _working = true);
     try {
       await runWithProgress(
@@ -854,6 +979,16 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
                       ),
                     ],
                   ),
+                  // 上传本地图片单独一行：4 个按钮挤一行在手机竖屏会溢出，
+                  // 而且这条路跟上面三个（都依赖服务器/视频）性质不同
+                  if (widget.onUploadCover != null) ...[
+                    const SizedBox(height: Dimens.spacingSm),
+                    OutlinedButton.icon(
+                      onPressed: _working ? null : _uploadLocal,
+                      icon: const Icon(Icons.upload_file_rounded, size: 18),
+                      label: const Text('上传本地图片（可裁剪 2:3 / 16:9）'),
+                    ),
+                  ],
                   const SizedBox(height: Dimens.spacingSm),
                   if (widget.isEpisode)
                     Align(
