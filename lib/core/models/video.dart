@@ -79,6 +79,51 @@ class SeriesListDto {
   );
 }
 
+/// 残留记录（文件已不在磁盘上），来自 `GET /media-libraries/{id}/stale-records`。
+/// 清理前展示给用户确认用。
+class StaleRecord {
+  const StaleRecord({
+    this.id,
+    this.fileName,
+    this.filePath,
+    this.tmdbId,
+    this.seriesId,
+  });
+
+  final int? id;
+  final String? fileName;
+  final String? filePath;
+  final int? tmdbId;
+  final int? seriesId;
+
+  String get displayName =>
+      (fileName != null && fileName!.isNotEmpty) ? fileName! : '(未命名)';
+
+  factory StaleRecord.fromJson(Map<String, dynamic> json) => StaleRecord(
+    id: (json['id'] as num?)?.toInt(),
+    fileName: json['fileName'] as String?,
+    filePath: json['filePath'] as String?,
+    tmdbId: (json['tmdbId'] as num?)?.toInt(),
+    seriesId: (json['seriesId'] as num?)?.toInt(),
+  );
+}
+
+/// 残留体检结果：总数 + 样本（后端最多给 50 条）。
+class StaleRecords {
+  const StaleRecords({this.total = 0, this.samples = const []});
+
+  final int total;
+  final List<StaleRecord> samples;
+
+  factory StaleRecords.fromJson(Map<String, dynamic> json) => StaleRecords(
+    total: (json['staleCount'] as num?)?.toInt() ?? 0,
+    samples: [
+      for (final s in (json['samples'] as List? ?? const []))
+        if (s is Map<String, dynamic>) StaleRecord.fromJson(s),
+    ],
+  );
+}
+
 class LibrarySeriesGroup {
   LibrarySeriesGroup({
     required this.libraryId,

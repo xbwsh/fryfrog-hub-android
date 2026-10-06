@@ -644,15 +644,16 @@ class ApiClient {
   }
 
   /// Backend: `GET /api/v1/media-libraries/{id}/stale-records`.
-  /// 残留体检：文件已不在磁盘上的记录数（只报告不删）。
-  Future<int> fetchStaleRecordCount(int libraryId) async {
+  /// 残留体检：总数 + 样本（含文件名与路径，供清理前确认）。
+  Future<StaleRecords> fetchStaleRecords(int libraryId) async {
     final json = await _send(
       '/api/v1/media-libraries/$libraryId/stale-records',
     );
     return _unwrap(json, (raw) {
-      final map = raw as Map<String, dynamic>?;
-      return (map?['staleCount'] as num?)?.toInt() ?? 0;
-    });
+          final map = raw as Map<String, dynamic>?;
+          return map == null ? null : StaleRecords.fromJson(map);
+        }) ??
+        const StaleRecords();
   }
 
   /// Backend: `POST /api/v1/media-libraries/{id}/purge-stale`.

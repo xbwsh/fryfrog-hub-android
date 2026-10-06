@@ -73,8 +73,9 @@ class TmdbBindDialog extends StatefulWidget {
 }
 
 class _TmdbBindDialogState extends State<TmdbBindDialog> {
-  late final TextEditingController _keywordCtrl =
-      TextEditingController(text: widget.initialKeyword);
+  late final TextEditingController _keywordCtrl = TextEditingController(
+    text: widget.initialKeyword,
+  );
   List<TmdbSearchItem> _results = const [];
   bool _searching = false;
   String? _error;
@@ -578,7 +579,8 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
 
   String get _levelLabel => switch (_level) {
     'series' => '总览',
-    'season' => widget.seasonNumber != null ? '第 ${widget.seasonNumber} 季' : '季',
+    'season' =>
+      widget.seasonNumber != null ? '第 ${widget.seasonNumber} 季' : '季',
     _ => widget.episodeNumber != null ? '第 ${widget.episodeNumber} 集' : '单集',
   };
 
@@ -590,7 +592,8 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 拉取当前层级的 TMDB 图片候选（一次拿到该层所有类型）。
@@ -640,8 +643,6 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
       if (mounted) setState(() => _working = false);
     }
   }
-
-
 
   Future<void> _download() async {
     if (_working) return;
@@ -723,245 +724,267 @@ class _CoverPickerSheetState extends State<CoverPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final frames = _frames;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface(context),
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(Dimens.radiusXl),
+    // 面板内容长度随层级/类型变化：层级选择 + 类型 chips + TMDB 候选网格 +
+    // 截帧网格，在平板横屏等矮窗口下会超出弹窗高度。
+    // 之前用裸 Column(min) 直接撑爆 → "A RenderFlex overflowed by 60 pixels
+    // on the bottom"（实测于 CoverPickerSheet）。改为可滚动，并限制最大高度。
+    final maxH = MediaQuery.sizeOf(context).height * 0.85;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface(context),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(Dimens.radiusXl),
+          ),
         ),
-      ),
-      padding: const EdgeInsets.fromLTRB(
-        Dimens.spacingLg,
-        Dimens.spacingMd,
-        Dimens.spacingLg,
-        Dimens.spacingXl,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).hintColor.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingMd),
-          Row(
+        padding: const EdgeInsets.fromLTRB(
+          Dimens.spacingLg,
+          Dimens.spacingMd,
+          Dimens.spacingLg,
+          Dimens.spacingXl,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Expanded(
-                child: Text(
-                  '设置封面',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: Dimens.spacingSm),
-          // ── TMDB 分层取图：总览 / 季 / 单集 ─────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _working ? null : _loadLayer,
-                  icon: const Icon(Icons.image_search_rounded, size: 18),
-                  label: Text(
-                    _current == null
-                        ? '读取 TMDB 图片'
-                        : '重新读取（${_visibleOptions.length}）',
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).hintColor.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(width: Dimens.spacingSm),
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: _working ? null : _generate,
-                  icon: const Icon(Icons.photo_camera_rounded, size: 18),
-                  label: const Text('生成视频截帧'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Dimens.spacingSm),
-          if (widget.isEpisode)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: SegmentedButton<String>(
-                showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                segments: [
-                  const ButtonSegment(value: 'series', label: Text('总览')),
-                  ButtonSegment(
-                    value: 'season',
-                    label: Text(
-                      widget.seasonNumber != null ? '第 ${widget.seasonNumber} 季' : '季',
+              const SizedBox(height: Dimens.spacingMd),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '设置封面',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  ButtonSegment(
-                    value: 'episode',
-                    label: Text(
-                      widget.episodeNumber != null ? '第 ${widget.episodeNumber} 集' : '单集',
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Dimens.spacingSm),
+              // ── TMDB 分层取图：总览 / 季 / 单集 ─────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _working ? null : _loadLayer,
+                      icon: const Icon(Icons.image_search_rounded, size: 18),
+                      label: Text(
+                        _current == null
+                            ? '读取 TMDB 图片'
+                            : '重新读取（${_visibleOptions.length}）',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Dimens.spacingSm),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      onPressed: _working ? null : _generate,
+                      icon: const Icon(Icons.photo_camera_rounded, size: 18),
+                      label: const Text('生成视频截帧'),
                     ),
                   ),
                 ],
-                selected: {_level},
-                onSelectionChanged: (s) => setState(() {
-                  _level = s.first;
-                  final kinds = _kindsForLevel;
-                  if (!kinds.contains(_kind)) _kind = kinds.first;
-                }),
               ),
-            ),
-          const SizedBox(height: Dimens.spacingSm),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: Dimens.spacingSm,
-              children: [
-                for (final k in _kindsForLevel)
-                  ChoiceChip(
-                    label: Text(_kindLabel(k)),
-                    selected: _kind == k,
-                    onSelected: _working
-                        ? null
-                        : (_) => setState(() => _kind = k),
+              const SizedBox(height: Dimens.spacingSm),
+              if (widget.isEpisode)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    segments: [
+                      const ButtonSegment(value: 'series', label: Text('总览')),
+                      ButtonSegment(
+                        value: 'season',
+                        label: Text(
+                          widget.seasonNumber != null
+                              ? '第 ${widget.seasonNumber} 季'
+                              : '季',
+                        ),
+                      ),
+                      ButtonSegment(
+                        value: 'episode',
+                        label: Text(
+                          widget.episodeNumber != null
+                              ? '第 ${widget.episodeNumber} 集'
+                              : '单集',
+                        ),
+                      ),
+                    ],
+                    selected: {_level},
+                    onSelectionChanged: (s) => setState(() {
+                      _level = s.first;
+                      final kinds = _kindsForLevel;
+                      if (!kinds.contains(_kind)) _kind = kinds.first;
+                    }),
                   ),
+                ),
+              const SizedBox(height: Dimens.spacingSm),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: Dimens.spacingSm,
+                  children: [
+                    for (final k in _kindsForLevel)
+                      ChoiceChip(
+                        label: Text(_kindLabel(k)),
+                        selected: _kind == k,
+                        onSelected: _working
+                            ? null
+                            : (_) => setState(() => _kind = k),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Dimens.spacingSm),
+              // 一键拉取（自动取默认那张）——想自己挑就用上面的分层入口
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _working ? null : _download,
+                  icon: const Icon(Icons.cloud_download_rounded, size: 18),
+                  label: const Text('一键从 TMDB 拉取（默认图）'),
+                ),
+              ),
+              const SizedBox(height: Dimens.spacingMd),
+              if (_current != null) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '$_levelLabel · ${_kindLabel(_kind)}（${_visibleOptions.length}）· 点选应用',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: Dimens.spacingSm),
+                if (_visibleOptions.isNotEmpty)
+                  _ImageOptionGrid(
+                    options: _visibleOptions,
+                    // 竖版海报按 2:3 显示，横图/剧照按 16:9
+                    aspectRatio: _kind == 'poster' ? 2 / 3 : 16 / 9,
+                    enabled: !_working,
+                    onTap: _applyLayer,
+                  ),
+                const SizedBox(height: Dimens.spacingMd),
               ],
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingSm),
-          // 一键拉取（自动取默认那张）——想自己挑就用上面的分层入口
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _working ? null : _download,
-              icon: const Icon(Icons.cloud_download_rounded, size: 18),
-              label: const Text('一键从 TMDB 拉取（默认图）'),
-            ),
-          ),
-          const SizedBox(height: Dimens.spacingMd),
-          if (_current != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '$_levelLabel · ${_kindLabel(_kind)}（${_visibleOptions.length}）· 点选应用',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).hintColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: Dimens.spacingSm),
-            if (_visibleOptions.isNotEmpty)
-              _ImageOptionGrid(
-                options: _visibleOptions,
-                // 竖版海报按 2:3 显示，横图/剧照按 16:9
-                aspectRatio: _kind == 'poster' ? 2 / 3 : 16 / 9,
-                enabled: !_working,
-                onTap: _applyLayer,
-              ),
-            const SizedBox(height: Dimens.spacingMd),
-          ],
-          if (frames == null)
-            // 分层图区块在上方已渲染，这里只负责「尚未生成截帧」的提示
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: Dimens.spacingLg),
-              child: Center(
-                child: Text(
-                  '可从 TMDB 选本集图片，或生成视频截帧后点选应用',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).hintColor,
+              if (frames == null)
+                // 分层图区块在上方已渲染，这里只负责「尚未生成截帧」的提示
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: Dimens.spacingLg,
                   ),
-                ),
-              ),
-            )
-          else if (frames.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: Dimens.spacingLg),
-              child: Center(
-                child: Text(
-                  '暂无截帧候选',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).hintColor,
-                  ),
-                ),
-              ),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 320),
-              child: GridView.builder(
-                padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                physics: const ClampingScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: Dimens.spacingSm,
-                  crossAxisSpacing: Dimens.spacingSm,
-                  childAspectRatio: 16 / 9,
-                ),
-                itemCount: frames.length,
-                itemBuilder: (context, i) {
-                  final f = frames[i];
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(Dimens.radiusSm),
-                    onTap: _working ? null : () => _pick(f),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(Dimens.radiusSm),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ServerImage(
-                            url: f.url,
-                            fit: BoxFit.cover,
-                            borderRadius: BorderRadius.zero,
-                          ),
-                          Positioned(
-                            left: Dimens.spacingSm,
-                            bottom: Dimens.spacingSm,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: Dimens.spacingSm,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(
-                                  Dimens.radiusSm,
-                                ),
-                              ),
-                              child: Text(
-                                '#${f.index + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                  child: Center(
+                    child: Text(
+                      '可从 TMDB 选本集图片，或生成视频截帧后点选应用',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).hintColor,
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-        ],
+                  ),
+                )
+              else if (frames.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: Dimens.spacingLg,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '暂无截帧候选',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).hintColor,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 320),
+                  child: GridView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    physics: const ClampingScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: Dimens.spacingSm,
+                          crossAxisSpacing: Dimens.spacingSm,
+                          childAspectRatio: 16 / 9,
+                        ),
+                    itemCount: frames.length,
+                    itemBuilder: (context, i) {
+                      final f = frames[i];
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(Dimens.radiusSm),
+                        onTap: _working ? null : () => _pick(f),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(Dimens.radiusSm),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ServerImage(
+                                url: f.url,
+                                fit: BoxFit.cover,
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              Positioned(
+                                left: Dimens.spacingSm,
+                                bottom: Dimens.spacingSm,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Dimens.spacingSm,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(
+                                      Dimens.radiusSm,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '#${f.index + 1}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

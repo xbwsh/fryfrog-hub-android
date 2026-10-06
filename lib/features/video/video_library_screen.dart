@@ -32,8 +32,8 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   /// 本库未刮削条数：null = 还在探测（先不显示入口卡，避免闪一下又消失）。
   int? _unscrapedCount;
 
-  /// 本库「文件已不在磁盘上」的残留条数；>0 才显示清理入口。
-  int _staleCount = 0;
+  /// 本库「文件已不在磁盘上」的残留；>0 才显示清理入口。
+  StaleRecords _stale = const StaleRecords();
 
   @override
   void initState() {
@@ -49,8 +49,8 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     final api = widget.session.api;
     if (api == null) return;
     try {
-      final n = await api.fetchStaleRecordCount(widget.group.libraryId);
-      if (mounted) setState(() => _staleCount = n);
+      final stale = await api.fetchStaleRecords(widget.group.libraryId);
+      if (mounted) setState(() => _stale = stale);
     } catch (_) {
       // 探测失败就不显示入口，不影响正常浏览
     }
@@ -59,13 +59,74 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   Future<void> _purgeStale() async {
     final api = widget.session.api;
     if (api == null) return;
+    final samples = _stale.samples;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清理残留记录'),
-        content: Text(
-          '本库有 $_staleCount 条记录指向已不存在的文件（多半是改名/删除后的旧条目）。\n\n'
-          '清理只删数据库记录，不动磁盘上的任何文件。磁盘异常时后端会拒绝执行。',
+        title: Text('清理残留记录（${_stale.total}）'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '这些记录指向的文件已不在磁盘上（多半是改名/删除后的旧条目）。'
+                '清理只删数据库记录，不动磁盘上的任何文件；'
+                '磁盘异常时后端会拒绝执行。',
+              ),
+              if (samples.isNotEmpty) ...[
+                const SizedBox(height: Dimens.spacingMd),
+                Text(
+                  _stale.total > samples.length
+                      ? '以下为前 ${samples.length} 条：'
+                      : '以下为全部条目：',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+                const SizedBox(height: Dimens.spacingXs),
+                // 名称 + 路径都给出：只看名字分不清是哪个文件被改过名
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final s in samples)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: Dimens.spacingSm,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s.displayName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if ((s.filePath ?? '').isNotEmpty)
+                                  Text(
+                                    s.filePath!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).hintColor,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -153,11 +214,11 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
         ),
         actions: [
           // 有残留（文件已不存在的旧记录）时才出现，避免平时占位
-          if (_staleCount > 0)
+          if (_stale.total > 0)
             IconButton(
-              tooltip: '清理残留记录（$_staleCount）',
+              tooltip: '清理残留记录（${_stale.total}）',
               icon: Badge(
-                label: Text('$_staleCount'),
+                label: Text('${_stale.total}'),
                 child: const Icon(Icons.cleaning_services_rounded),
               ),
               onPressed: _purgeStale,
