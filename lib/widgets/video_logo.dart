@@ -24,12 +24,16 @@ class VideoLogo extends StatefulWidget {
     required this.title,
     this.height = 46,
     this.session,
+    this.showTitleWhileLoading = true,
   });
 
   final String? url;
   final String title;
   final double height;
   final Session? session;
+  /// 测量/加载 logo 期间是否先显示文字标题。
+  /// 轮播图等大图场景闪文字会很难看，传 false 让这块区域保持空白。
+  final bool showTitleWhileLoading;
 
   /// 内容包围盒的宽高比可用区间：低于下限偏竖排、高于上限过于扁平。
   static const double minAspect = 1.2;
@@ -154,7 +158,10 @@ class _VideoLogoState extends State<VideoLogo> {
 
     switch (_usable) {
       case null:
-        // 量尺寸期间先给文字，避免出现 22px 宽的“细条”闪一下
+        // 量尺寸期间默认先给文字；大图场景可传 false 保持空白，等 logo 就绪
+        if (!widget.showTitleWhileLoading) {
+          return SizedBox(height: widget.height * form.typeScale);
+        }
         return text;
       case false:
         return text;
@@ -168,6 +175,8 @@ class _VideoLogoState extends State<VideoLogo> {
             alignment: Alignment.centerLeft,
             borderRadius: BorderRadius.zero,
             session: widget.session,
+            // logo 已确认可读，再等图时不要闪灰块
+            placeholderColor: Colors.transparent,
           ),
         );
     }

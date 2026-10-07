@@ -34,8 +34,7 @@ class HomeCarousel extends StatefulWidget {
   final VoidCallback? onChanged;
 
   /// Immersive mode: flush to the screen edges (no side gutters, no corner
-  /// radius), runs under the transparent status bar, deeper text scrim and
-  /// viewportFraction 1.0 so neighbours never peek.
+  /// radius), runs under the transparent status bar and a deeper text scrim.
   final bool fullBleed;
 
   /// Landscape variant of [fullBleed]: left edge pulled back to the rails'
@@ -61,7 +60,6 @@ class _HomeCarouselState extends State<HomeCarousel>
   static const _autoPlayInterval = Duration(seconds: 5);
 
   late PageController _controller;
-  double _fraction = 0.92;
   Timer? _autoPlay;
   bool _userInteracting = false;
   double formScale = 1;
@@ -70,8 +68,9 @@ class _HomeCarouselState extends State<HomeCarousel>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _fraction = widget.fullBleed ? 1.0 : 0.92;
-    _controller = PageController(viewportFraction: _fraction);
+    // 全宽分区：页面边缘始终与视口边缘重合，切换动画时新页滑入不会被
+    // 视口直线截断，不会出现“动画中是直角、停住是圆角”的穿帮。
+    _controller = PageController(viewportFraction: 1.0);
     _restartAutoPlay();
   }
 
@@ -84,21 +83,6 @@ class _HomeCarouselState extends State<HomeCarousel>
       _restartAutoPlay();
     } else {
       _autoPlay?.cancel();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Rotation can flip fullBleed (0.92 peek <-> 1.0 edge-to-edge); swap the
-    // controller so the active slide never shows neighbour slivers when
-    // bleeding. Old controller dies after the PageView re-attaches.
-    final want = widget.fullBleed ? 1.0 : 0.92;
-    if (want != _fraction) {
-      _fraction = want;
-      final old = _controller;
-      _controller = PageController(viewportFraction: want);
-      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
     }
   }
 
@@ -258,6 +242,9 @@ class _HomeCarouselState extends State<HomeCarousel>
                               title: item.displayTitle,
                               height: 56,
                               session: widget.session,
+                              // 轮播图切换/首次进页时 logo 还没量好尺寸，
+                              // 先保持透明，避免文字标题或灰块闪一下。
+                              showTitleWhileLoading: false,
                             ),
                             if (item.year != null)
                               Text(

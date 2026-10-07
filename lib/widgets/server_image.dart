@@ -14,6 +14,7 @@ class ServerImage extends StatelessWidget {
     this.alignment = Alignment.center,
     this.borderRadius,
     this.session,
+    this.placeholderColor,
   });
 
   final String? url;
@@ -21,13 +22,15 @@ class ServerImage extends StatelessWidget {
   final Alignment alignment;
   final BorderRadius? borderRadius;
   final Session? session;
+  /// 占位底色；默认用 surface 色。传透明可避免加载中闪灰块。
+  final Color? placeholderColor;
 
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(Dimens.radiusMd);
     final placeholder = DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.surface(context),
+        color: placeholderColor ?? AppColors.surface(context),
         borderRadius: radius,
       ),
     );
