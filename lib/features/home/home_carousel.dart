@@ -8,6 +8,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import '../../widgets/video_logo.dart';
 import '../video/video_detail_screen.dart';
 
 /// Home hero carousel shared by the phone/portrait shells (rendered inside
@@ -249,13 +250,14 @@ class _HomeCarouselState extends State<HomeCarousel>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              item.displayTitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            // 有可用 logo（TMDB clearlogo / 本地 movie-logo.png /
+                            // tvshow-logo.png）就展示艺术字，形状不可读时 VideoLogo
+                            // 自动回落到文字标题。
+                            VideoLogo(
+                              url: item.logoUrl,
+                              title: item.displayTitle,
+                              height: 56,
+                              session: widget.session,
                             ),
                             if (item.year != null)
                               Text(
