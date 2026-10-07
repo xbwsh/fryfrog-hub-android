@@ -114,6 +114,7 @@ class _MainShellState extends State<MainShell> {
         onIndexChanged: (i) => setState(() => _index = i),
         body: body,
         showLabels: true,
+        session: widget.session,
       ),
       DeviceForm.tv => _SideRailShell(
         form: form,
@@ -122,6 +123,7 @@ class _MainShellState extends State<MainShell> {
         body: body,
         showLabels: true,
         wide: true,
+        session: widget.session,
       ),
     };
 
@@ -271,6 +273,7 @@ class _SideRailShell extends StatefulWidget {
     required this.onIndexChanged,
     required this.body,
     required this.showLabels,
+    required this.session,
     this.wide = false,
   });
 
@@ -279,6 +282,7 @@ class _SideRailShell extends StatefulWidget {
   final ValueChanged<int> onIndexChanged;
   final Widget body;
   final bool showLabels;
+  final Session session;
 
   /// TV variant: wider rail + large focus targets.
   final bool wide;
@@ -289,6 +293,7 @@ class _SideRailShell extends StatefulWidget {
 
 class _SideRailShellState extends State<_SideRailShell> {
   final List<FocusNode> _nodes = List.generate(4, (_) => FocusNode());
+  final FocusNode _logoutNode = FocusNode();
 
   static const _icons = [
     Icons.video_library_rounded,
@@ -303,12 +308,18 @@ class _SideRailShellState extends State<_SideRailShell> {
     for (final n in _nodes) {
       n.dispose();
     }
+    _logoutNode.dispose();
     super.dispose();
   }
 
   void _select(int i) {
     widget.onIndexChanged(i);
     _nodes[i].requestFocus();
+  }
+
+  void _logout() {
+    _logoutNode.requestFocus();
+    widget.session.logout();
   }
 
   @override
@@ -432,6 +443,84 @@ class _SideRailShellState extends State<_SideRailShell> {
                             ),
                           ),
                         ),
+                      const Spacer(),
+                      // 退出登录收到底部居中：我的页里不再放，侧栏是横屏
+                      // 平板/TV 的常驻导航，退出放这里随手可达。
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Dimens.spacingSm,
+                          vertical: Dimens.spacingXs,
+                        ),
+                        child: Focus(
+                          focusNode: _logoutNode,
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent &&
+                                (event.logicalKey ==
+                                        LogicalKeyboardKey.select ||
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.enter ||
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.gameButtonA)) {
+                              _logout();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: Builder(
+                            builder: (context) {
+                              final focused = Focus.of(context).hasFocus;
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  Dimens.radiusMd,
+                                ),
+                                onTap: _logout,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: Dimens.spacingLg,
+                                    vertical: Dimens.spacingMd + 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      Dimens.radiusMd,
+                                    ),
+                                    border: focused
+                                        ? Border.all(
+                                            color: scheme.primary,
+                                            width: Dimens.focusBorder,
+                                          )
+                                        : null,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.logout_rounded,
+                                        size:
+                                            (widget.wide ? 28 : 22) * scale,
+                                        color: AppColors.danger,
+                                      ),
+                                      const SizedBox(
+                                        width: Dimens.spacingMd,
+                                      ),
+                                      Text(
+                                        '退出登录',
+                                        style: TextStyle(
+                                          fontSize:
+                                              (widget.wide ? 18 : 15) * scale,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.danger,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: Dimens.spacingMd),
                     ],
                   ),
                 ),

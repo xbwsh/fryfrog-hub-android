@@ -217,36 +217,40 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: Dimens.spacingXl),
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 360),
-                        child: GlassButton.custom(
-                          width: double.infinity,
-                          height: 48 * form.typeScale,
-                          // Default LiquidOval stretches into a lens shape on a
-                          // wide button — use the card radius instead.
-                          shape: const LiquidRoundedRectangle(
-                            borderRadius: Dimens.radiusLg,
-                          ),
-                          onTap: () => session.logout(),
-                          child: Text(
-                            '退出登录',
-                            style: TextStyle(
-                              color: AppColors.danger,
-                              fontSize: 15 * form.typeScale,
-                              fontWeight: FontWeight.w700,
+                    // 平板横屏/TV 走侧边栏，退出登录已在侧栏底部，这里不再重复。
+                    if (!form.prefersSideNav) ...[
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: GlassButton.custom(
+                            width: double.infinity,
+                            height: 48 * form.typeScale,
+                            // Default LiquidOval stretches into a lens shape on a
+                            // wide button — use the card radius instead.
+                            shape: const LiquidRoundedRectangle(
+                              borderRadius: Dimens.radiusLg,
+                            ),
+                            onTap: () => session.logout(),
+                            child: Text(
+                              '退出登录',
+                              style: TextStyle(
+                                color: AppColors.danger,
+                                fontSize: 15 * form.typeScale,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(
-                      // Dock + gesture-bar inset: with only dockHeight the
-                      // logout button slid under the tab bar.
-                      height: Dimens.dockHeight +
-                          Dimens.spacingXl +
-                          MediaQuery.paddingOf(context).bottom,
-                    ),
+                      SizedBox(
+                        // Dock + gesture-bar inset: with only dockHeight the
+                        // logout button slid under the tab bar.
+                        height: Dimens.dockHeight +
+                            Dimens.spacingXl +
+                            MediaQuery.paddingOf(context).bottom,
+                      ),
+                    ] else
+                      const SizedBox(height: Dimens.spacingXl),
                     ],
                   ),
                 ),
