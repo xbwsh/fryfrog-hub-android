@@ -65,12 +65,16 @@ class ApiClient {
     }
 
     if (res.statusCode == 401) {
-      throw ApiException(401, map['message'] as String? ?? '登录已过期');
+      throw ApiException(
+        401,
+        (map['message'] ?? map['detail']) as String? ?? '登录已过期',
+      );
     }
     if (res.statusCode >= 400) {
       throw ApiException(
         res.statusCode,
-        map['message'] as String? ?? '请求失败 (${res.statusCode})',
+        (map['message'] ?? map['detail']) as String? ??
+            '请求失败 (${res.statusCode})',
       );
     }
     return map;
@@ -189,9 +193,7 @@ class ApiClient {
     );
     return _unwrap(
       json,
-      (raw) => raw is Map<String, dynamic>
-          ? UserProfile.fromJson(raw)
-          : null,
+      (raw) => raw is Map<String, dynamic> ? UserProfile.fromJson(raw) : null,
     );
   }
 
@@ -216,9 +218,7 @@ class ApiClient {
     );
     return _unwrap(
       json,
-      (raw) => raw is Map<String, dynamic>
-          ? UserProfile.fromJson(raw)
-          : null,
+      (raw) => raw is Map<String, dynamic> ? UserProfile.fromJson(raw) : null,
     );
   }
 
