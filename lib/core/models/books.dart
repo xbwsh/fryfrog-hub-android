@@ -244,7 +244,8 @@ class BookDetail {
   };
 
   /// Copy with the chapter TOC fetched from a side endpoint (ebook TXT).
-  BookDetail withChapters(List<BookChapter> list) => BookDetail(
+  BookDetail withChapters(List<BookChapter> list, {int? totalChapters}) =>
+      BookDetail(
     id: id,
     title: title,
     author: author,
@@ -256,7 +257,7 @@ class BookDetail {
     sourceId: sourceId,
     pubYear: pubYear,
     rating: rating,
-    totalChapters: totalChapters,
+    totalChapters: totalChapters ?? this.totalChapters,
     format: format,
     coverUrl: coverUrl,
     positionPercent: positionPercent,

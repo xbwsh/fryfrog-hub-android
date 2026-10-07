@@ -30,6 +30,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   BookDetail? _detail;
   String? _error;
   bool _loading = true;
+  /// 电子书目录已加载的章数（详情页只加载第一页，其余按"加载更多"追加）。
+  int _loadedChapters = 0;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       if (!mounted) return;
       setState(() {
         _detail = detail;
+        _loadedChapters = detail.chapters.length;
         _loading = false;
       });
     } catch (e) {
@@ -64,6 +68,56 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         _loading = false;
       });
     }
+  }
+
+  /// 电子书目录追加下一页（章节多时避免一次性全量渲染导致滚动卡顿）。
+  Future<void> _loadMoreChapters() async {
+    final detail = _detail;
+    final client = widget.session.api;
+    if (detail == null || client == null || _loadingMore) return;
+    if (widget.kind != BookShelfKind.ebook) return;
+    final total = detail.totalChapters;
+    if (total != null && _loadedChapters >= total) return;
+    final page = _loadedChapters ~/ 300;
+    setState(() => _loadingMore = true);
+    try {
+      final next = await client.fetchEbookChapterPage(detail.id, page: page);
+      if (!mounted) return;
+      final merged = <BookChapter>[
+        ...detail.chapters,
+        ...next.content.where((c) =>
+            !detail.chapters.any((e) => e.chapterIndex == c.chapterIndex)),
+      ];
+      setState(() {
+        _detail = detail.withChapters(merged, totalChapters: next.totalElements);
+        _loadedChapters = merged.length;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  /// 阅读器需要完整目录跳章；详情页只加载了第一页时，打开前补拉全量。
+  Future<List<BookChapter>> _readerChapters(BookDetail detail) async {
+    final chapters = detail.chapters;
+    final total = detail.totalChapters;
+    if (total == null || chapters.length >= total) return chapters;
+    try {
+      final all = await widget.session.api!.fetchEbookChapters(detail.id);
+      if (!mounted) return chapters;
+      if (all.isNotEmpty && all.length > chapters.length) {
+        setState(() {
+          _detail = detail.withChapters(all, totalChapters: all.length);
+          _loadedChapters = all.length;
+        });
+        return all;
+      }
+    } catch (_) {
+      // 补拉失败用已加载的部分目录，阅读器仍可读已加载章节。
+    }
+    return chapters;
   }
 
   Future<void> _openScrapeSheet() async {
@@ -125,12 +179,21 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           .showSnackBar(const SnackBar(content: Text('暂无章节，无法阅读')));
       return;
     }
+    final chapters = widget.kind == BookShelfKind.ebook
+        ? await _readerChapters(detail)
+        : detail.chapters;
+    if (!mounted) return;
+    if (chapters.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('暂无章节，无法阅读')));
+      return;
+    }
     final progress = detail.progress;
     final startOver = chapterIndex == null && (progress?.completed ?? false);
     final resumeChapter =
         chapterIndex ??
         ((progress != null && !startOver) ? progress.chapterIndex : null) ??
-        detail.chapters.first.chapterIndex;
+        chapters.first.chapterIndex;
 
     if (widget.kind == BookShelfKind.ebook) {
       await Navigator.of(context).push(
@@ -139,7 +202,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
             session: widget.session,
             bookId: detail.id,
             title: detail.displayTitle,
-            chapters: detail.chapters,
+            chapters: chapters,
             initialChapterIndex: resumeChapter,
           ),
         ),
@@ -155,7 +218,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
             session: widget.session,
             comicId: detail.id,
             title: detail.displayTitle,
-            chapters: detail.chapters,
+            chapters: chapters,
             initialChapterIndex: resumeChapter,
             initialPageIndex: resumePage,
           ),
@@ -233,6 +296,13 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   ? (chapterIndex) =>
                         _openReader(chapterIndex: chapterIndex, pageIndex: 0)
                   : null,
+              onLoadMore:
+                  widget.kind == BookShelfKind.ebook &&
+                      (_detail!.totalChapters == null ||
+                          _detail!.totalChapters! > _detail!.chapters.length)
+                  ? _loadMoreChapters
+                  : null,
+              loadingMore: _loadingMore,
             ),
     );
   }
@@ -245,6 +315,8 @@ class _DetailView extends StatelessWidget {
     required this.kind,
     this.onRead,
     this.onReadChapter,
+    this.onLoadMore,
+    this.loadingMore = false,
   });
 
   final BookDetail detail;
@@ -252,6 +324,8 @@ class _DetailView extends StatelessWidget {
   final BookShelfKind kind;
   final Future<void> Function()? onRead;
   final Future<void> Function(int chapterIndex)? onReadChapter;
+  final Future<void> Function()? onLoadMore;
+  final bool loadingMore;
 
   @override
   Widget build(BuildContext context) {
@@ -392,12 +466,27 @@ class _DetailView extends StatelessWidget {
         ],
         if (detail.chapters.isNotEmpty) ...[
           const SizedBox(height: Dimens.spacingXl),
-          Text(
-            '章节 · ${detail.chapters.length}',
-            style: TextStyle(
-              fontSize: 16 * form.typeScale,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Text(
+                '章节',
+                style: TextStyle(
+                  fontSize: 16 * form.typeScale,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: Dimens.spacingSm),
+              Text(
+                detail.totalChapters != null &&
+                        detail.totalChapters! > detail.chapters.length
+                    ? '已加载 ${detail.chapters.length}/${detail.totalChapters}'
+                    : '${detail.chapters.length}',
+                style: TextStyle(
+                  fontSize: 13 * form.typeScale,
+                  color: theme.hintColor,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: Dimens.spacingSm),
           Container(
@@ -459,6 +548,39 @@ class _DetailView extends StatelessWidget {
                           ),
                         ],
                       ],
+                    ),
+                  ),
+                if (onLoadMore != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Dimens.spacingLg,
+                      vertical: Dimens.spacingSm,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: loadingMore
+                          ? const Padding(
+                              padding: EdgeInsets.all(Dimens.spacingMd),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : OutlinedButton.icon(
+                              onPressed: onLoadMore,
+                              icon: const Icon(Icons.expand_more_rounded),
+                              label: Text(
+                                '加载更多章节',
+                                style: TextStyle(
+                                  fontSize: 13 * form.typeScale,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
               ],

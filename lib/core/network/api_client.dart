@@ -395,17 +395,63 @@ class ApiClient {
       return map == null ? null : BookDetail.fromJson(map);
     });
     // Ebook detail has no embedded TOC — TXT reads via a side endpoint.
+    // 只取第一页目录（默认 300 章），避免几千章的网文一次性全量渲染卡顿；
+    // 阅读器打开时再按需补拉完整目录（见 _loadReaderChapters）。
     if (kind == BookShelfKind.ebook &&
         detail.chapters.isEmpty &&
         detail.isReadableText) {
       try {
-        final chapters = await fetchEbookChapters(id);
-        if (chapters.isNotEmpty) return detail.withChapters(chapters);
+        final page = await fetchEbookChapterPage(id, page: 0);
+        if (page.content.isNotEmpty) {
+          return detail.withChapters(page.content, totalChapters: page.totalElements);
+        }
       } catch (_) {
         // TOC failure must not break the detail page — just no read entry.
       }
     }
     return detail;
+  }
+
+  /// TXT online reading: paginated chapter TOC (character offsets live server-side).
+  /// Backend: `GET /api/v1/ebooks/{id}/chapters?page=&size=`.
+  Future<PageResponse<BookChapter>> fetchEbookChapterPage(
+    int bookId, {
+    int page = 0,
+    int size = 300,
+  }) async {
+    final json = await _send(
+      '/api/v1/ebooks/$bookId/chapters',
+      query: {'page': '$page', 'size': '$size'},
+    );
+    return _unwrap(json, (raw) {
+      if (raw is List) {
+        // 旧后端没有分页参数：整包返回数组，包装成单页保持兼容。
+        final items = raw
+            .whereType<Map<String, dynamic>>()
+            .map(_chapterFromJson)
+            .toList(growable: false);
+        return PageResponse(
+          content: items,
+          page: page,
+          size: size,
+          totalElements: items.length,
+          totalPages: items.isEmpty ? 0 : 1,
+        );
+      }
+      final map = raw as Map<String, dynamic>?;
+      return map == null
+          ? null
+          : PageResponse.fromJson(map, _chapterFromJson);
+    });
+  }
+
+  static BookChapter _chapterFromJson(Map<String, dynamic> m) {
+    final index = (m['index'] as num?)?.toInt() ?? 0;
+    return BookChapter(
+      id: index,
+      chapterIndex: index,
+      title: m['title'] as String?,
+    );
   }
 
   /// TXT online reading: chapter TOC (character offsets live server-side).
@@ -416,14 +462,7 @@ class ApiClient {
       final list = raw as List? ?? const [];
       return list
           .whereType<Map<String, dynamic>>()
-          .map((m) {
-            final index = (m['index'] as num?)?.toInt() ?? 0;
-            return BookChapter(
-              id: index,
-              chapterIndex: index,
-              title: m['title'] as String?,
-            );
-          })
+          .map(_chapterFromJson)
           .toList(growable: false);
     });
   }
