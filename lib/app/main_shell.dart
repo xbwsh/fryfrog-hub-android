@@ -20,6 +20,31 @@ const _kGlassTabs = [
   GlassTab(icon: Icon(Icons.person_rounded), label: '我的'),
 ];
 
+/// 底部 tabbar 的液态玻璃材质：比控件默认更厚、更"像玻璃"——
+/// 更强的磨砂背模糊与折射、更高的色彩饱和、明显的边缘勾光，
+/// 让浮动胶囊在任意内容背景上都更有立体感。
+const _kTabBarGlass = LiquidGlassSettings(
+  glassColor: AppColors.glassBar,
+  thickness: 36,
+  blur: 8,
+  chromaticAberration: 0.4,
+  lightIntensity: 0.7,
+  ambientStrength: 1.2,
+  ambientRim: 0.45,
+  refractiveIndex: 1.55,
+  saturation: 1.0,
+  glowIntensity: 0.85,
+  shadowElevation: 2,
+);
+
+/// 选中 pill 的镜片材质：保持折射透镜特性（库要求 blur 恒为 0），
+/// 加一点白色填充和更深的曲率，让透镜从条上"浮"出来。
+final _kTabPillGlass = AnimatedGlassIndicator.baseIndicatorSettings.copyWith(
+  glassColor: AppColors.glassPill,
+  thickness: 26,
+  refractiveIndex: 1.12,
+);
+
 /// 选中态统一用 `AppColors.accent`（与轮播图/详情页播放按钮同一个蓝）。
 ///
 /// `GlassTabBar` 是三方玻璃控件，**不读** Material 的 `NavigationBarTheme`，
@@ -152,6 +177,13 @@ class _PhoneShell extends StatelessWidget {
           child: GlassTabBar.bottom(
             selectedIndex: index,
             onTabSelected: onIndexChanged,
+            settings: _kTabBarGlass,
+            indicatorSettings: _kTabPillGlass,
+            innerBlur: 5,
+            magnification: 1.18,
+            glowBlurRadius: 40,
+            glowSpreadRadius: 10,
+            glowOpacity: 0.65,
             indicatorColor: AppColors.accent.withValues(
               alpha: _kTabIndicatorAlpha,
             ),
@@ -209,6 +241,13 @@ class _TabletPortraitShell extends StatelessWidget {
           child: GlassTabBar.bottom(
             selectedIndex: index,
             onTabSelected: onIndexChanged,
+            settings: _kTabBarGlass,
+            indicatorSettings: _kTabPillGlass,
+            innerBlur: 5,
+            magnification: 1.18,
+            glowBlurRadius: 40,
+            glowSpreadRadius: 10,
+            glowOpacity: 0.65,
             indicatorColor: AppColors.accent.withValues(
               alpha: _kTabIndicatorAlpha,
             ),

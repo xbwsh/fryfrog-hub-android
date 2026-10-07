@@ -27,4 +27,9 @@ class AppColors {
 
   /// Rating stars / score chips (IMDb-style gold).
   static const Color gold = Color(0xFFF5C518);
+
+  /// 液态玻璃材质色（跨亮暗模式通用的白色玻璃）：
+  /// `glassBar` 是底部 tabbar 的玻璃底色，`glassPill` 是选中 pill 的填充。
+  static const Color glassBar = Color(0x52FFFFFF);
+  static const Color glassPill = Color(0x2EFFFFFF);
 }
