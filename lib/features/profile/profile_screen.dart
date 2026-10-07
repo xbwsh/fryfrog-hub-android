@@ -36,11 +36,17 @@ class ProfileScreen extends StatelessWidget {
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: form.contentMaxWidth),
-                child: ListView(
-                  padding: EdgeInsets.all(
-                    form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
-                  ),
-                  children: [
+                // One shared glass layer for all section cards: grouped glass
+                // batches the 5 cards into a single backdrop pass. Without a
+                // parent layer every GlassCard runs its own live backdrop
+                // blur, re-composited on every scroll frame — the cause of
+                // the profile page jank.
+                child: AdaptiveLiquidGlassLayer(
+                  child: ListView(
+                    padding: EdgeInsets.all(
+                      form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
+                    ),
+                    children: [
                     if (!form.isTabletPortrait)
                       Text(
                         '我的',
@@ -235,7 +241,8 @@ class ProfileScreen extends StatelessWidget {
                           Dimens.spacingXl +
                           MediaQuery.paddingOf(context).bottom,
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

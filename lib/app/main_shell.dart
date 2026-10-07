@@ -57,7 +57,17 @@ class _MainShellState extends State<MainShell> {
     // IndexedStack keeps inactive tabs mounted: switching keeps scroll
     // position, avoids re-decoding images and stops the home carousel
     // timer from restarting on every return.
-    final body = IndexedStack(index: _index, children: _pages);
+    //
+    // TickerMode mutes tickers of hidden tabs: without it the home carousel
+    // keeps auto-advancing (animateToPage every 5s) while the user scrolls
+    // another tab, stealing frames and causing hitches.
+    final body = IndexedStack(
+      index: _index,
+      children: [
+        for (var i = 0; i < _pages.length; i++)
+          TickerMode(enabled: _index == i, child: _pages[i]),
+      ],
+    );
 
     final content = switch (form) {
       DeviceForm.phone => _PhoneShell(
@@ -114,6 +124,8 @@ class _PhoneShell extends StatelessWidget {
       // opaque navigation bar behind the gesture pill. Overlay is set in app.dart.
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
+      // 去掉滚动时屏幕底部的那层玻璃模糊遮罩（用户要求），tabbar 保持玻璃透明。
+      bottomEdgeFade: false,
       // blur = live ProgressiveBlur, follows theme changes; the default
       // soft style paints a static background capture that goes stale.
       edgeStyle: GlassScrollEdgeStyle.blur,
@@ -172,6 +184,7 @@ class _TabletPortraitShell extends StatelessWidget {
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
+      bottomEdgeFade: false,
       edgeStyle: GlassScrollEdgeStyle.blur,
       body: Stack(
         children: [
@@ -269,6 +282,7 @@ class _SideRailShellState extends State<_SideRailShell> {
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
       extendBody: true,
+      bottomEdgeFade: false,
       edgeStyle: GlassScrollEdgeStyle.blur,
       // Content draws under the gesture bar; only the nav card keeps SafeArea.
       body: Row(

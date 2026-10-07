@@ -55,7 +55,8 @@ class HomeCarousel extends StatefulWidget {
   State<HomeCarousel> createState() => _HomeCarouselState();
 }
 
-class _HomeCarouselState extends State<HomeCarousel> {
+class _HomeCarouselState extends State<HomeCarousel>
+    with WidgetsBindingObserver {
   static const _autoPlayInterval = Duration(seconds: 5);
 
   late PageController _controller;
@@ -67,9 +68,22 @@ class _HomeCarouselState extends State<HomeCarousel> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fraction = widget.fullBleed ? 1.0 : 0.92;
     _controller = PageController(viewportFraction: _fraction);
     _restartAutoPlay();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Don't keep auto-advancing while backgrounded or exiting to the home
+    // screen — the 400ms page animation was fighting the launcher's exit
+    // transition (very laggy home press) and burning frames in the background.
+    if (state == AppLifecycleState.resumed) {
+      _restartAutoPlay();
+    } else {
+      _autoPlay?.cancel();
+    }
   }
 
   @override
@@ -103,6 +117,8 @@ class _HomeCarouselState extends State<HomeCarousel> {
     // Skip while the user is dragging, or when this route is covered
     // (pushed detail screen) — resume on ScrollEnd / return.
     if (!mounted || _userInteracting) return;
+    // IndexedStack keeps this page alive on other tabs; TickerMode mutes it.
+    if (!TickerMode.valuesOf(context).enabled) return;
     final route = ModalRoute.of(context);
     if (route != null && !route.isCurrent) return;
     if (!_controller.hasClients) return;
@@ -124,6 +140,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoPlay?.cancel();
     _controller.dispose();
     super.dispose();

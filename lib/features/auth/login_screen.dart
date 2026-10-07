@@ -177,7 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return SizedBox(
       width: d,
       height: d,
-      child: Image.asset('assets/images/app_icon.png', fit: BoxFit.contain),
+      child: Image.asset('assets/images/fryfrog_hub_icon.png', fit: BoxFit.contain),
     );
   }
 
