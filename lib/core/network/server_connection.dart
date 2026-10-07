@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 /// LAN-first server connection model (mirrors apple ServerConnection).
 enum ServerConnectionMode { lan, public }
@@ -45,9 +46,8 @@ class ServerConnection extends ChangeNotifier {
     this.port = port;
     this.publicHost = publicHost;
     this.lanHost = lanHost;
-    effectiveMode = hasLan
-        ? ServerConnectionMode.lan
-        : ServerConnectionMode.public;
+    // 不再在这里写死 lan 优先：由 refreshActiveMode() 探测决定，
+    // 避免 LAN 不可达时永远连不上、也不回退公网。
     notifyListeners();
   }
 
@@ -64,5 +64,30 @@ class ServerConnection extends ChangeNotifier {
     if (effectiveMode == mode) return;
     effectiveMode = mode;
     notifyListeners();
+  }
+
+  Future<bool> _probeOk(String base) async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/v1/auth/status'))
+          .timeout(const Duration(seconds: 3));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// LAN 可达则走 LAN，否则退回公网（对齐 iOS refreshActiveMode）。
+  /// 未配置 LAN 时直接走公网。
+  Future<void> refreshActiveMode() async {
+    if (!hasLan) {
+      if (effectiveMode != ServerConnectionMode.public) {
+        setMode(ServerConnectionMode.public);
+      }
+      return;
+    }
+    final lan = urlString(ServerConnectionMode.lan);
+    final lanOk = lan != null && await _probeOk(lan);
+    setMode(lanOk ? ServerConnectionMode.lan : ServerConnectionMode.public);
   }
 }

@@ -27,6 +27,26 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _backfillSaved();
+  }
+
+  /// 回填上次保存的服务器配置与用户名（对齐 iOS LoginViewModel.init），
+  /// 否则每次登录都要重填地址、且局域网地址会被丢成默认值。
+  Future<void> _backfillSaved() async {
+    final saved = await widget.session.savedLoginDefaults();
+    if (!mounted) return;
+    setState(() {
+      _scheme = saved.scheme;
+      _publicHost.text = saved.publicHost;
+      _lanHost.text = saved.lanHost;
+      _port.text = saved.port;
+      _username.text = saved.username;
+    });
+  }
+
+  @override
   void dispose() {
     _publicHost.dispose();
     _lanHost.dispose();

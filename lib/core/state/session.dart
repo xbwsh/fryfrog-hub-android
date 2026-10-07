@@ -71,6 +71,20 @@ class Session extends ChangeNotifier {
     return '$base${path.startsWith('/') ? '' : '/'}$path';
   }
 
+  /// 登录页回填用：返回已保存的服务器配置与上次用户名，
+  /// 从未保存过时使用默认值（frostine.top / 20058 / http / admin）。
+  Future<({String publicHost, String lanHost, String port, String scheme, String username})>
+      savedLoginDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      publicHost: prefs.getString(_kPublic) ?? 'frostine.top',
+      lanHost: prefs.getString(_kLan) ?? '',
+      port: prefs.getString(_kPort) ?? '20058',
+      scheme: prefs.getString(_kScheme) ?? 'http',
+      username: prefs.getString(_kUser) ?? 'admin',
+    );
+  }
+
   Future<void> restoreSessionDeferred() async {
     isLoading = true;
     notifyListeners();
@@ -93,6 +107,9 @@ class Session extends ChangeNotifier {
     if (token != null &&
         token!.isNotEmpty &&
         connection.activeBaseUrl != null) {
+      // 恢复会话前先探测 LAN：换网/IP 变了导致 LAN 不可达时，
+      // 自动退回公网而不是直接掉登录。
+      await connection.refreshActiveMode();
       api = ApiClient(connection.activeBaseUrl!, token: token);
       try {
         user = await api!.me();
@@ -135,6 +152,9 @@ class Session extends ChangeNotifier {
       publicHost: publicHost,
       lanHost: lanHost,
     );
+
+    // LAN 可达优先走 LAN，不可达自动退回公网（对齐 iOS）。
+    await connection.refreshActiveMode();
 
     final base = connection.activeBaseUrl;
     if (base == null) {
