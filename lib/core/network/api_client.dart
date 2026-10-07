@@ -124,6 +124,140 @@ class ApiClient {
     await _send('/api/v1/auth/logout', method: 'POST');
   }
 
+  /// 修改自己的密码，成功后 token 会被后端作废，需要重新登录。
+  /// Backend: `PUT /api/v1/users/me/password`.
+  Future<void> changeMyPassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final json = await _send(
+      '/api/v1/users/me/password',
+      method: 'PUT',
+      body: {'oldPassword': oldPassword, 'newPassword': newPassword},
+    );
+    if (json['success'] == false) {
+      throw ApiException(400, json['message'] as String? ?? '修改失败');
+    }
+  }
+
+  /// 管理员重置指定用户的密码（无需旧密码）。
+  /// Backend: `PUT /api/v1/users/{userId}/password`.
+  Future<void> resetUserPassword({
+    required int userId,
+    required String newPassword,
+  }) async {
+    final json = await _send(
+      '/api/v1/users/$userId/password',
+      method: 'PUT',
+      body: {'newPassword': newPassword},
+    );
+    if (json['success'] == false) {
+      throw ApiException(400, json['message'] as String? ?? '重置失败');
+    }
+  }
+
+  /// 用户列表（管理员）。
+  /// Backend: `GET /api/v1/users`.
+  Future<List<UserProfile>> fetchUsers() async {
+    final json = await _send('/api/v1/users');
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(UserProfile.fromJson)
+          .toList(growable: true);
+    });
+  }
+
+  /// 创建用户（管理员）。role: `USER` / `ADMIN`.
+  /// Backend: `POST /api/v1/users`.
+  Future<UserProfile> createUser({
+    required String username,
+    required String password,
+    String? nickname,
+    String? role,
+  }) async {
+    final json = await _send(
+      '/api/v1/users',
+      method: 'POST',
+      body: {
+        'username': username,
+        'password': password,
+        if (nickname != null && nickname.isNotEmpty) 'nickname': nickname,
+        'role': ?role,
+      },
+    );
+    return _unwrap(
+      json,
+      (raw) => raw is Map<String, dynamic>
+          ? UserProfile.fromJson(raw)
+          : null,
+    );
+  }
+
+  /// 更新用户（管理员）。空字段保留原值。
+  /// Backend: `PUT /api/v1/users/{userId}`.
+  Future<UserProfile> updateUser(
+    int userId, {
+    String? nickname,
+    String? avatar,
+    String? role,
+    bool? enabled,
+  }) async {
+    final json = await _send(
+      '/api/v1/users/$userId',
+      method: 'PUT',
+      body: {
+        'nickname': ?nickname,
+        'avatar': ?avatar,
+        'role': ?role,
+        'enabled': ?enabled,
+      },
+    );
+    return _unwrap(
+      json,
+      (raw) => raw is Map<String, dynamic>
+          ? UserProfile.fromJson(raw)
+          : null,
+    );
+  }
+
+  /// 删除用户（管理员）。
+  /// Backend: `DELETE /api/v1/users/{userId}`.
+  Future<void> deleteUser(int userId) async {
+    final json = await _send('/api/v1/users/$userId', method: 'DELETE');
+    if (json['success'] == false) {
+      throw ApiException(400, json['message'] as String? ?? '删除失败');
+    }
+  }
+
+  /// 查询用户被分配的媒体库 ID（管理员）。
+  /// Backend: `GET /api/v1/users/{userId}/libraries`.
+  Future<List<int>> fetchUserLibraries(int userId) async {
+    final json = await _send('/api/v1/users/$userId/libraries');
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return [for (final e in list) (e as num?)?.toInt() ?? 0];
+    });
+  }
+
+  /// 保存用户的媒体库授权（全量替换）。
+  /// Backend: `PUT /api/v1/users/{userId}/libraries`.
+  Future<List<int>> assignUserLibraries(
+    int userId,
+    List<int> libraryIds,
+  ) async {
+    final json = await _send(
+      '/api/v1/users/$userId/libraries',
+      method: 'PUT',
+      body: {'libraryIds': libraryIds},
+    );
+    return _unwrap(json, (raw) {
+      final list = raw as List? ?? const [];
+      return [for (final e in list) (e as num?)?.toInt() ?? 0];
+    });
+  }
+
   /// Grouped series are paged **per library** (backend slices every library
   /// with the same page/size, size clamped to 1..100). Walking all pages is
   /// required — a single call silently truncates each library at `size`

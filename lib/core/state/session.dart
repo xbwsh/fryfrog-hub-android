@@ -297,4 +297,16 @@ class Session extends ChangeNotifier {
     catalogVersion++;
     notifyListeners();
   }
+
+  /// 从服务端刷新当前用户信息（改昵称/角色后同步顶部展示）。
+  Future<void> refreshUser() async {
+    final client = api;
+    if (client == null) return;
+    try {
+      user = await client.me();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('refreshUser failed: $e');
+    }
+  }
 }

@@ -7,7 +7,9 @@ import '../../core/state/app_prefs.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
+import 'change_password_screen.dart';
 import 'media_library_screen.dart';
+import 'user_management_screen.dart';
 
 /// Profile mirrors apple ProfileView sections: account / admin / server /
 /// appearance / playback / cache / privacy / support / logout.
@@ -103,12 +105,26 @@ class ProfileScreen extends StatelessWidget {
                                 icon: Icons.key_rounded,
                                 label: '修改密码',
                                 form: form,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => ChangePasswordScreen(
+                                      session: session,
+                                    ),
+                                  ),
+                                ),
                               ),
                               if (user?.isAdmin == true)
                                 _NavTile(
                                   icon: Icons.groups_2_rounded,
                                   label: '用户管理',
                                   form: form,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => UsersManagementScreen(
+                                        session: session,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
