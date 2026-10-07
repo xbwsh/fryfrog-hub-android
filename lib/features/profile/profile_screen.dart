@@ -56,159 +56,165 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                     const SizedBox(height: Dimens.spacingXl),
+                    // 整页只用一块大玻璃：分区内部改用普通纯色卡片，
+                    // 玻璃效果从 6 张卡各自实时模糊降到整页一次。
                     GlassCard(
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          radius: 26 * form.posterScale * 0.8,
-                          backgroundColor: AppColors.accent.withValues(
-                            alpha: 0.2,
-                          ),
-                          child: Text(
-                            (user?.title.isNotEmpty ?? false)
-                                ? user!.title.characters.first
-                                : '?',
-                            style: TextStyle(
-                              color: AppColors.accent,
-                              fontSize: 20 * form.typeScale,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          user?.title ?? '未登录',
-                          style: TextStyle(
-                            fontSize: 17 * form.typeScale,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          user == null
-                              ? ''
-                              : '@${user.username} · ${user.roleText}',
-                          style: TextStyle(fontSize: 13 * form.typeScale),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: Dimens.spacingLg),
-                    _SectionCard(
-                      title: '账户',
-                      form: form,
-                      children: [
-                        _NavTile(
-                          icon: Icons.key_rounded,
-                          label: '修改密码',
-                          form: form,
-                        ),
-                        if (user?.isAdmin == true)
-                          _NavTile(
-                            icon: Icons.groups_2_rounded,
-                            label: '用户管理',
-                            form: form,
-                          ),
-                      ],
-                    ),
-                    if (user?.isAdmin == true) ...[
-                      const SizedBox(height: Dimens.spacingLg),
-                      _SectionCard(
-                        title: '管理',
-                        form: form,
+                      child: Column(
                         children: [
-                          _NavTile(
-                            icon: Icons.video_library_rounded,
-                            label: '媒体库管理',
-                            form: form,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<bool>(
-                                builder: (_) =>
-                                    MediaLibraryScreen(session: session),
+                          ListTile(
+                            leading: CircleAvatar(
+                              radius: 26 * form.posterScale * 0.8,
+                              backgroundColor: AppColors.accent.withValues(
+                                alpha: 0.2,
+                              ),
+                              child: Text(
+                                (user?.title.isNotEmpty ?? false)
+                                    ? user!.title.characters.first
+                                    : '?',
+                                style: TextStyle(
+                                  color: AppColors.accent,
+                                  fontSize: 20 * form.typeScale,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
+                            title: Text(
+                              user?.title ?? '未登录',
+                              style: TextStyle(
+                                fontSize: 17 * form.typeScale,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            subtitle: Text(
+                              user == null
+                                  ? ''
+                                  : '@${user.username} · ${user.roleText}',
+                              style: TextStyle(
+                                fontSize: 13 * form.typeScale,
+                              ),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          _SectionCard(
+                            title: '账户',
+                            form: form,
+                            children: [
+                              _NavTile(
+                                icon: Icons.key_rounded,
+                                label: '修改密码',
+                                form: form,
+                              ),
+                              if (user?.isAdmin == true)
+                                _NavTile(
+                                  icon: Icons.groups_2_rounded,
+                                  label: '用户管理',
+                                  form: form,
+                                ),
+                            ],
+                          ),
+                          if (user?.isAdmin == true)
+                            _SectionCard(
+                              title: '管理',
+                              form: form,
+                              children: [
+                                _NavTile(
+                                  icon: Icons.video_library_rounded,
+                                  label: '媒体库管理',
+                                  form: form,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<bool>(
+                                      builder: (_) =>
+                                          MediaLibraryScreen(session: session),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          _SectionCard(
+                            title: '服务器',
+                            form: form,
+                            children: [
+                              _AddressTile(
+                                mode: ServerConnectionMode.public,
+                                connection: connection,
+                                form: form,
+                              ),
+                              if (connection.hasLan)
+                                _AddressTile(
+                                  mode: ServerConnectionMode.lan,
+                                  connection: connection,
+                                  form: form,
+                                ),
+                            ],
+                          ),
+                          _SectionCard(
+                            title: '外观',
+                            form: form,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(
+                                  Dimens.spacingLg,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '主题',
+                                      style: TextStyle(
+                                        fontSize: 13 * form.typeScale,
+                                        color: Theme.of(context).hintColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: Dimens.spacingSm),
+                                    GlassSegmentedControl(
+                                      segments: [
+                                        for (final mode in ThemeModePref.values)
+                                          GlassSegment(label: mode.title),
+                                      ],
+                                      selectedIndex:
+                                          ThemeModePref.values.indexOf(
+                                            session.prefs.themeMode,
+                                          ),
+                                      onSegmentSelected: (i) =>
+                                          session.prefs.setThemeMode(
+                                            ThemeModePref.values[i],
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          _SectionCard(
+                            title: '隐私',
+                            form: form,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: Dimens.spacingLg,
+                                  vertical: Dimens.spacingMd,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '隐私模式',
+                                        style: TextStyle(
+                                          fontSize: 15 * form.typeScale,
+                                        ),
+                                      ),
+                                    ),
+                                    GlassSwitch(
+                                      value: session.prefs.privacyEnabled,
+                                      onChanged: session.prefs.setPrivacy,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                    const SizedBox(height: Dimens.spacingLg),
-                    _SectionCard(
-                      title: '服务器',
-                      form: form,
-                      children: [
-                        _AddressTile(
-                          mode: ServerConnectionMode.public,
-                          connection: connection,
-                          form: form,
-                        ),
-                        if (connection.hasLan)
-                          _AddressTile(
-                            mode: ServerConnectionMode.lan,
-                            connection: connection,
-                            form: form,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: Dimens.spacingLg),
-                    _SectionCard(
-                      title: '外观',
-                      form: form,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(Dimens.spacingLg),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '主题',
-                                style: TextStyle(
-                                  fontSize: 13 * form.typeScale,
-                                  color: Theme.of(context).hintColor,
-                                ),
-                              ),
-                              const SizedBox(height: Dimens.spacingSm),
-                              GlassSegmentedControl(
-                                segments: [
-                                  for (final mode in ThemeModePref.values)
-                                    GlassSegment(label: mode.title),
-                                ],
-                                selectedIndex: ThemeModePref.values.indexOf(
-                                  session.prefs.themeMode,
-                                ),
-                                onSegmentSelected: (i) =>
-                                    session.prefs.setThemeMode(
-                                      ThemeModePref.values[i],
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: Dimens.spacingLg),
-                    _SectionCard(
-                      title: '隐私',
-                      form: form,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Dimens.spacingLg,
-                            vertical: Dimens.spacingMd,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '隐私模式',
-                                  style: TextStyle(
-                                    fontSize: 15 * form.typeScale,
-                                  ),
-                                ),
-                              ),
-                              GlassSwitch(
-                                value: session.prefs.privacyEnabled,
-                                onChanged: session.prefs.setPrivacy,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                     ),
                     const SizedBox(height: Dimens.spacingXl),
                     Center(
@@ -268,6 +274,8 @@ class _SectionCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 大玻璃卡内的分组间距（iOS 分组列表风格）
+        const SizedBox(height: Dimens.spacingXl),
         Padding(
           padding: const EdgeInsets.only(
             left: Dimens.spacingSm,
@@ -282,7 +290,14 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
         ),
-        GlassCard(child: Column(children: children)),
+        // 普通卡片：整个页面已由外层单块 GlassCard 提供玻璃，分区内
+        // 只需要纯色表面，不再各自跑 backdrop blur。
+        Material(
+          color: AppColors.surface(context),
+          borderRadius: BorderRadius.circular(Dimens.radiusLg),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: children),
+        ),
       ],
     );
   }
