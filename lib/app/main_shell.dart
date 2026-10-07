@@ -41,8 +41,10 @@ const _kTabBarGlass = LiquidGlassSettings(
 /// 加一点白色填充和更深的曲率，让透镜从条上"浮"出来。
 final _kTabPillGlass = AnimatedGlassIndicator.baseIndicatorSettings.copyWith(
   glassColor: AppColors.glassPill,
-  thickness: 26,
-  refractiveIndex: 1.12,
+  thickness: 28,
+  refractiveIndex: 1.2,
+  // iOS 26 选中 pill 边缘的虹彩折射参考值。
+  chromaticAberration: 0.15,
 );
 
 /// 选中态统一用 `AppColors.accent`（与轮播图/详情页播放按钮同一个蓝）。
@@ -180,7 +182,7 @@ class _PhoneShell extends StatelessWidget {
             settings: _kTabBarGlass,
             indicatorSettings: _kTabPillGlass,
             innerBlur: 5,
-            magnification: 1.18,
+            magnification: 1.2,
             glowBlurRadius: 40,
             glowSpreadRadius: 10,
             glowOpacity: 0.65,
@@ -244,7 +246,7 @@ class _TabletPortraitShell extends StatelessWidget {
             settings: _kTabBarGlass,
             indicatorSettings: _kTabPillGlass,
             innerBlur: 5,
-            magnification: 1.18,
+            magnification: 1.2,
             glowBlurRadius: 40,
             glowSpreadRadius: 10,
             glowOpacity: 0.65,
