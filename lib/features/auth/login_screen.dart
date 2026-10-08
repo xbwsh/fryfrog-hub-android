@@ -17,10 +17,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _publicHost = TextEditingController(text: 'frostine.top');
+  // 公网地址与用户名首启必须留空：写死 frostine.top / admin 会把用户
+  // 引到别人的服务器，且与 ServerConnection.publicHost 的空串默认不一致。
+  // 登录成功后由 savedLoginDefaults() 回填用户自己的值；端口/协议无歧义，预填。
+  final _publicHost = TextEditingController();
   final _lanHost = TextEditingController();
   final _port = TextEditingController(text: '20058');
-  final _username = TextEditingController(text: 'admin');
+  final _username = TextEditingController();
   final _password = TextEditingController();
 
   String _scheme = 'http';

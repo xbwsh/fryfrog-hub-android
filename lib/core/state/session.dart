@@ -71,17 +71,20 @@ class Session extends ChangeNotifier {
     return '$base${path.startsWith('/') ? '' : '/'}$path';
   }
 
-  /// 登录页回填用：返回已保存的服务器配置与上次用户名，
-  /// 从未保存过时使用默认值（frostine.top / 20058 / http / admin）。
+  /// 登录页回填用：返回已保存的服务器配置与上次用户名。
+  ///
+  /// 公网地址与用户名**没有**硬编码兜底——留空表示"还没连过服务器"，
+  /// 预填 frostine.top/admin 会误导首次使用者（ServerConnection 默认空串）。
+  /// 端口与协议是无歧义的部署约定，保留默认 20058 / http。
   Future<({String publicHost, String lanHost, String port, String scheme, String username})>
       savedLoginDefaults() async {
     final prefs = await SharedPreferences.getInstance();
     return (
-      publicHost: prefs.getString(_kPublic) ?? 'frostine.top',
+      publicHost: prefs.getString(_kPublic) ?? '',
       lanHost: prefs.getString(_kLan) ?? '',
       port: prefs.getString(_kPort) ?? '20058',
       scheme: prefs.getString(_kScheme) ?? 'http',
-      username: prefs.getString(_kUser) ?? 'admin',
+      username: prefs.getString(_kUser) ?? '',
     );
   }
 
