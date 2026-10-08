@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/media_models.dart';
+import '../models/server_profile.dart';
 import '../network/api_client.dart';
 import '../network/server_connection.dart';
 import 'app_prefs.dart';
@@ -61,6 +62,10 @@ class Session extends ChangeNotifier {
   static const _kPort = 'server.port';
   static const _kScheme = 'server.scheme';
   static const _kUser = 'auth.username';
+  static const _kProfiles = 'server.profiles';
+
+  /// 档案上限：它只服务"快速切换"，攒太多反而变成噪音。
+  static const _maxProfiles = 12;
 
   String? resolveImage(String? path) {
     final client = api;
@@ -86,6 +91,41 @@ class Session extends ChangeNotifier {
       scheme: prefs.getString(_kScheme) ?? 'http',
       username: prefs.getString(_kUser) ?? '',
     );
+  }
+
+  /// 已保存的服务器档案（最近登录成功的排最前），登录页 chip 选择器用。
+  Future<List<ServerProfile>> listProfiles() async {
+    final prefs = await SharedPreferences.getInstance();
+    return ServerProfile.decodeList(prefs.getString(_kProfiles));
+  }
+
+  /// 登录成功后记一笔档案：同地址只覆盖账号并提到最前，不同地址新增一条。
+  ///
+  /// 失败**不影响登录结果**（记不住无非下次手动填），所以内部吞掉异常。
+  Future<void> rememberServer({
+    required String publicHost,
+    required String lanHost,
+    required String port,
+    required String scheme,
+    required String username,
+  }) async {
+    try {
+      final incoming = ServerProfile(
+        publicHost: publicHost,
+        lanHost: lanHost,
+        port: port,
+        scheme: scheme,
+        username: username,
+      ).normalized();
+      final prefs = await SharedPreferences.getInstance();
+      final rest = ServerProfile.decodeList(prefs.getString(_kProfiles))
+          .where((p) => p.key != incoming.key)
+          .toList(growable: false);
+      final merged = [incoming, ...rest].take(_maxProfiles).toList();
+      await prefs.setString(_kProfiles, ServerProfile.encodeList(merged));
+    } catch (e) {
+      debugPrint('rememberServer failed: $e');
+    }
   }
 
   Future<void> restoreSessionDeferred() async {
@@ -185,6 +225,15 @@ class Session extends ChangeNotifier {
       await prefs.setString(_kPort, port.trim());
       await prefs.setString(_kScheme, scheme);
       await prefs.setString(_kUser, username.trim());
+
+      // 记一份档案供下次快速切换（不含密码）。
+      await rememberServer(
+        publicHost: publicHost,
+        lanHost: lanHost,
+        port: port,
+        scheme: scheme,
+        username: username,
+      );
 
       isLoading = false;
       notifyListeners();

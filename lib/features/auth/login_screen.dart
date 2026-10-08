@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../core/adaptive/device_form.dart';
+import '../../core/models/server_profile.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
@@ -29,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
   String _scheme = 'http';
   String? _error;
 
+  /// 已保存的服务器档案，用于"点一下切换服务器"。不含密码。
+  List<ServerProfile> _profiles = const [];
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
   /// 否则每次登录都要重填地址、且局域网地址会被丢成默认值。
   Future<void> _backfillSaved() async {
     final saved = await widget.session.savedLoginDefaults();
+    final profiles = await widget.session.listProfiles();
     if (!mounted) return;
     setState(() {
       _scheme = saved.scheme;
@@ -46,6 +51,27 @@ class _LoginScreenState extends State<LoginScreen> {
       _lanHost.text = saved.lanHost;
       _port.text = saved.port;
       _username.text = saved.username;
+      _profiles = profiles;
+    });
+  }
+
+  /// 当前表单是否已等于这条档案（用于高亮 chip）。
+  bool _isSelected(ServerProfile p) =>
+      p.publicHost.trim() == _publicHost.text.trim() &&
+      p.lanHost.trim() == _lanHost.text.trim() &&
+      p.port.trim() == _port.text.trim() &&
+      p.scheme == _scheme;
+
+  /// 点 chip → 用整条档案覆盖表单；密码不参与（档案不存密码），
+  /// 由用户按需重新输入。
+  void _applyProfile(ServerProfile p) {
+    setState(() {
+      _publicHost.text = p.publicHost;
+      _lanHost.text = p.lanHost;
+      _port.text = p.port;
+      _scheme = p.scheme;
+      _username.text = p.username;
+      _error = null;
     });
   }
 
@@ -211,6 +237,35 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_profiles.isNotEmpty) ...[
+              Text(
+                '已保存服务器',
+                style: TextStyle(
+                  fontSize: 12 * form.typeScale,
+                  color: Theme.of(context).hintColor,
+                ),
+              ),
+              const SizedBox(height: Dimens.spacingXs),
+              Wrap(
+                spacing: Dimens.spacingSm,
+                runSpacing: Dimens.spacingSm,
+                children: [
+                  for (final p in _profiles)
+                    ChoiceChip(
+                      label: Text(
+                        p.label,
+                        style: TextStyle(
+                          fontSize: 13 * form.typeScale,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      selected: _isSelected(p),
+                      onSelected: (_) => _applyProfile(p),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Dimens.spacingLg),
+            ],
             _Field(
               label: '公网服务器地址',
               hint: 'IP 或域名，如 192.168.1.100',

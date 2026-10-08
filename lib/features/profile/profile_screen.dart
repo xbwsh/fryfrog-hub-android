@@ -161,6 +161,13 @@ class ProfileScreen extends StatelessWidget {
                                   connection: connection,
                                   form: form,
                                 ),
+                              // 切服务器必须先退出：token 只对当前服务器有效。
+                              _NavTile(
+                                icon: Icons.swap_horiz_rounded,
+                                label: '切换服务器',
+                                form: form,
+                                onTap: () => session.logout(),
+                              ),
                             ],
                           ),
                           _SectionCard(
