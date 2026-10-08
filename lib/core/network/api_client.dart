@@ -65,27 +65,75 @@ class ApiClient {
     }
 
     if (res.statusCode == 401) {
-      throw ApiException(
-        401,
-        (map['message'] ?? map['detail']) as String? ?? '登录已过期',
-      );
+      throw ApiException(res.statusCode, _messageOf(map, '登录已过期'));
     }
     if (res.statusCode >= 400) {
       throw ApiException(
         res.statusCode,
-        (map['message'] ?? map['detail']) as String? ??
-            '请求失败 (${res.statusCode})',
+        _messageOf(map, '请求失败 (${res.statusCode})'),
       );
     }
     return map;
   }
 
-  T _unwrap<T>(Map<String, dynamic> json, T? Function(Object? raw) parse) {
+  /// 业务信封校验。
+  ///
+  /// 后端 `ApiResponse{success,message,data}` 用 `ApiResponse.error()` 返回
+  /// 校验失败时是 **HTTP 200 + success=false**（FastAPI 异常处理器那条路径才是
+  /// 4xx/5xx），所以 HTTP 层的 [ApiException] 根本拦不到——必须再看一眼信封。
+  void _ensureSuccess(Map<String, dynamic> json) {
     if (json['success'] == false) {
       throw ApiException(400, json['message'] as String? ?? '请求失败');
     }
+  }
+
+  /// 错误体里可直接展示的文案。
+  /// FastAPI 的 `detail` 既可能是字符串，也可能是校验错误数组——
+  /// 直接 `as String?` 会抛类型错误，把真正的业务异常盖掉。
+  static String _messageOf(Map<String, dynamic> json, String fallback) {
+    final raw = json['message'] ?? json['detail'];
+    if (raw is String && raw.isNotEmpty) return raw;
+    if (raw is List) {
+      final parts = <String>[
+        for (final e in raw)
+          if (e is Map && e['msg'] is String) e['msg'] as String,
+      ];
+      if (parts.isNotEmpty) return parts.join('; ');
+    }
+    return fallback;
+  }
+
+  /// [_send] + [_ensureSuccess]。
+  ///
+  /// **所有 `Future<void>` 写接口必须走这里**：只 `await _send(...)` 时，
+  /// 后端把业务校验失败包在 200 里（如「filePath 不能为空」「系列没有 TMDB ID」）
+  /// 会一路静默通过，UI 照样提示"已设置/已保存"，实际什么都没写。
+  Future<void> _sendChecked(
+    String path, {
+    String method = 'GET',
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
+    Duration? timeout,
+  }) async {
+    final json = await _send(
+      path,
+      method: method,
+      body: body,
+      query: query,
+      timeout: timeout,
+    );
+    _ensureSuccess(json);
+  }
+
+  T _unwrap<T>(Map<String, dynamic> json, T? Function(Object? raw) parse) {
+    _ensureSuccess(json);
     final data = parse(json['data']);
     if (data == null) {
+      // 后端 `ApiResponse` 带 `exclude_none`：`ApiResponse.ok(null)` 只回
+      // `{"success":true}`，`data` 键整个消失（删进度、解绑、`ok(None)` 一堆）。
+      // 声明成可空返回的调用点（`Future<WatchProgress?>` …）要的就是 null，
+      // 只有非空 T 才是「响应真的少了字段」。
+      if (null is T) return null as T;
       throw ApiException(500, '响应缺少 data');
     }
     return data;
@@ -125,7 +173,7 @@ class ApiClient {
   }
 
   Future<void> logout() async {
-    await _send('/api/v1/auth/logout', method: 'POST');
+    await _sendChecked('/api/v1/auth/logout', method: 'POST');
   }
 
   /// 修改自己的密码，成功后 token 会被后端作废，需要重新登录。
@@ -134,14 +182,11 @@ class ApiClient {
     required String oldPassword,
     required String newPassword,
   }) async {
-    final json = await _send(
+    await _sendChecked(
       '/api/v1/users/me/password',
       method: 'PUT',
       body: {'oldPassword': oldPassword, 'newPassword': newPassword},
     );
-    if (json['success'] == false) {
-      throw ApiException(400, json['message'] as String? ?? '修改失败');
-    }
   }
 
   /// 管理员重置指定用户的密码（无需旧密码）。
@@ -150,14 +195,11 @@ class ApiClient {
     required int userId,
     required String newPassword,
   }) async {
-    final json = await _send(
+    await _sendChecked(
       '/api/v1/users/$userId/password',
       method: 'PUT',
       body: {'newPassword': newPassword},
     );
-    if (json['success'] == false) {
-      throw ApiException(400, json['message'] as String? ?? '重置失败');
-    }
   }
 
   /// 用户列表（管理员）。
@@ -225,10 +267,7 @@ class ApiClient {
   /// 删除用户（管理员）。
   /// Backend: `DELETE /api/v1/users/{userId}`.
   Future<void> deleteUser(int userId) async {
-    final json = await _send('/api/v1/users/$userId', method: 'DELETE');
-    if (json['success'] == false) {
-      throw ApiException(400, json['message'] as String? ?? '删除失败');
-    }
+    await _sendChecked('/api/v1/users/$userId', method: 'DELETE');
   }
 
   /// 查询用户被分配的媒体库 ID（管理员）。
@@ -489,7 +528,7 @@ class ApiClient {
     required double positionPercent,
     required int chapterIndex,
   }) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/ebooks/$bookId/progress',
       method: 'PUT',
       body: {'positionPercent': positionPercent, 'chapterIndex': chapterIndex},
@@ -537,7 +576,7 @@ class ApiClient {
     required String source,
     required String sourceId,
   }) async {
-    await _send(
+    await _sendChecked(
       '${kind.detailPath(id)}/scrape/bind',
       method: 'POST',
       body: {'source': source, 'sourceId': sourceId},
@@ -545,7 +584,7 @@ class ApiClient {
   }
 
   Future<void> unbindScrape(BookShelfKind kind, {required int id}) async {
-    await _send('${kind.detailPath(id)}/scrape/unbind', method: 'POST');
+    await _sendChecked('${kind.detailPath(id)}/scrape/unbind', method: 'POST');
   }
 
   /// Signed page URLs for one comic chapter.
@@ -647,12 +686,12 @@ class ApiClient {
   }
 
   Future<void> deleteWatchProgress(int videoId) async {
-    await _send('/api/v1/video/$videoId/progress', method: 'DELETE');
+    await _sendChecked('/api/v1/video/$videoId/progress', method: 'DELETE');
   }
 
   /// Backend: `PUT /api/v1/video/{id}/favorite?status=true`.
   Future<void> setVideoFavorite(int id, {required bool status}) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/$id/favorite',
       method: 'PUT',
       query: {'status': '$status'},
@@ -661,7 +700,7 @@ class ApiClient {
 
   /// Backend: `PUT /api/v1/video/series/{id}/favorite?status=true`.
   Future<void> setSeriesFavorite(int id, {required bool status}) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/series/$id/favorite',
       method: 'PUT',
       query: {'status': '$status'},
@@ -767,7 +806,7 @@ class ApiClient {
 
   /// Backend: `DELETE /api/v1/media-libraries/{id}`.
   Future<void> deleteMediaLibrary(int id) async {
-    await _send('/api/v1/media-libraries/$id', method: 'DELETE');
+    await _sendChecked('/api/v1/media-libraries/$id', method: 'DELETE');
   }
 
   /// Backend: `PUT /api/v1/media-libraries/{id}/toggle`.
@@ -793,7 +832,7 @@ class ApiClient {
 
   /// Backend: `POST /api/v1/media-libraries/{id}/scan`.
   Future<void> scanMediaLibrary(int id) async {
-    await _send('/api/v1/media-libraries/$id/scan', method: 'POST');
+    await _sendChecked('/api/v1/media-libraries/$id/scan', method: 'POST');
   }
 
   /// Backend: `GET /api/v1/media-libraries/scan/progress`.
@@ -929,7 +968,7 @@ class ApiClient {
     required int tmdbId,
     required String mediaType,
   }) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/$videoId/tmdb/bind',
       method: 'POST',
       body: {'tmdbId': tmdbId, 'mediaType': mediaType},
@@ -962,12 +1001,16 @@ class ApiClient {
 
   /// Backend: `PUT /api/v1/video/series/{id}/metadata`. Null fields unchanged.
   Future<void> updateSeriesMetadata(int id, Map<String, dynamic> body) async {
-    await _send('/api/v1/video/series/$id/metadata', method: 'PUT', body: body);
+    await _sendChecked(
+      '/api/v1/video/series/$id/metadata',
+      method: 'PUT',
+      body: body,
+    );
   }
 
   /// Backend: `PUT /api/v1/video/{id}/metadata`. Null fields unchanged.
   Future<void> updateVideoMetadata(int id, Map<String, dynamic> body) async {
-    await _send('/api/v1/video/$id/metadata', method: 'PUT', body: body);
+    await _sendChecked('/api/v1/video/$id/metadata', method: 'PUT', body: body);
   }
 
   /// Re-download covers from TMDB. `data.success` is a **string**.
@@ -1004,7 +1047,7 @@ class ApiClient {
   /// 把选中的 TMDB 图应用为本集横屏封面。
   /// Backend: `POST /api/v1/video/{id}/cover` `{filePath}`.
   Future<void> setVideoCover(int videoId, {required String filePath}) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/$videoId/cover',
       method: 'POST',
       body: {'filePath': filePath},
@@ -1036,7 +1079,7 @@ class ApiClient {
     required String level,
     required String kind,
   }) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/$videoId/tmdb-image',
       method: 'POST',
       body: {'filePath': filePath, 'level': level, 'kind': kind},
@@ -1064,7 +1107,7 @@ class ApiClient {
     required int index,
     required String type,
   }) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/$videoId/frames/select',
       method: 'POST',
       body: {'index': index, 'type': type},
@@ -1126,12 +1169,20 @@ class ApiClient {
     } catch (_) {
       throw ApiException(streamed.statusCode, '上传响应格式错误');
     }
+    // 这条路径没走 `_send`，HTTP 状态码得自己看：401/403/413 的错误体是
+    // FastAPI 的 `{detail: ...}`，既没有 `success` 也没有 `data`，`_unwrap`
+    // 只会回一句 500「响应缺少 data」——真实状态码和文案全丢了。
+    if (streamed.statusCode >= 400) {
+      throw ApiException(
+        streamed.statusCode,
+        _messageOf(map, '上传失败 (${streamed.statusCode})'),
+      );
+    }
     // 后端校验失败走 success=false + 中文 message，直接透出
-    return _unwrap(map, (raw) {
-          final m = raw as Map<String, dynamic>?;
-          return (m?['path'] as String?) ?? '';
-        }) ??
-        '';
+    return _unwrap(
+      map,
+      (raw) => (raw as Map<String, dynamic>?)?['path'] as String?,
+    );
   }
 
   /// Slow (all seasons) — uses a 300s timeout instead of the default 15s.
@@ -1198,7 +1249,7 @@ class ApiClient {
 
   /// Backend: `POST /api/v1/video/{id}/logo` `{filePath}`.
   Future<void> setVideoLogo(int videoId, {required String filePath}) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/$videoId/logo',
       method: 'POST',
       body: {'filePath': filePath},
@@ -1207,7 +1258,7 @@ class ApiClient {
 
   /// Backend: `POST /api/v1/video/series/{id}/logo` `{filePath}`.
   Future<void> setSeriesLogo(int seriesId, {required String filePath}) async {
-    await _send(
+    await _sendChecked(
       '/api/v1/video/series/$seriesId/logo',
       method: 'POST',
       body: {'filePath': filePath},
