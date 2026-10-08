@@ -303,8 +303,10 @@ class _LibraryRail extends StatelessWidget {
               onTap: session == null
                   ? null
                   : () {
+                      // 不用 await 返回值：库页改完数据后由卡片直接
+                      // `session.loadCatalog()`，首页订阅 session 自己重建。
                       Navigator.of(context).push(
-                        MaterialPageRoute<bool>(
+                        MaterialPageRoute<void>(
                           builder: (_) => VideoLibraryScreen(
                             session: session!,
                             group: group,

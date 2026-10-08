@@ -19,12 +19,18 @@ class LibraryPosterGrid extends StatelessWidget {
     required this.session,
     this.leading,
     this.columns,
+    this.onChanged,
   });
 
   final List<SeriesListDto> items;
   final bool portrait;
   final DeviceForm form;
   final Session session;
+
+  /// 详情页改完数据（绑 TMDB / 改元数据）返回 `true` 后回调。
+  /// 容器（库页 / 搜索页）用它刷新**自己**那份数据；目录本身由卡片
+  /// 内部 `session.loadCatalog()` 统一重载。
+  final VoidCallback? onChanged;
 
   /// 覆盖列数：横屏封面（16:9）单张更占地方，库页会传更少的列数。
   final int? columns;
@@ -71,6 +77,7 @@ class LibraryPosterGrid extends StatelessWidget {
               portrait: portrait,
               form: form,
               session: session,
+              onChanged: onChanged,
             );
           },
         );
@@ -87,12 +94,16 @@ class LibraryPosterCard extends StatelessWidget {
     required this.portrait,
     required this.form,
     required this.session,
+    this.onChanged,
   });
 
   final SeriesListDto item;
   final bool portrait;
   final DeviceForm form;
   final Session session;
+
+  /// 见 [LibraryPosterGrid.onChanged]。
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -111,8 +122,14 @@ class LibraryPosterCard extends StatelessWidget {
               const SnackBar(content: Text('这条记录的文件已不存在，可用右上角「清理残留记录」移除')),
             )
           : () async {
-              // 详情页里绑定 TMDB / 改元数据后会 pop(true)；据此把「数据已变」
-              // 继续往上传，让上层列表重载——否则要杀进程才看得到新名字。
+              // 详情页里绑定 TMDB / 改元数据后会 pop(true)。
+              // 但此时详情页**已经 pop 掉了**，顶上就是容器自己——所以这里
+              // 不能再 `Navigator.pop(true)` 往上传，否则库页/搜索页会把自己
+              // 关掉（用户被弹回首页），而首页那个 push 没人 await，`true`
+              // 又直接丢，两边都不刷新：改完名字得杀进程才看得到。
+              // 改成卡片自己重载目录（首页与库页都订阅 session），
+              // 再用 onChanged 让容器刷它**自己**那份数据（搜索结果不在
+              // session 里，只能搜索页自己重查）。
               final changed = await Navigator.of(context).push<bool>(
                 MaterialPageRoute<bool>(
                   builder: (_) =>
@@ -120,7 +137,8 @@ class LibraryPosterCard extends StatelessWidget {
                 ),
               );
               if (changed == true && context.mounted) {
-                Navigator.of(context).pop(true);
+                await session.loadCatalog();
+                if (context.mounted) onChanged?.call();
               }
             },
       child: Opacity(

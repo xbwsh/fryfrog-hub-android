@@ -35,11 +35,42 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   /// 本库「文件已不在磁盘上」的残留；>0 才显示清理入口。
   StaleRecords _stale = const StaleRecords();
 
+  /// 目录重载计数快照：只为在目录真的变了时才重建，避免被 session 的
+  /// 其它通知（登录态、播放器进度…）反复刷新整个网格。
+  int _catalogVersion = -1;
+
+  /// `widget.group` 是首页/搜索页进来时的**快照**，而 `loadCatalog()`
+  /// 是 `clear()` + `addAll()` 重建 `videoGroups`——所以详情页改完数据、
+  /// 卡片重载目录之后，必须按 libraryId 重新取组，否则本页永远显示旧名字。
+  LibrarySeriesGroup get _group {
+    final id = widget.group.libraryId;
+    for (final g in widget.session.videoGroups) {
+      if (g.libraryId == id) return g;
+    }
+    // 目录还没重载完（或这个库已被删）：仍显示进来时的快照。
+    return widget.group;
+  }
+
   @override
   void initState() {
     super.initState();
+    _catalogVersion = widget.session.catalogVersion;
+    widget.session.addListener(_onSessionChanged);
     _probeUnscraped();
     _probeStale();
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    final v = widget.session.catalogVersion;
+    if (!mounted || v == _catalogVersion) return;
+    _catalogVersion = v;
+    setState(() {});
   }
 
   /// 残留体检：文件已被移走/改名时旧记录会滞留到宽限期结束，期间新旧并存、
@@ -49,7 +80,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     final api = widget.session.api;
     if (api == null) return;
     try {
-      final stale = await api.fetchStaleRecords(widget.group.libraryId);
+      final stale = await api.fetchStaleRecords(_group.libraryId);
       if (mounted) setState(() => _stale = stale);
     } catch (_) {
       // 探测失败就不显示入口，不影响正常浏览
@@ -142,7 +173,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      final removed = await api.purgeStaleRecords(widget.group.libraryId);
+      final removed = await api.purgeStaleRecords(_group.libraryId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -167,7 +198,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
       final page = await api.fetchUnscrapedVideos(
         page: 0,
         size: 1,
-        libraryId: widget.group.libraryId,
+        libraryId: _group.libraryId,
       );
       if (mounted) setState(() => _unscrapedCount = page.totalElements);
     } catch (_) {
@@ -179,7 +210,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
-    final items = widget.group.allItems;
+    final items = _group.allItems;
     // 管理员 + 本库确实有未刮削内容，才给入口
     final showUnscraped =
         widget.session.user?.isAdmin == true && (_unscrapedCount ?? 0) > 0;
@@ -195,7 +226,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.group.name,
+              _group.name,
               style: TextStyle(
                 fontSize: 17 * form.typeScale,
                 fontWeight: FontWeight.w700,
@@ -203,7 +234,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
             ),
             // 库统计：系列数 / 视频数（纯单片库只显示视频数）
             Text(
-              widget.group.statsLabel,
+              _group.statsLabel,
               style: TextStyle(
                 fontSize: 12 * form.typeScale,
                 color: Theme.of(context).hintColor,
@@ -231,8 +262,8 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                 MaterialPageRoute<void>(
                   builder: (_) => InLibrarySearchScreen(
                     session: widget.session,
-                    libraryId: widget.group.libraryId,
-                    libraryName: widget.group.name,
+                    libraryId: _group.libraryId,
+                    libraryName: _group.name,
                   ),
                 ),
               );
@@ -287,12 +318,19 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                       form: form,
                       count: _unscrapedCount,
                       onTap: () {
+                        // 未刮削页里改完数据会 loadCatalog + onChanged：
+                        // 目录刷新本页已监听 session 自己重建，这里只需
+                        // 重探未刮削条数与残留（入口卡显隐依赖它们）。
                         Navigator.of(context).push(
-                          MaterialPageRoute<bool>(
+                          MaterialPageRoute<void>(
                             builder: (_) => UnscrapedScreen(
                               session: widget.session,
-                              libraryId: widget.group.libraryId,
-                              libraryName: widget.group.name,
+                              libraryId: _group.libraryId,
+                              libraryName: _group.name,
+                              onChanged: () {
+                                _probeUnscraped();
+                                _probeStale();
+                              },
                             ),
                           ),
                         );

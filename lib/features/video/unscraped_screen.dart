@@ -19,11 +19,16 @@ class UnscrapedScreen extends StatefulWidget {
     required this.session,
     required this.libraryId,
     required this.libraryName,
+    this.onChanged,
   });
 
   final Session session;
   final int libraryId;
   final String libraryName;
+
+  /// 详情页改完数据（绑 TMDB / 改元数据）后回调，供库页重探入口卡。
+  /// 目录本身由本页调 `session.loadCatalog()` 重载。
+  final VoidCallback? onChanged;
 
   @override
   State<UnscrapedScreen> createState() => _UnscrapedScreenState();
@@ -110,13 +115,19 @@ class _UnscrapedScreenState extends State<UnscrapedScreen> {
       year: v.year,
       mediaType: v.mediaType,
     );
-    await Navigator.of(context).push(
+    final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => VideoDetailScreen(session: widget.session, item: item),
       ),
     );
     // A season bind clears tmdb_id across its episodes — drop scrubbed rows.
     if (mounted) await _reload();
+    // 详情页 pop(true) 表示数据被改过：本页的行已由上面 `_reload()` 刷新，
+    // 但目录（首页 / 库页）也要跟着重建，否则改完名字得杀进程才看得到。
+    if (changed == true && mounted) {
+      await widget.session.loadCatalog();
+      if (mounted) widget.onChanged?.call();
+    }
   }
 
   String? _subtitle(VideoItem v) {

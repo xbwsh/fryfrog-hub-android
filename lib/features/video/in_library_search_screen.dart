@@ -158,6 +158,11 @@ class _InLibrarySearchScreenState extends State<InLibrarySearchScreen> {
       portrait: true,
       form: form,
       session: widget.session,
+      // 搜索结果是服务端一次性返回的快照，不在 session 里；详情页改完数据
+      // 卡片会 loadCatalog，但本页这份结果只能自己重查。
+      onChanged: () {
+        if (_query.isNotEmpty) _runSearch(_query);
+      },
     );
   }
 
