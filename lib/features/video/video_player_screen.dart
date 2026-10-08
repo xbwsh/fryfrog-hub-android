@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
+import '../../core/rules/watch_rules.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
@@ -191,7 +192,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
     if (dur <= 0) return;
-    if (pos - _lastProgressSave >= 5) {
+    if (WatchRules.shouldSave(
+      positionSeconds: pos,
+      lastSavedSeconds: _lastProgressSave,
+    )) {
       unawaited(_saveProgress());
     }
   }
@@ -201,20 +205,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
     if (dur <= 0) return;
-    if (!force && pos - _lastProgressSave < 5) return;
+    if (!force &&
+        !WatchRules.shouldSave(
+          positionSeconds: pos,
+          lastSavedSeconds: _lastProgressSave,
+        )) {
+      return;
+    }
     _saving = true;
     _lastProgressSave = pos;
     try {
       await widget.session.api
           ?.saveWatchProgress(_video.id, position: pos, duration: dur)
           .timeout(const Duration(seconds: 3));
-      if (dur > 0 && pos / dur >= 0.9 && !_markedWatched) {
-        // One-shot: without this, every 5s save past 90% doubles up with
-        // a setWatched request.
-        _markedWatched = true;
+      // 用 WatchRules 而不是本地魔法数：后端 update_position 每次保存都按
+      // 同一个阈值重算 completed，客户端提前标会在下一次保存时被打回。
+      if (WatchRules.isCompleted(pos, dur) && !_markedWatched) {
         await widget.session.api
             ?.setWatched(_video.id, completed: true)
             .timeout(const Duration(seconds: 3));
+        // 标记成功才置位：失败时下个周期重试，否则一次超时就永远不标了。
+        _markedWatched = true;
       }
     } catch (e) {
       debugPrint('save progress failed: $e');

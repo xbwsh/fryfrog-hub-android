@@ -3,8 +3,14 @@
 class WatchRules {
   const WatchRules._();
 
-  /// Auto-mark watched at ≥ 90% (matches backend auto-complete intent).
-  static const double completedRatio = 0.9;
+  /// Auto-mark watched at ≥ 95%.
+  ///
+  /// **必须与后端一致**：`fryfrog-hub-api` 的 `services/video_service.py`
+  /// 定义 `COMPLETED_THRESHOLD = 0.95`，且 `update_position` 每次保存进度都会
+  /// 用它重算 `completed`。客户端若用更低的阈值提前标已看，下一次进度保存
+  /// （仍在 0.95 以下）会把刚写下的已看状态打回未看，而播放器的
+  /// `_markedWatched` 已置位不再重标 —— 等于白标。
+  static const double completedRatio = 0.95;
 
   static bool isCompleted(double positionSeconds, double durationSeconds) {
     if (durationSeconds <= 0) return false;
@@ -12,11 +18,15 @@ class WatchRules {
   }
 
   /// Should we persist a periodic progress sample?
+  ///
+  /// 双向判定：用户把进度条**往回拖**后，`position` 小于上次保存点，若只按
+  /// 正向差值算会一直不满足 → 回退后到重新追平旧位置之前一次都不保存，
+  /// 这期间杀进程就会跳回旧位置。取绝对值让后退同样触发保存。
   static bool shouldSave({
     required double positionSeconds,
     required double lastSavedSeconds,
     double minGapSeconds = 5,
-  }) => positionSeconds - lastSavedSeconds >= minGapSeconds;
+  }) => (positionSeconds - lastSavedSeconds).abs() >= minGapSeconds;
 
   /// Episode to open first: partial progress → first unwatched → first.
   static T? pickResumeEpisode<T>(

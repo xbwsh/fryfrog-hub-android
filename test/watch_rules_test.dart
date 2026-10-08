@@ -11,15 +11,24 @@ class _Ep {
 
 void main() {
   group('WatchRules.isCompleted', () {
-    test('true at >= 90%', () {
-      expect(WatchRules.isCompleted(90, 100), isTrue);
+    test('true at >= 95%（对齐后端 COMPLETED_THRESHOLD）', () {
+      expect(WatchRules.isCompleted(95, 100), isTrue);
       expect(WatchRules.isCompleted(100, 100), isTrue);
-      expect(WatchRules.isCompleted(89.9, 100), isFalse);
+      expect(WatchRules.isCompleted(94.9, 100), isFalse);
     });
 
     test('false when duration unknown', () {
       expect(WatchRules.isCompleted(10, 0), isFalse);
       expect(WatchRules.isCompleted(10, -1), isFalse);
+    });
+
+    // 回归：客户端阈值曾是 0.9，而每次 saveWatchProgress 都会让后端用 0.95
+    // 重算 completed → 90%~95% 之间标的已看会在下一次保存时被打回未看。
+    test('阈值必须与后端 services/video_service.py 的 0.95 一致', () {
+      expect(WatchRules.completedRatio, 0.95);
+      // 0.9 必须不再算完成，否则自动标已看会被后端撤销。
+      expect(WatchRules.isCompleted(90, 100), isFalse);
+      expect(WatchRules.isCompleted(94, 100), isFalse);
     });
   });
 
@@ -31,6 +40,19 @@ void main() {
       );
       expect(
         WatchRules.shouldSave(positionSeconds: 4, lastSavedSeconds: 0),
+        isFalse,
+      );
+    });
+
+    // 回退后 position < lastSaved，正向阈值会一直不满足 → 回看期间
+    // 一次都不保存，杀进程就跳回旧位置。
+    test('backward seek also triggers a save', () {
+      expect(
+        WatchRules.shouldSave(positionSeconds: 40, lastSavedSeconds: 100),
+        isTrue,
+      );
+      expect(
+        WatchRules.shouldSave(positionSeconds: 98, lastSavedSeconds: 100),
         isFalse,
       );
     });
