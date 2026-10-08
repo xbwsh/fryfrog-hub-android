@@ -60,5 +60,11 @@ void main() {
 
     expect(find.text('公网服务器地址'), findsOneWidget);
     expect(find.text('用户名'), findsOneWidget);
+    expect(
+      find.text('输入账号'),
+      findsOneWidget,
+      reason: '用户名占位不能再是 admin，那是具体账号不是提示',
+    );
+    expect(find.text('admin'), findsNothing);
   });
 }

@@ -264,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: Dimens.spacingLg),
             _Field(
               label: '用户名',
-              hint: 'admin',
+              hint: '输入账号',
               controller: _username,
               form: form,
             ),
