@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoColors, CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
@@ -318,10 +319,15 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: Dimens.spacingLg),
             _Field(
-              label: '用户名',
+              label: '账号和密码',
               hint: '输入账号',
               controller: _username,
               form: form,
+              icon: Icon(
+                CupertinoIcons.person_fill,
+                size: 20,
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
             ),
             const SizedBox(height: Dimens.spacingLg),
             GlassPasswordField(
@@ -370,6 +376,7 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.form,
     this.keyboardType,
+    this.icon,
   });
 
   final String label;
@@ -377,6 +384,10 @@ class _Field extends StatelessWidget {
   final TextEditingController controller;
   final DeviceForm form;
   final TextInputType? keyboardType;
+
+  /// 字段左侧图标；与 GlassPasswordField 自带的锁图标同规格
+  /// （size 20 + secondaryLabel），保证账号/密码两行视觉对齐。
+  final Widget? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -394,6 +405,7 @@ class _Field extends StatelessWidget {
         GlassTextField(
           controller: controller,
           placeholder: hint,
+          prefixIcon: icon,
           keyboardType: keyboardType,
         ),
       ],

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fryfrog_hub/app/app.dart';
 import 'package:fryfrog_hub/core/network/server_connection.dart';
@@ -59,7 +60,12 @@ void main() {
     expect(fields[3].controller?.text, '');
 
     expect(find.text('公网服务器地址'), findsOneWidget);
-    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('账号和密码'), findsOneWidget);
+    expect(
+      find.byIcon(CupertinoIcons.person_fill),
+      findsOneWidget,
+      reason: '账号框要有前缀图标，与密码框的锁图标对齐',
+    );
     expect(
       find.text('输入账号'),
       findsOneWidget,
