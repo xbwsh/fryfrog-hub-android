@@ -102,14 +102,17 @@ class VideoDetailController extends ChangeNotifier {
     }
   }
 
+  /// 标记已看/未看。
+  ///
+  /// 后端 `completed` 与播放进度存在**同一行** `watch_progress`
+  /// （`update_watched` 会把 position 拉到 duration），所以这里绝不能追加
+  /// `deleteWatchProgress`——那会把刚写下的 `completed` 连行一起删掉，
+  /// `refreshQuiet` 拿回 `progress=null` 后这一集立刻变回未看。
   Future<void> markWatched(bool watched) async {
     final ep = selected;
     if (ep == null) return;
     try {
       await gateway.setWatched(ep.id, completed: watched);
-      if (watched) {
-        await gateway.deleteWatchProgress(ep.id);
-      }
       await refreshQuiet();
     } catch (e) {
       error = '操作失败：$e';

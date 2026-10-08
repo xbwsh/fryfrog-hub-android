@@ -13,6 +13,12 @@ class _FakeVideoGateway implements VideoGateway {
   int favoriteCalls = 0;
   bool lastFavorite = false;
   int watchedCalls = 0;
+  int deleteCalls = 0;
+
+  /// 模拟后端 `watch_progress` 表：`completed` 与播放进度存在**同一行**，
+  /// 删行 = 已看状态一起丢（`video_service.delete_progress`）。
+  final Set<int> serverWatched = {};
+
   int fetchCalls = 0;
 
   // Admin action recordings.
@@ -45,11 +51,12 @@ class _FakeVideoGateway implements VideoGateway {
   @override
   Future<SeriesDetail> fetchSeriesDetail(int id, {String? type}) async {
     fetchCalls++;
-    if (detail == null) throw Exception('missing');
+    final d = detail;
+    if (d == null) throw Exception('missing');
+    detail = _withWatched(d, serverWatched);
     return detail!;
   }
 
-  @override
   @override
   Future<VideoItem> fetchVideoDetail(int id) => throw UnimplementedError();
 
@@ -66,10 +73,19 @@ class _FakeVideoGateway implements VideoGateway {
   @override
   Future<void> setWatched(int videoId, {required bool completed}) async {
     watchedCalls++;
+    if (completed) {
+      serverWatched.add(videoId);
+    } else {
+      serverWatched.remove(videoId);
+    }
   }
 
   @override
-  Future<void> deleteWatchProgress(int videoId) async {}
+  Future<void> deleteWatchProgress(int videoId) async {
+    deleteCalls++;
+    // 后端删的是整行 → 已看状态随之丢失（这正是 markWatched 不能调它的原因）。
+    serverWatched.remove(videoId);
+  }
 
   @override
   Future<void> setSeriesFavorite(int id, {required bool status}) async {
@@ -246,6 +262,69 @@ SeriesDetail _detail({bool favorite = false, List<VideoItem>? eps, int? tmdbId})
               VideoItem(id: 11, title: 'B'),
             ],
       ),
+    ],
+  );
+}
+
+/// 把后端 `watch_progress.completed` 的状态回放到每一集的 `watched` 上，
+/// 模拟 `GET /series/{id}` 时 `_to_video_dto` → `apply_watch_progress` 的行为。
+SeriesDetail _withWatched(SeriesDetail d, Set<int> serverWatched) {
+  return SeriesDetail(
+    id: d.id,
+    type: d.type,
+    title: d.title,
+    coverUrl: d.coverUrl,
+    fanartUrl: d.fanartUrl,
+    logoUrl: d.logoUrl,
+    originalTitle: d.originalTitle,
+    overview: d.overview,
+    mediaType: d.mediaType,
+    tmdbId: d.tmdbId,
+    rating: d.rating,
+    year: d.year,
+    releaseDate: d.releaseDate,
+    totalEpisodes: d.totalEpisodes,
+    status: d.status,
+    favorite: d.favorite,
+    episodeCount: d.episodeCount,
+    resolutions: d.resolutions,
+    seasons: [
+      for (final s in d.seasons)
+        SeasonInfo(
+          seasonNumber: s.seasonNumber,
+          coverUrl: s.coverUrl,
+          episodes: [
+            for (final e in s.episodes)
+              VideoItem(
+                id: e.id,
+                title: e.title,
+                coverUrl: e.coverUrl,
+                fanartUrl: e.fanartUrl,
+                streamUrl: e.streamUrl,
+                originalTitle: e.originalTitle,
+                director: e.director,
+                actors: e.actors,
+                genre: e.genre,
+                year: e.year,
+                releaseDate: e.releaseDate,
+                durationMinutes: e.durationMinutes,
+                overview: e.overview,
+                resolutionLabel: e.resolutionLabel,
+                rating: e.rating,
+                mediaType: e.mediaType,
+                favorite: e.favorite,
+                isSeries: e.isSeries,
+                seriesId: e.seriesId,
+                seriesTitle: e.seriesTitle,
+                seasonNumber: e.seasonNumber,
+                episodeNumber: e.episodeNumber,
+                watchPosition: e.watchPosition,
+                watchProgressPercent: e.watchProgressPercent,
+                watched: serverWatched.contains(e.id),
+                fileMissing: e.fileMissing,
+              ),
+          ],
+        ),
     ],
   );
 }
@@ -455,6 +534,52 @@ void main() {
     await c2.load();
     expect(c2.isEpisodeTarget, isFalse, reason: '单片不该给出季/单集层级');
     c2.dispose();
+  });
+
+  test('标为已看必须存活：不能在同一操作里把进度行删掉', () async {
+    // 后端把 `completed` 与播放进度存在同一行 watch_progress；
+    // `deleteWatchProgress` 删整行 → 刚写下的已看状态一起消失。
+    final gw = _FakeVideoGateway(detail: _detail());
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    expect(c.selected!.isWatched, isFalse);
+
+    await c.markWatched(true);
+
+    expect(gw.watchedCalls, 1);
+    expect(
+      gw.deleteCalls,
+      0,
+      reason: '标为已看后紧接 deleteWatchProgress 会删掉整行，已看状态立刻失效',
+    );
+    expect(c.selected!.isWatched, isTrue, reason: 'refreshQuiet 后仍应是已看');
+    expect(c.error, isNull);
+    c.dispose();
+  });
+
+  test('标为未看能真正取消已看', () async {
+    // 两集都已看 → pickResumeEpisode 回退到第一集，正好选中一个"已看"的。
+    final gw = _FakeVideoGateway(detail: _detail())
+      ..serverWatched.addAll(const [10, 11]);
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    expect(c.selected!.id, 10);
+    expect(c.selected!.isWatched, isTrue);
+
+    await c.markWatched(false);
+
+    expect(gw.watchedCalls, 1);
+    expect(gw.deleteCalls, 0, reason: '取消已看走 setWatched(false)，不需要删行');
+    expect(gw.serverWatched.contains(10), isFalse);
+    expect(c.selected!.isWatched, isFalse, reason: 'refreshQuiet 后应已取消');
+    expect(c.error, isNull);
+    c.dispose();
   });
 
   test('fetchLogoOptions routes to the series endpoint', () async {
