@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -14,46 +15,65 @@ import 'cover_crop_dialog.dart';
 /// editing, covers, logo picking). The screen only dispatches menu actions;
 /// orchestration lives in `VideoDetailController`.
 
-/// Shows a non-dismissible progress dialog, runs [work], then pops the
+/// Shows a non-dismissible progress dialog, runs [work], then closes the
 /// dialog (even on error, which rethrows so callers can SnackBar).
+///
+/// Owns the route it pushes: `finally` only ever closes *that* dialog. A bare
+/// `nav.pop()` closes whichever route happens to be on top — system back ignores
+/// `barrierDismissible`, so the user can back out of the dialog mid-`work`, and
+/// the unconditional pop then removed the caller's screen instead.
 Future<T> runWithProgress<T>(
   BuildContext context,
   String label,
   Future<T> Function() work,
 ) async {
-  final nav = Navigator.of(context);
-  // Pushed synchronously; not awaited — we pop it ourselves in `finally`.
+  final nav = Navigator.of(context, rootNavigator: true);
+  var dismissed = false;
   // Plain Dialog (not AlertDialog): AlertDialog's min-height constraint
   // top-aligns a lone content row, which reads as "sitting too high".
-  // ignore: unawaited_futures
-  showDialog<void>(
+  final route = DialogRoute<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => Dialog(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Dimens.spacingXl,
-          vertical: Dimens.spacingLg,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-            const SizedBox(width: Dimens.spacingLg),
-            Flexible(child: Text(label)),
-          ],
+    builder: (_) => PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) dismissed = true;
+      },
+      child: Dialog(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Dimens.spacingXl,
+            vertical: Dimens.spacingLg,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: Dimens.spacingLg),
+              Flexible(child: Text(label)),
+            ],
+          ),
         ),
       ),
     ),
   );
+  unawaited(nav.push(route));
   try {
     return await work();
   } finally {
-    nav.pop();
+    if (!dismissed && route.isActive) {
+      if (route.isCurrent) {
+        nav.pop();
+      } else {
+        // Something else was pushed on top while work ran — remove ours
+        // specifically instead of popping whatever is now current.
+        nav.removeRoute(route);
+      }
+    }
   }
 }
 
