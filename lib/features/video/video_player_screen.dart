@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:volume_controller/volume_controller.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
@@ -13,6 +15,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 
 /// Full-screen mpv (media_kit) player with seek / volume chrome and progress.
+///
+/// 手势层（对齐常见播放器 / media_kit 内置手势）：
+/// · 点按 — 显隐控制栏
+/// · 左半屏上下滑 — 屏幕亮度；右半屏上下滑 — 系统音量
+/// · 长按 — 2.0x 倍速播放，松手恢复
 class VideoPlayerScreen extends StatefulWidget {
   const VideoPlayerScreen({
     super.key,
@@ -54,12 +61,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Duration _duration = Duration.zero;
   bool _playing = false;
 
+  // ── 上下滑手势：左屏亮度 / 右屏系统音量 ────────────────────────────
+  bool _adjusting = false;
+  bool _adjustBrightness = false;
+  bool _adjustReady = false;
+  double _adjustBase = 0;
+  double _adjustDeltaPx = 0;
+  double _adjustRange = 1;
+  double _adjustValue = 0;
+  int _lastAdjustApplyMs = 0;
+
+  // ── 长按倍速 ───────────────────────────────────────────────────────
+  bool _speedUp = false;
+  double _rateBeforeSpeedUp = 1.0;
+
   VideoItem get _video => widget.video;
   String get _title => widget.title ?? _video.title;
 
   @override
   void initState() {
     super.initState();
+    // 音量手势自己画 HUD，不要 Android 再弹一条系统音量条盖住画面。
+    VolumeController.instance.showSystemUI = false;
     _enterImmersive();
     _init();
   }
@@ -257,6 +280,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       player.dispose().timeout(const Duration(seconds: 2)).ignore();
     }
     unawaited(_restoreAppChrome());
+    // 应用级亮度只在观影期间生效，退出必须还原——否则整个 App 会一直
+    // 停在观影时的暗亮度上。
+    ScreenBrightness.instance.resetApplicationScreenBrightness().ignore();
     super.dispose();
   }
 
@@ -296,6 +322,131 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (player == null) return;
     setState(() => _muted = !_muted);
     player.setVolume(_muted ? 0 : 100);
+  }
+
+  // ── 手势：左半屏亮度 · 右半屏系统音量 · 长按 2.0x ──────────────────
+
+  /// 屏幕最左/最右 24px 让给系统返回手势（Android 手势导航的边缘滑动）。
+  bool _isGestureEdge(DragStartDetails details) {
+    final width = MediaQuery.sizeOf(context).width;
+    final x = details.localPosition.dx;
+    return x < 24 || x > width - 24;
+  }
+
+  void _onVerticalDragStart(DragStartDetails details) {
+    if (_exiting || _isGestureEdge(details)) return;
+    final size = MediaQuery.sizeOf(context);
+    _adjusting = true;
+    _adjustBrightness = details.localPosition.dx <= size.width / 2;
+    _adjustReady = false;
+    _adjustDeltaPx = 0;
+    // 全程（约半个屏高）走完 0→100%，和常见播放器手感一致。
+    _adjustRange = size.height * 0.5;
+    _adjustValue = 0;
+    unawaited(_loadAdjustBase());
+  }
+
+  /// 起手先读当前值（异步）；读到之前累积的位移在读到后一并套用。
+  Future<void> _loadAdjustBase() async {
+    final brightness = _adjustBrightness;
+    final value = brightness ? await _readBrightness() : await _readVolume();
+    if (!mounted || !_adjusting || brightness != _adjustBrightness) return;
+    if (value == null) {
+      // 平台不支持（Web 等）：手势直接作废，不给假反馈。
+      setState(() => _adjusting = false);
+      return;
+    }
+    _adjustBase = value;
+    _adjustReady = true;
+    await _applyAdjust(force: true);
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (!_adjusting) return;
+    _adjustDeltaPx += details.delta.dy;
+    if (!_adjustReady) return;
+    unawaited(_applyAdjust());
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) => unawaited(_endAdjust());
+
+  void _onVerticalDragCancel() => unawaited(_endAdjust());
+
+  Future<void> _endAdjust() async {
+    if (!_adjusting) return;
+    // 节流可能吞掉最后一步，松手时强制落盘。
+    if (_adjustReady) await _applyAdjust(force: true);
+    if (!mounted) return;
+    setState(() => _adjusting = false);
+  }
+
+  Future<void> _applyAdjust({bool force = false}) async {
+    if (!_adjustReady) return;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (!force && nowMs - _lastAdjustApplyMs < 40) return;
+    _lastAdjustApplyMs = nowMs;
+
+    final raw = _adjustBase - _adjustDeltaPx / _adjustRange;
+    final value = raw.clamp(0.0, 1.0).toDouble();
+    _adjustValue = value;
+
+    if (_adjustBrightness) {
+      try {
+        await ScreenBrightness.instance.setApplicationScreenBrightness(value);
+      } catch (_) {
+        // 权限/平台异常：手势照常走，只是亮度不动，不打断拖动。
+      }
+    } else {
+      await _writeVolume(value);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<double?> _readBrightness() async {
+    try {
+      // 应用级亮度：不需要 WRITE_SETTINGS，也只影响本 App。
+      return await ScreenBrightness.instance.application;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<double?> _readVolume() async {
+    try {
+      return await VolumeController.instance.getVolume();
+    } catch (_) {
+      // 无系统音量的平台（Web）：退回播放器自身音量。
+      final volume = _player?.state.volume;
+      return volume == null ? null : (volume / 100).clamp(0.0, 1.0).toDouble();
+    }
+  }
+
+  Future<void> _writeVolume(double value) async {
+    try {
+      await VolumeController.instance.setVolume(value);
+      // 系统音量动了就必须解开播放器静音，否则怎么拖都没声。
+      if (_muted) {
+        _muted = false;
+        unawaited(_player?.setVolume(100));
+      }
+    } catch (_) {
+      unawaited(_player?.setVolume(value * 100));
+    }
+  }
+
+  void _onLongPressStart() {
+    final player = _player;
+    if (_exiting || player == null) return;
+    _rateBeforeSpeedUp = player.state.rate;
+    unawaited(player.setRate(2.0));
+    setState(() => _speedUp = true);
+  }
+
+  void _onLongPressEnd(LongPressEndDetails details) {
+    if (!_speedUp) return;
+    final player = _player;
+    if (player != null) unawaited(player.setRate(_rateBeforeSpeedUp));
+    if (mounted) setState(() => _speedUp = false);
   }
 
   Future<void> _toggleOrientation() async {
@@ -342,8 +493,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _toggleChrome,
+              onVerticalDragStart: _onVerticalDragStart,
+              onVerticalDragUpdate: _onVerticalDragUpdate,
+              onVerticalDragEnd: _onVerticalDragEnd,
+              onVerticalDragCancel: _onVerticalDragCancel,
+              onLongPress: _onLongPressStart,
+              onLongPressEnd: _onLongPressEnd,
               child: Center(child: _body(form)),
             ),
+            // 亮度/音量/倍速的即时反馈，居中悬浮，不参与命中测试。
+            if ((_adjusting || _speedUp) && !_exiting)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: _GestureHud(
+                      form: form,
+                      speedUp: _speedUp,
+                      brightness: _adjustBrightness,
+                      value: _adjustValue,
+                    ),
+                  ),
+                ),
+              ),
             if (_chromeVisible && !_exiting)
               Positioned(
                 left: 0,
@@ -606,5 +777,63 @@ class _BottomChrome extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 亮度/音量/倍速的居中反馈牌（长按倍速时只显示 `2.0x`）。
+class _GestureHud extends StatelessWidget {
+  const _GestureHud({
+    required this.form,
+    required this.speedUp,
+    required this.brightness,
+    required this.value,
+  });
+
+  final DeviceForm form;
+  final bool speedUp;
+  final bool brightness;
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 14 * form.typeScale,
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final child = speedUp
+        ? Text('2.0x', style: textStyle)
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_icon, color: Colors.white, size: 20 * form.typeScale),
+              const SizedBox(width: Dimens.spacingSm),
+              Text('${(value * 100).round()}%', style: textStyle),
+            ],
+          );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Dimens.spacingLg,
+        vertical: Dimens.spacingMd,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(Dimens.radiusLg),
+      ),
+      child: child,
+    );
+  }
+
+  IconData get _icon {
+    if (brightness) {
+      if (value > 0.66) return Icons.brightness_high_rounded;
+      if (value > 0.33) return Icons.brightness_medium_rounded;
+      return Icons.brightness_low_rounded;
+    }
+    if (value <= 0) return Icons.volume_off_rounded;
+    if (value < 0.5) return Icons.volume_down_rounded;
+    return Icons.volume_up_rounded;
   }
 }
