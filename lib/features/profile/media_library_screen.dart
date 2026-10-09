@@ -24,6 +24,10 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
   late final MediaLibraryController _c;
   bool _wasScanning = false;
 
+  /// 库集合快照（`id:enabled`）：目录缓存是按服务端 enabled 过滤拉取的，
+  /// 所以集合或开关任一变化都必须让 Session 重新拉首页目录。
+  String? _libsSignature;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +48,21 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
       widget.session.loadCatalog();
     }
     _wasScanning = _c.scanning;
+    // Toggle / save / delete changed the library set or its enabled flags.
+    // The server filters the grouped catalog by `enabled`, so the cached
+    // video/music rails are stale — re-fetch them (covers every mutation
+    // path in one place, including edits made inside the form dialog).
+    // Skip while `load()` is in flight: its first notify reports an empty
+    // list, which must not be mistaken for "every library was removed".
+    if (!_c.loading) {
+      final signature = [
+        for (final l in _c.libraries) '${l.id}:${l.enabled}',
+      ].join(',');
+      if (_libsSignature != null && _libsSignature != signature) {
+        widget.session.loadCatalog();
+      }
+      _libsSignature = signature;
+    }
     setState(() {});
   }
 
