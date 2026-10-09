@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
@@ -157,9 +158,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
                   backgroundColor: WidgetStatePropertyAll(
                     Colors.white.withValues(alpha: 0.08),
                   ),
-                  foregroundColor: const WidgetStatePropertyAll(
-                    Colors.white70,
-                  ),
+                  foregroundColor: const WidgetStatePropertyAll(Colors.white70),
                   minimumSize: const WidgetStatePropertyAll(Size(28, 28)),
                   maximumSize: const WidgetStatePropertyAll(Size(28, 28)),
                   padding: const WidgetStatePropertyAll(EdgeInsets.zero),
@@ -326,9 +325,8 @@ abstract class _EpisodePaneState<T extends _EpisodePane> extends State<T> {
   /// 子类实现：index 对应 item 滚到正中时的滚动偏移（未减视口）。
   double _targetFor(int index);
 
-  int get _activeIndex => widget.episodes.indexWhere(
-    (e) => e.id == widget.currentId,
-  );
+  int get _activeIndex =>
+      widget.episodes.indexWhere((e) => e.id == widget.currentId);
 
   @override
   void initState() {
@@ -399,9 +397,7 @@ class _NumPaneState extends _EpisodePaneState<_NumPane> {
 
   @override
   double _targetFor(int index) =>
-      Dimens.spacingMd +
-      (index ~/ _cols) * _pitch +
-      _pitch / 2;
+      Dimens.spacingMd + (index ~/ _cols) * _pitch + _pitch / 2;
 
   @override
   Widget build(BuildContext context) {
@@ -427,10 +423,7 @@ class _NumPaneState extends _EpisodePaneState<_NumPane> {
             childAspectRatio: 1,
           ),
           itemCount: widget.episodes.length,
-          itemBuilder: (context, index) => _cell(
-            widget.episodes[index],
-            index,
-          ),
+          itemBuilder: (context, index) => _cell(widget.episodes[index], index),
         );
       },
     );
@@ -441,9 +434,7 @@ class _NumPaneState extends _EpisodePaneState<_NumPane> {
     final scale = widget.scale;
     final onAccent = Theme.of(context).colorScheme.onPrimary;
     return Material(
-      color: active
-          ? AppColors.accent
-          : Colors.white.withValues(alpha: 0.07),
+      color: active ? AppColors.accent : Colors.white.withValues(alpha: 0.07),
       borderRadius: BorderRadius.circular(Dimens.radiusMd),
       child: InkWell(
         borderRadius: BorderRadius.circular(Dimens.radiusMd),
@@ -638,9 +629,7 @@ class _GridPaneState extends _EpisodePaneState<_GridPane> {
 
   @override
   double _targetFor(int index) =>
-      Dimens.spacingMd +
-      (index ~/ _cols) * _pitch +
-      _pitch / 2;
+      Dimens.spacingMd + (index ~/ _cols) * _pitch + _pitch / 2;
 
   @override
   Widget build(BuildContext context) {
@@ -663,11 +652,8 @@ class _GridPaneState extends _EpisodePaneState<_GridPane> {
             childAspectRatio: cellW / cellH,
           ),
           itemCount: widget.episodes.length,
-          itemBuilder: (context, index) => _card(
-            widget.episodes[index],
-            thumbH,
-            nameH,
-          ),
+          itemBuilder: (context, index) =>
+              _card(widget.episodes[index], thumbH, nameH),
         );
       },
     );
@@ -751,12 +737,8 @@ class _BigPaneState extends _EpisodePaneState<_BigPane> {
           padding: _padding,
           itemExtent: _pitch,
           itemCount: widget.episodes.length,
-          itemBuilder: (context, index) => _card(
-            widget.episodes[index],
-            index,
-            thumbH,
-            infoH,
-          ),
+          itemBuilder: (context, index) =>
+              _card(widget.episodes[index], index, thumbH, infoH),
         );
       },
     );
@@ -813,7 +795,9 @@ class _BigPaneState extends _EpisodePaneState<_BigPane> {
                         style: TextStyle(
                           color: active ? AppColors.accent : Colors.white54,
                           fontSize: 10.5 * scale,
-                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: active
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                     ],
@@ -926,9 +910,7 @@ class _EpisodeThumb extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(Dimens.spacingXs),
       decoration: BoxDecoration(
-        color: active
-            ? AppColors.accent
-            : Colors.black.withValues(alpha: 0.55),
+        color: active ? AppColors.accent : Colors.black.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(Dimens.radiusSm),
       ),
       child: Text(
@@ -1099,8 +1081,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
                   final w = constraints.maxWidth;
                   double xOf(double v) =>
                       Dimens.playerSpeedThumbRadius +
-                      (v - 0.5) / 1.5 *
-                          (w - Dimens.playerSpeedThumbRadius * 2);
+                      (v - 0.5) / 1.5 * (w - Dimens.playerSpeedThumbRadius * 2);
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1137,7 +1118,9 @@ class _SpeedPanelState extends State<SpeedPanel> {
                           children: [
                             if (_bubbleVisible)
                               Positioned(
-                                left: xOf(rate) - Dimens.playerSpeedBubbleWidth / 2,
+                                left:
+                                    xOf(rate) -
+                                    Dimens.playerSpeedBubbleWidth / 2,
                                 bottom: 0,
                                 child: _bubble(formatSpeed(rate), scale),
                               ),
@@ -1281,6 +1264,199 @@ class _SpeedPanelState extends State<SpeedPanel> {
                 fontWeight: FontWeight.w600,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 播放器右下「字幕」浮层：关闭 + 本片内封字幕轨（libmpv 上报的 sid）。
+///
+/// 与 [SpeedPanel] 同位置同宽；纯状态less，开合动画与倍速浮层同参数。
+/// 轨道列表由播放器侧过滤掉 mpv 的 `auto`/`no` 占位项后再传进来。
+class SubtitlePanel extends StatelessWidget {
+  const SubtitlePanel({
+    super.key,
+    required this.open,
+    required this.tracks,
+    required this.selectedId,
+    required this.onPick,
+  });
+
+  final bool open;
+
+  /// 可选的内封字幕轨（已滤掉 `auto`/`no` 占位项）。
+  final List<SubtitleTrack> tracks;
+
+  /// mpv 当前生效的 sid：具体 id / `no`（关闭）/ `auto`（未定，不高亮）。
+  final String? selectedId;
+
+  final ValueChanged<SubtitleTrack> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = AdaptiveScope.of(context).typeScale;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final width = math.min(
+      Dimens.playerSubPanelWidth,
+      screenWidth - Dimens.spacingLg * 2,
+    );
+
+    return AnimatedSlide(
+      offset: open ? Offset.zero : const Offset(0, 0.15),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      child: AnimatedScale(
+        scale: open ? 1 : 0.94,
+        alignment: Alignment.bottomRight,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        child: AnimatedOpacity(
+          opacity: open ? 1 : 0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          child: IgnorePointer(
+            ignoring: !open,
+            child: Container(
+              width: width,
+              padding: const EdgeInsets.fromLTRB(
+                Dimens.spacingLg,
+                Dimens.spacingMd,
+                Dimens.spacingLg,
+                Dimens.spacingMd,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundDark,
+                borderRadius: BorderRadius.circular(Dimens.radiusLg),
+                border: Border.all(color: Colors.white12),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 24,
+                    offset: Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '字幕',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12 * scale,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: Dimens.spacingSm),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxHeight: Dimens.playerSubPanelMaxHeight,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _row(
+                            label: '关闭',
+                            selected: selectedId == 'no',
+                            scale: scale,
+                            onTap: () => onPick(SubtitleTrack.no()),
+                          ),
+                          for (final track in tracks)
+                            _row(
+                              label: _label(track),
+                              trailing: _trailing(track),
+                              selected: selectedId == track.id,
+                              scale: scale,
+                              onTap: () => onPick(track),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 标题优先，其次语言码，都没有就用 sid 兜底（如 `字幕 2`）。
+  String _label(SubtitleTrack track) {
+    final title = track.title;
+    if (title != null && title.isNotEmpty) return title;
+    final lang = track.language;
+    if (lang != null && lang.isNotEmpty) return lang;
+    return '字幕 ${track.id}';
+  }
+
+  /// 有标题时把语言码缀在行尾，区分「简体/English」这类同名轨。
+  String? _trailing(SubtitleTrack track) {
+    final title = track.title;
+    final lang = track.language;
+    if (title == null || title.isEmpty) return null;
+    if (lang == null || lang.isEmpty || lang == title) return null;
+    return lang;
+  }
+
+  Widget _row({
+    required String label,
+    String? trailing,
+    required bool selected,
+    required double scale,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected
+          ? AppColors.accent.withValues(alpha: 0.15)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(Dimens.radiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(Dimens.radiusSm),
+        onTap: onTap,
+        child: SizedBox(
+          height: Dimens.playerSubRowHeight,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingXs),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? AppColors.accent : Colors.white,
+                      fontSize: 13 * scale,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (trailing != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: Dimens.spacingXs),
+                    child: Text(
+                      trailing,
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11 * scale,
+                      ),
+                    ),
+                  ),
+                if (selected)
+                  Icon(
+                    Icons.check_rounded,
+                    size: 18 * scale,
+                    color: AppColors.accent,
+                  ),
+              ],
             ),
           ),
         ),

@@ -56,6 +56,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _playSub;
   StreamSubscription<String>? _errSub;
+  StreamSubscription<Tracks>? _tracksSub;
+  StreamSubscription<Track>? _trackSub;
+
+  // ── 内封字幕（libmpv 上报的 sid；外挂字幕待后端接口）────────────────
+  /// 本片可选的内封字幕轨，已滤掉 mpv 的 `auto`/`no` 占位项；
+  /// 为空 = 本片无字幕，底栏「字幕」按钮整个不显示。
+  List<SubtitleTrack> _subTracks = const [];
+
+  /// mpv 当前生效的 sid（`no`=关闭 / `auto`=未定 / 具体 id=在显示）。
+  String? _subSelectedId;
 
   String? _error;
   bool _loading = true;
@@ -167,6 +177,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _lastProgressSave = 0;
       _lastUiMs = -1000;
       _seekSettleUntilMs = 0;
+      _subTracks = const [];
+      _subSelectedId = null;
     });
     try {
       final api = widget.session.api;
@@ -217,6 +229,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         if (!mounted || _exiting || err.isEmpty) return;
         setState(() => _error = err);
       });
+      _tracksSub = player.stream.tracks.listen((tracks) {
+        if (!mounted || _exiting) return;
+        final real = tracks.subtitle
+            .where((t) => t.id != 'auto' && t.id != 'no')
+            .toList(growable: false);
+        setState(() => _subTracks = real);
+        // 换片后轨道表被清空 → 兜底收起字幕面板，别让按钮悬空。
+        if (real.isEmpty && _subOpen) _closePanels();
+      });
+      _trackSub = player.stream.track.listen((track) {
+        if (!mounted || _exiting) return;
+        setState(() => _subSelectedId = track.subtitle.id);
+      });
 
       await player.open(Media(url), play: true);
       if (_exiting || !mounted) return;
@@ -255,7 +280,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     await _durSub?.cancel();
     await _playSub?.cancel();
     await _errSub?.cancel();
+    await _tracksSub?.cancel();
+    await _trackSub?.cancel();
     _posSub = _durSub = _playSub = _errSub = null;
+    _tracksSub = _trackSub = null;
     final player = _player;
     _player = null;
     _controller = null;
@@ -330,6 +358,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     unawaited(_durSub?.cancel());
     unawaited(_playSub?.cancel());
     unawaited(_errSub?.cancel());
+    unawaited(_tracksSub?.cancel());
+    unawaited(_trackSub?.cancel());
+    _tracksSub = _trackSub = null;
     final player = _player;
     _player = null;
     _controller = null;
@@ -392,14 +423,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// 换过集后记录下来，退出时作为路由返回值带回详情页。
   VideoItem? _switchedTo;
 
-  // ── 倍数 / 右侧选集抽屉 / 右下倍速浮层 ────────────────────────────
+  // ── 倍数 / 右侧选集抽屉 / 右下倍速·字幕浮层 ──────────────────────
 
   /// 按钮上的倍数；长按 2.0x 期间如实显示 2.0X。
   String get _rateLabel => formatSpeed(_speedUp ? 2.0 : _rate);
 
-  /// 两个浮层互斥：开一个就关另一个（= 原型 closeAll 语义）。
+  /// 三个浮层互斥：开一个就关其余（= 原型 closeAll 语义）。
   bool _epOpen = false;
   bool _speedOpen = false;
+  bool _subOpen = false;
 
   void _toggleEpDrawer() {
     if (_exiting) return;
@@ -407,6 +439,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _epOpen = !_epOpen;
       if (_epOpen) {
         _speedOpen = false;
+        _subOpen = false;
         // 面板开着时控制栏不能自己收起来，否则高亮的按钮点不到。
         _chromeVisible = true;
       }
@@ -419,16 +452,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _speedOpen = !_speedOpen;
       if (_speedOpen) {
         _epOpen = false;
+        _subOpen = false;
+        _chromeVisible = true;
+      }
+    });
+  }
+
+  void _toggleSubPanel() {
+    if (_exiting) return;
+    setState(() {
+      _subOpen = !_subOpen;
+      if (_subOpen) {
+        _epOpen = false;
+        _speedOpen = false;
         _chromeVisible = true;
       }
     });
   }
 
   void _closePanels() {
-    if (!_epOpen && !_speedOpen) return;
+    if (!_epOpen && !_speedOpen && !_subOpen) return;
     setState(() {
       _epOpen = false;
       _speedOpen = false;
+      _subOpen = false;
     });
   }
 
@@ -436,6 +483,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (_exiting) return;
     setState(() => _rate = value);
     await _player?.setRate(value);
+  }
+
+  /// 字幕面板里选了一轨（`SubtitleTrack.no()` = 关闭）：先收面板再切轨。
+  Future<void> _setSubtitle(SubtitleTrack track) async {
+    if (_exiting) return;
+    _closePanels();
+    await _player?.setSubtitleTrack(track);
   }
 
   /// 抽屉里点了一集：先关面板，再走复用同一个播放器的换集流程。
@@ -725,7 +779,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || _exiting) return;
         // = 原型的 Esc：面板开着时返回键先关面板，再谈退出播放器。
-        if (_epOpen || _speedOpen) {
+        if (_epOpen || _speedOpen || _subOpen) {
           _closePanels();
           return;
         }
@@ -785,7 +839,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   rateLabel: _rateLabel,
                   speedOpen: _speedOpen,
                   epOpen: _epOpen,
+                  subOpen: _subOpen,
                   onPickSpeed: _toggleSpeedPanel,
+                  onPickSubtitles: _subTracks.isNotEmpty
+                      ? _toggleSubPanel
+                      : null,
                   onPickEpisodes: widget.episodes.length > 1
                       ? _toggleEpDrawer
                       : null,
@@ -796,16 +854,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   onTogglePlay: _togglePlay,
                 ),
               ),
-            // ── 选集抽屉 / 倍速浮层 + 遮罩：盖住视频与控制栏（原型同款层级）──
+            // ── 选集抽屉 / 倍速·字幕浮层 + 遮罩：盖住视频与控制栏 ──────
             if (!_exiting) ...[
               Positioned.fill(
                 child: IgnorePointer(
-                  ignoring: !_epOpen && !_speedOpen,
+                  ignoring: !_epOpen && !_speedOpen && !_subOpen,
                   child: GestureDetector(
                     onTap: _closePanels,
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedOpacity(
-                      opacity: (_epOpen || _speedOpen) ? 1 : 0,
+                      opacity: (_epOpen || _speedOpen || _subOpen) ? 1 : 0,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                       child: DecoratedBox(
@@ -836,6 +894,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   open: _speedOpen,
                   rate: _rate,
                   onChanged: _setRate,
+                ),
+              ),
+              Positioned(
+                right: Dimens.spacingLg,
+                bottom: Dimens.playerSpeedPanelBottom,
+                child: SubtitlePanel(
+                  open: _subOpen,
+                  tracks: _subTracks,
+                  selectedId: _subSelectedId,
+                  onPick: _setSubtitle,
                 ),
               ),
             ],
@@ -976,11 +1044,13 @@ class _BottomChrome extends StatelessWidget {
     required this.rateLabel,
     required this.speedOpen,
     required this.epOpen,
+    required this.subOpen,
     required this.onPickSpeed,
     required this.onChangeStart,
     required this.onChanged,
     required this.onChangeEnd,
     required this.onTogglePlay,
+    this.onPickSubtitles,
     this.onPickEpisodes,
     this.preview,
   });
@@ -1002,12 +1072,16 @@ class _BottomChrome extends StatelessWidget {
   final String rateLabel;
   final VoidCallback onPickSpeed;
 
+  /// 字幕回调；null = 本片无内封字幕，按钮整个不显示。
+  final VoidCallback? onPickSubtitles;
+
   /// 选集回调；null = 只有一集（电影），按钮整个不显示。
   final VoidCallback? onPickEpisodes;
 
   /// 对应浮层开着 → 按钮高亮（accent 字 + accent12% 底）。
   final bool speedOpen;
   final bool epOpen;
+  final bool subOpen;
 
   /// seek 中的预览位置；非 null 时时间与滑杆都显示它而非真实进度。
   final Duration? preview;
@@ -1081,9 +1155,7 @@ class _BottomChrome extends StatelessWidget {
                     tooltip: playing ? '暂停' : '播放',
                     iconSize: 32 * form.posterScale,
                     icon: Icon(
-                      playing
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                       color: Colors.white,
                     ),
                     onPressed: onTogglePlay,
@@ -1131,6 +1203,30 @@ class _BottomChrome extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onPickSubtitles != null)
+                  _hideWhileSeeking(
+                    TextButton(
+                      style: _panelBtnStyle(subOpen),
+                      onPressed: onPickSubtitles,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.subtitles_rounded,
+                            size: 17 * form.typeScale,
+                          ),
+                          const SizedBox(width: Dimens.spacingXs),
+                          Text(
+                            '字幕',
+                            style: TextStyle(
+                              fontSize: 13 * form.typeScale,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (onPickEpisodes != null)
                   _hideWhileSeeking(
                     TextButton(
