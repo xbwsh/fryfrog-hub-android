@@ -5,7 +5,13 @@ import 'package:http/http.dart' as http;
 enum ServerConnectionMode { lan, public }
 
 class ServerConnection extends ChangeNotifier {
-  ServerConnection();
+  ServerConnection({http.Client? probeClient})
+    : _probe = probeClient ?? http.Client(),
+      _ownsProbe = probeClient == null;
+
+  /// 探测专用 client（可达性 + 延迟）；测试通过参数注入 fake。
+  final http.Client _probe;
+  final bool _ownsProbe;
 
   String scheme = 'http';
   String port = '20058';
@@ -16,6 +22,59 @@ class ServerConnection extends ChangeNotifier {
   bool get hasPublic => publicHost.trim().isNotEmpty;
   bool get hasLan => lanHost.trim().isNotEmpty;
   bool get hasAnyAddress => hasPublic || hasLan;
+
+  // ── Latency (mirrors apple ServerConnection) ────────────────────────
+
+  /// 各连接方式最近一次测得的延迟（毫秒）；null = 尚未测量或不可达。
+  int? publicLatencyMs;
+  int? lanLatencyMs;
+
+  int? latency(ServerConnectionMode mode) =>
+      mode == ServerConnectionMode.lan ? lanLatencyMs : publicLatencyMs;
+
+  /// 对指定地址发一次探测请求并测 RTT；不可达返回 null。
+  /// 复用 `/api/v1/auth/status`（与 refreshActiveMode 同端点），3s 超时。
+  Future<int?> measureLatency(ServerConnectionMode mode) async {
+    final base = urlString(mode);
+    if (base == null) return null;
+    final start = DateTime.now();
+    try {
+      final res = await _probe
+          .get(Uri.parse('$base/api/v1/auth/status'))
+          .timeout(const Duration(seconds: 3));
+      if (res.statusCode != 200) return null;
+      // 最少显示 1ms：本机回环四舍五入会得 0，看着像没测。
+      return switch (DateTime.now().difference(start).inMilliseconds) {
+        <= 0 => 1,
+        final ms => ms,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 并发测量所有已配置地址的延迟；结果变化时通知监听者。
+  Future<void> refreshLatencies() async {
+    final modes = ServerConnectionMode.values
+        .where((m) => urlString(m) != null)
+        .toList(growable: false);
+    final results = await Future.wait([
+      for (final mode in modes) measureLatency(mode),
+    ]);
+    var changed = false;
+    for (var i = 0; i < modes.length; i++) {
+      final ms = results[i];
+      if (modes[i] == ServerConnectionMode.lan) {
+        changed = changed || lanLatencyMs != ms;
+        lanLatencyMs = ms;
+      } else {
+        changed = changed || publicLatencyMs != ms;
+        publicLatencyMs = ms;
+      }
+    }
+    // 值没变就不通知：轮询每 3s 一轮，无谓通知会让整页重建。
+    if (changed) notifyListeners();
+  }
 
   String hostOf(ServerConnectionMode mode) =>
       mode == ServerConnectionMode.lan ? lanHost.trim() : publicHost.trim();
@@ -68,7 +127,7 @@ class ServerConnection extends ChangeNotifier {
 
   Future<bool> _probeOk(String base) async {
     try {
-      final res = await http
+      final res = await _probe
           .get(Uri.parse('$base/api/v1/auth/status'))
           .timeout(const Duration(seconds: 3));
       return res.statusCode == 200;
@@ -89,5 +148,11 @@ class ServerConnection extends ChangeNotifier {
     final lan = urlString(ServerConnectionMode.lan);
     final lanOk = lan != null && await _probeOk(lan);
     setMode(lanOk ? ServerConnectionMode.lan : ServerConnectionMode.public);
+  }
+
+  @override
+  void dispose() {
+    if (_ownsProbe) _probe.close();
+    super.dispose();
   }
 }

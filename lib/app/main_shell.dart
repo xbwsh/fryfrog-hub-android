@@ -68,14 +68,35 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
+  /// IndexedStack 里的页都常驻，子页看不到自己的可见性；把当前 tab 索引
+  /// 单独挂一个 ValueNotifier，"我的"页据此决定要不要轮询服务器延迟。
+  final ValueNotifier<int> _tabIndex = ValueNotifier<int>(0);
+
+  void _setIndex(int i) {
+    if (i == _index) return;
+    _index = i;
+    _tabIndex.value = i;
+    setState(() {});
+  }
+
   // Pages are long-lived inside the IndexedStack below — keep instances
   // stable so switching tabs does not recreate State.
   late final List<Widget> _pages = [
     HomeScreen(session: widget.session),
     BooksScreen(session: widget.session),
     MusicScreen(session: widget.session),
-    ProfileScreen(session: widget.session),
+    ValueListenableBuilder<int>(
+      valueListenable: _tabIndex,
+      builder: (_, index, _) =>
+          ProfileScreen(session: widget.session, active: index == 3),
+    ),
   ];
+
+  @override
+  void dispose() {
+    _tabIndex.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,18 +121,18 @@ class _MainShellState extends State<MainShell> {
       DeviceForm.phone => _PhoneShell(
         form: form,
         index: _index,
-        onIndexChanged: (i) => setState(() => _index = i),
+        onIndexChanged: _setIndex,
         body: body,
       ),
       DeviceForm.tabletPortrait => _TabletPortraitShell(
         index: _index,
-        onIndexChanged: (i) => setState(() => _index = i),
+        onIndexChanged: _setIndex,
         body: body,
       ),
       DeviceForm.tabletLandscape => _SideRailShell(
         form: form,
         index: _index,
-        onIndexChanged: (i) => setState(() => _index = i),
+        onIndexChanged: _setIndex,
         body: body,
         showLabels: true,
         session: widget.session,
@@ -119,7 +140,7 @@ class _MainShellState extends State<MainShell> {
       DeviceForm.tv => _SideRailShell(
         form: form,
         index: _index,
-        onIndexChanged: (i) => setState(() => _index = i),
+        onIndexChanged: _setIndex,
         body: body,
         showLabels: true,
         wide: true,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
@@ -13,21 +15,74 @@ import 'user_management_screen.dart';
 
 /// Profile mirrors apple ProfileView sections: account / admin / server /
 /// appearance / playback / cache / privacy / support / logout.
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key, required this.session});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key, required this.session, this.active = true});
 
   final Session session;
+
+  /// 是否是当前可见的 tab。IndexedStack 里所有 tab 都常驻，延迟轮询只在
+  /// 本页可见时跑（对齐 apple `.task` 的生命周期：进入即测、离开即停）。
+  final bool active;
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Timer? _latencyTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncLatencyPolling();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) _syncLatencyPolling();
+  }
+
+  void _syncLatencyPolling() {
+    if (widget.active) {
+      _latencyTimer ??= Timer.periodic(
+        const Duration(seconds: 3),
+        (_) => _measureLatency(),
+      );
+      _measureLatency();
+    } else {
+      _latencyTimer?.cancel();
+      _latencyTimer = null;
+    }
+  }
+
+  void _measureLatency() {
+    // fire-and-forget：测量结果通过 connection.notifyListeners 回来。
+    unawaited(widget.session.connection.refreshLatencies());
+  }
+
+  @override
+  void dispose() {
+    _latencyTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
 
     return ListenableBuilder(
-      // prefs notifies separately from session (theme/privacy toggles).
-      listenable: Listenable.merge([session, session.prefs]),
+      // prefs notifies separately from session (theme/privacy toggles);
+      // connection notifies on latency / active-mode changes.
+      listenable: Listenable.merge([
+        widget.session,
+        widget.session.prefs,
+        widget.session.connection,
+      ]),
       builder: (context, _) {
-        final user = session.user;
-        final connection = session.connection;
+        final user = widget.session.user;
+        final connection = widget.session.connection;
+        final session = widget.session;
 
         // No inner Scaffold: root Scaffold already provides Material and
         // the transparent background — nesting one per tab just deepened
@@ -408,6 +463,47 @@ class _AddressTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: 12 * form.typeScale),
+      ),
+      trailing: url == '未配置'
+          ? null
+          : _LatencyPill(ms: connection.latency(mode), form: form),
+    );
+  }
+}
+
+/// 右侧延迟胶囊：`32 ms`（未测出/不可达为 `--`），配色对齐 apple
+/// ProfileView —— <100ms 绿、<300ms 橙、其余红、无值灰。
+class _LatencyPill extends StatelessWidget {
+  const _LatencyPill({required this.ms, required this.form});
+
+  final int? ms;
+  final DeviceForm form;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = ms;
+    final color = value == null
+        ? Theme.of(context).hintColor
+        : value < 100
+        ? AppColors.success
+        : value < 300
+        ? AppColors.warning
+        : AppColors.danger;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        value == null ? '--' : '$value ms',
+        style: TextStyle(
+          fontSize: 12 * form.typeScale,
+          fontWeight: FontWeight.w600,
+          color: color,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }
