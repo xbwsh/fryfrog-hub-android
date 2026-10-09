@@ -83,17 +83,20 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     }
     if (video != null) _c.selectOnly(video);
     final start = restart ? 0.0 : (target.watchPosition ?? 0);
-    await Navigator.of(context).push(
-      MaterialPageRoute<bool>(
+    final watchedEp = await Navigator.of(context).push<VideoItem?>(
+      MaterialPageRoute<VideoItem?>(
         builder: (_) => VideoPlayerScreen(
           session: widget.session,
           video: target,
           title: target.title,
           startPosition: start,
+          episodes: _c.detail?.allEpisodes ?? const [],
         ),
       ),
     );
     if (!mounted) return;
+    // 播放器里换过集 → 详情页跟着切到那一集，「继续播放」才对得上。
+    if (watchedEp != null) _c.selectOnly(watchedEp);
     await _c.refreshQuiet();
   }
 

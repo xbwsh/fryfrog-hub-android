@@ -9,15 +9,19 @@ import 'package:volume_controller/volume_controller.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
+import '../../core/rules/seek_rules.dart';
 import '../../core/rules/watch_rules.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
+import 'player_panels.dart';
 
 /// Full-screen mpv (media_kit) player with seek / volume chrome and progress.
 ///
-/// 手势层（对齐常见播放器 / media_kit 内置手势）：
-/// · 点按 — 显隐控制栏
+/// 手势层（一个 pan 手势按位移方向动态定轴，互不抢触发）：
+/// · 点按 — 显隐控制栏（因为要区分双击，会比双击超时晚约 300ms）
+/// · 双击 — 播放/暂停
+/// · 横滑 / 拖进度条 — seek：期间控制栏收到只剩进度条，松手才真正跳转
 /// · 左半屏上下滑 — 屏幕亮度；右半屏上下滑 — 系统音量
 /// · 长按 — 2.0x 倍速播放，松手恢复
 class VideoPlayerScreen extends StatefulWidget {
@@ -27,6 +31,7 @@ class VideoPlayerScreen extends StatefulWidget {
     required this.video,
     this.title,
     this.startPosition = 0,
+    this.episodes = const [],
   });
 
   final Session session;
@@ -34,9 +39,15 @@ class VideoPlayerScreen extends StatefulWidget {
   final String? title;
   final double startPosition;
 
+  /// 选集用的同一部剧的所有集（电影只有一集 → 选集按钮自动隐藏）。
+  final List<VideoItem> episodes;
+
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
+
+/// 一次拖动判定出的轴：判定前进度/亮度/音量都不动，避免互相误触发。
+enum _DragAxis { seek, adjust }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Player? _player;
@@ -50,10 +61,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _loading = true;
   bool _initialized = false;
   bool _chromeVisible = true;
-  bool _muted = false;
   bool _exiting = false;
   bool _saving = false;
   bool _markedWatched = false;
+
+  // ── 当前播放这一集（选集会整体换掉），以及它的续播起点 ──────────────
+  late VideoItem _current;
+  late String _titleText;
+  double _startAt = 0;
+
+  // ── 倍数（长按临时 2.0x 时不改这里）────────────────────────────────
+  double _rate = 1.0;
 
   double _lastProgressSave = 0;
   int _lastUiMs = -1000;
@@ -71,16 +89,36 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double _adjustValue = 0;
   int _lastAdjustApplyMs = 0;
 
+  // ── 横滑/拖动进度条 seek ───────────────────────────────────────────
+  bool _seeking = false;
+  Duration _seekStart = Duration.zero;
+  Duration _seekPreview = Duration.zero;
+  double _seekDeltaPx = 0;
+  // seek 起手前控制栏的显隐：松手还原，别让一次拖动把状态永久改掉。
+  bool _chromeBeforeSeek = true;
+  // seek 刚发出后的短暂窗口：mpv 回吐的旧位置不可信，忽略之，否则进度条回跳。
+  int _seekSettleUntilMs = 0;
+
+  // ── 拖动轴判定：攒够位移前既不动进度也不动亮度/音量 ────────────────
+  _DragAxis? _dragAxis;
+  bool _dragIgnored = false;
+  Offset _dragStartLocal = Offset.zero;
+  double _dragDx = 0;
+  double _dragDy = 0;
+
   // ── 长按倍速 ───────────────────────────────────────────────────────
   bool _speedUp = false;
   double _rateBeforeSpeedUp = 1.0;
 
-  VideoItem get _video => widget.video;
-  String get _title => widget.title ?? _video.title;
+  VideoItem get _video => _current;
+  String get _title => _titleText;
 
   @override
   void initState() {
     super.initState();
+    _current = widget.video;
+    _titleText = widget.title ?? widget.video.title;
+    _startAt = widget.startPosition;
     // 音量手势自己画 HUD，不要 Android 再弹一条系统音量条盖住画面。
     VolumeController.instance.showSystemUI = false;
     _enterImmersive();
@@ -120,11 +158,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _loading = true;
       _error = null;
       _initialized = false;
+      // 换集/重进时这些是上一条片子的，必须清掉。
+      _position = Duration.zero;
+      _duration = Duration.zero;
+      _playing = false;
+      _speedUp = false;
+      _markedWatched = false;
+      _lastProgressSave = 0;
+      _lastUiMs = -1000;
+      _seekSettleUntilMs = 0;
     });
     try {
       final api = widget.session.api;
       if (api == null) throw Exception('未登录');
-      final url = api.videoStreamUrl(_video);
+      final url = api.videoStreamUrl(_current);
 
       await _teardownPlayer();
       if (_exiting || !mounted) return;
@@ -133,9 +180,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       final controller = VideoController(player);
       _player = player;
       _controller = controller;
+      // 倍数是跨集保留的：换集后新 player 要重新套上。
+      unawaited(player.setRate(_rate));
 
       _posSub = player.stream.position.listen((pos) {
         if (!mounted || _exiting) return;
+        // 拖动中显示全走预览：这期间 mpv 回吐的还是拖动前的旧位置，
+        // 拿它更新 _position 会把下一段手势的起算点拽回去 → 进度条抖动。
+        if (_seeking) return;
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        if (nowMs < _seekSettleUntilMs &&
+            (pos - _position).abs() > const Duration(milliseconds: 1500)) {
+          return;
+        }
         _position = pos;
         // Rebuild chrome at most ~4fps — full setState per mpv tick freezes UI.
         final ms = pos.inMilliseconds;
@@ -164,7 +221,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       await player.open(Media(url), play: true);
       if (_exiting || !mounted) return;
 
-      final start = widget.startPosition;
+      final start = _startAt;
       if (start > 1) {
         for (var i = 0; i < 30; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -301,45 +358,264 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final navigator = Navigator.of(context);
     // Rotation + bars must settle while the player still covers the detail
     // page — otherwise its top bar shifts downward when they come back.
-    _restoreAppChrome().whenComplete(navigator.pop);
+    _restoreAppChrome().whenComplete(() => navigator.pop(_switchedTo));
   }
 
-  void _seekBy(int seconds) {
+  void _togglePlay() {
     final player = _player;
     if (player == null) return;
-    final target = _position + Duration(seconds: seconds);
-    if (target < Duration.zero) {
-      player.seek(Duration.zero);
-    } else if (_duration > Duration.zero && target > _duration) {
-      player.seek(_duration);
+    if (_playing) {
+      player.pause();
     } else {
-      player.seek(target);
+      player.play();
     }
   }
 
-  void _toggleMute() {
-    final player = _player;
-    if (player == null) return;
-    setState(() => _muted = !_muted);
-    player.setVolume(_muted ? 0 : 100);
+  // ── 选集：换掉片子但复用同一个播放器（不然要退回详情页再进来）──────
+  Future<void> _switchEpisode(VideoItem next) async {
+    // 正在加载/正在拖进度时都不许换，否则两次 _init 会互相打架。
+    if (_exiting || _loading || _seeking || next.id == _current.id) return;
+    // 当前这一集的进度先落盘（参数在 await 前求值，拿到的还是旧 id）。
+    unawaited(_saveProgress(force: true));
+    if (!mounted) return;
+    setState(() {
+      _current = next;
+      _titleText = next.title;
+      _startAt = next.watchPosition ?? 0;
+      _chromeVisible = true;
+    });
+    // 退出时把换过的这一集带回详情页，那边的「继续播放」才指得对。
+    _switchedTo = next;
+    await _init();
   }
 
-  // ── 手势：左半屏亮度 · 右半屏系统音量 · 长按 2.0x ──────────────────
+  /// 换过集后记录下来，退出时作为路由返回值带回详情页。
+  VideoItem? _switchedTo;
+
+  // ── 倍数 / 右侧选集抽屉 / 右下倍速浮层 ────────────────────────────
+
+  /// 按钮上的倍数；长按 2.0x 期间如实显示 2.0X。
+  String get _rateLabel => formatSpeed(_speedUp ? 2.0 : _rate);
+
+  /// 两个浮层互斥：开一个就关另一个（= 原型 closeAll 语义）。
+  bool _epOpen = false;
+  bool _speedOpen = false;
+
+  void _toggleEpDrawer() {
+    if (_exiting) return;
+    setState(() {
+      _epOpen = !_epOpen;
+      if (_epOpen) {
+        _speedOpen = false;
+        // 面板开着时控制栏不能自己收起来，否则高亮的按钮点不到。
+        _chromeVisible = true;
+      }
+    });
+  }
+
+  void _toggleSpeedPanel() {
+    if (_exiting) return;
+    setState(() {
+      _speedOpen = !_speedOpen;
+      if (_speedOpen) {
+        _epOpen = false;
+        _chromeVisible = true;
+      }
+    });
+  }
+
+  void _closePanels() {
+    if (!_epOpen && !_speedOpen) return;
+    setState(() {
+      _epOpen = false;
+      _speedOpen = false;
+    });
+  }
+
+  Future<void> _setRate(double value) async {
+    if (_exiting) return;
+    setState(() => _rate = value);
+    await _player?.setRate(value);
+  }
+
+  /// 抽屉里点了一集：先关面板，再走复用同一个播放器的换集流程。
+  Future<void> _onPickEpisode(VideoItem ep) async {
+    final same = ep.id == _current.id;
+    _closePanels();
+    if (same || _exiting) return;
+    await _switchEpisode(ep);
+  }
+
+  // ── 手势：横滑 seek · 左半屏亮度 · 右半屏系统音量 · 长按 2.0x ──────
 
   /// 屏幕最左/最右 24px 让给系统返回手势（Android 手势导航的边缘滑动）。
-  bool _isGestureEdge(DragStartDetails details) {
+  bool _isGestureEdge(Offset localPosition) {
     final width = MediaQuery.sizeOf(context).width;
-    final x = details.localPosition.dx;
-    return x < 24 || x > width - 24;
+    return localPosition.dx < 24 || localPosition.dx > width - 24;
   }
 
-  void _onVerticalDragStart(DragStartDetails details) {
-    if (_exiting || _isGestureEdge(details)) return;
+  void _onPanStart(DragStartDetails details) {
+    // 进度条正在被拖（滑杆自己的手势）：别起第二套预览，交给它拖完。
+    if (_seeking) {
+      _dragIgnored = true;
+      _dragAxis = null;
+      return;
+    }
+    _dragAxis = null;
+    _dragStartLocal = details.localPosition;
+    _dragIgnored = _exiting || _isGestureEdge(details.localPosition);
+    _dragDx = 0;
+    _dragDy = 0;
+    _adjusting = false;
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    if (_exiting || _dragIgnored) return;
+    _dragDx += details.delta.dx;
+    _dragDy += details.delta.dy;
+
+    if (_dragAxis == null) {
+      if (!SeekRules.readyToDecide(_dragDx, _dragDy)) return;
+      // 判定前两者都不动手：横滑快进绝不会顺手把亮度/音量改掉，反之亦然。
+      if (SeekRules.isHorizontal(_dragDx, _dragDy)) {
+        _dragAxis = _DragAxis.seek;
+        if (!_beginSeek()) {
+          _dragIgnored = true; // 总时长还没拿到，无从预览进度
+          return;
+        }
+      } else {
+        _dragAxis = _DragAxis.adjust;
+        _beginAdjust();
+      }
+      return;
+    }
+
+    if (_dragAxis == _DragAxis.seek) {
+      _seekDeltaPx = _dragDx;
+      _updateSeekPreview();
+    } else {
+      _adjustDeltaPx = _dragDy;
+      if (_adjustReady) unawaited(_applyAdjust());
+    }
+  }
+
+  void _onPanEnd(DragEndDetails details) => unawaited(_endDrag());
+
+  void _onPanCancel() => unawaited(_endDrag());
+
+  Future<void> _endDrag() async {
+    final axis = _dragAxis;
+    final ignored = _dragIgnored;
+    _dragAxis = null;
+    _dragIgnored = false;
+    if (ignored) return;
+
+    if (axis == _DragAxis.seek) {
+      _commitSeek();
+    } else if (axis == _DragAxis.adjust) {
+      await _endAdjust();
+    }
+  }
+
+  /// 进入 seek 模式：控制栏收到只剩进度条，显示值改走预览。
+  /// [from] 非空表示滑杆自己被拖（绝对目标），空表示横滑（由位移换算）。
+  bool _beginSeek({Duration? from}) {
+    // 拖进度是面板关闭后才可能发生的路径，兜底关一下浮层。
+    _closePanels();
+    if (_duration <= Duration.zero) return false;
+    if (!_seeking) _chromeBeforeSeek = _chromeVisible;
+    _seeking = true;
+    _seekStart = _position;
+    _seekDeltaPx = _dragDx;
+    if (from != null) {
+      _seekPreview = from;
+    } else {
+      _seekPreview = SeekRules.preview(
+        start: _seekStart,
+        duration: _duration,
+        deltaPx: _seekDeltaPx,
+        width: MediaQuery.sizeOf(context).width,
+      );
+    }
+    _chromeVisible = true;
+    if (mounted) setState(() {});
+    return true;
+  }
+
+  void _updateSeekPreview() {
+    if (!_seeking) return;
+    final width = MediaQuery.sizeOf(context).width;
+    // 横滑整个屏宽 ≈ 走完整集时长，clamp 在 [0, 时长]。
+    _seekPreview = SeekRules.preview(
+      start: _seekStart,
+      duration: _duration,
+      deltaPx: _seekDeltaPx,
+      width: width,
+    );
+    if (mounted) setState(() {});
+  }
+
+  /// 松手：真的跳过去 + 存进度，并把控制栏还原成拖动前的样子。
+  void _commitSeek() {
+    if (!_seeking) return;
+    final target = _seekPreview;
+    final player = _player;
+    _seeking = false;
+    _chromeVisible = _chromeBeforeSeek;
+    if (player != null && _duration > Duration.zero) {
+      // 先落本地位置再存进度，否则存的是跳转前的旧位置。
+      _position = target;
+      // 900ms 内 mpv 可能还在回吐 seek 前的旧位置，别让它把进度条拽回去。
+      _seekSettleUntilMs = DateTime.now().millisecondsSinceEpoch + 900;
+      unawaited(_seekTo(player, target));
+      unawaited(_saveProgress(force: true));
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// 精确 seek。mpv 默认按关键帧 seek，会落在目标前面的 I 帧上——松手后
+  /// 进度条会肉眼可见地往回跳几秒；exact 会解码到目标帧，代价是一小段解码。
+  Future<void> _seekTo(Player player, Duration target) async {
+    final platform = player.platform;
+    if (platform is NativePlayer) {
+      try {
+        await platform.command([
+          'seek',
+          (target.inMilliseconds / 1000).toStringAsFixed(4),
+          'absolute',
+          'exact',
+        ]);
+        return;
+      } catch (_) {
+        // 命令失败（平台/初始化差异）→ 回落普通 seek。
+      }
+    }
+    await player.seek(target);
+  }
+
+  // ── 进度条自己被拖：拖动中只更新预览，松手才 seek 一次 ──────────────
+  void _onScrubStart(Duration value) {
+    _beginSeek(from: value);
+  }
+
+  void _onScrubUpdate(Duration value) {
+    if (!_seeking) return;
+    setState(() => _seekPreview = value);
+  }
+
+  void _onScrubEnd(Duration value) {
+    if (!_seeking) return;
+    _seekPreview = value;
+    _commitSeek();
+  }
+
+  /// 判成纵向后才开始调亮度/音量（异步读当前值）。
+  void _beginAdjust() {
     final size = MediaQuery.sizeOf(context);
     _adjusting = true;
-    _adjustBrightness = details.localPosition.dx <= size.width / 2;
+    _adjustBrightness = _dragStartLocal.dx <= size.width / 2;
     _adjustReady = false;
-    _adjustDeltaPx = 0;
+    _adjustDeltaPx = _dragDy;
     // 全程（约半个屏高）走完 0→100%，和常见播放器手感一致。
     _adjustRange = size.height * 0.5;
     _adjustValue = 0;
@@ -360,17 +636,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _adjustReady = true;
     await _applyAdjust(force: true);
   }
-
-  void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (!_adjusting) return;
-    _adjustDeltaPx += details.delta.dy;
-    if (!_adjustReady) return;
-    unawaited(_applyAdjust());
-  }
-
-  void _onVerticalDragEnd(DragEndDetails details) => unawaited(_endAdjust());
-
-  void _onVerticalDragCancel() => unawaited(_endAdjust());
 
   Future<void> _endAdjust() async {
     if (!_adjusting) return;
@@ -424,11 +689,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _writeVolume(double value) async {
     try {
       await VolumeController.instance.setVolume(value);
-      // 系统音量动了就必须解开播放器静音，否则怎么拖都没声。
-      if (_muted) {
-        _muted = false;
-        unawaited(_player?.setVolume(100));
-      }
     } catch (_) {
       unawaited(_player?.setVolume(value * 100));
     }
@@ -449,26 +709,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (mounted) setState(() => _speedUp = false);
   }
 
-  Future<void> _toggleOrientation() async {
-    final screen = MediaQuery.sizeOf(context);
-    final isPortrait = screen.height >= screen.width;
-    if (isPortrait) {
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-      ]);
-      await SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.edgeToEdge,
-        overlays: SystemUiOverlay.values,
-      );
-    }
-  }
-
   String _fmt(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -484,6 +724,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || _exiting) return;
+        // = 原型的 Esc：面板开着时返回键先关面板，再谈退出播放器。
+        if (_epOpen || _speedOpen) {
+          _closePanels();
+          return;
+        }
         _exit();
       },
       child: Scaffold(
@@ -493,10 +738,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _toggleChrome,
-              onVerticalDragStart: _onVerticalDragStart,
-              onVerticalDragUpdate: _onVerticalDragUpdate,
-              onVerticalDragEnd: _onVerticalDragEnd,
-              onVerticalDragCancel: _onVerticalDragCancel,
+              onDoubleTap: _togglePlay,
+              onPanStart: _onPanStart,
+              onPanUpdate: _onPanUpdate,
+              onPanEnd: _onPanEnd,
+              onPanCancel: _onPanCancel,
               onLongPress: _onLongPressStart,
               onLongPressEnd: _onLongPressEnd,
               child: Center(child: _body(form)),
@@ -515,7 +761,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                 ),
               ),
-            if (_chromeVisible && !_exiting)
+            // 拖动 seek 中控制栏收到只剩进度条：顶栏也一并收起。
+            if (_chromeVisible && !_seeking && !_exiting)
               Positioned(
                 left: 0,
                 right: 0,
@@ -531,27 +778,67 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   form: form,
                   playing: _playing,
                   position: _position,
+                  // 拖动中（横滑或滑杆）进度条跟预览走，松手才真正跳转。
+                  seeking: _seeking,
+                  preview: _seeking ? _seekPreview : null,
                   duration: _duration,
-                  muted: _muted,
+                  rateLabel: _rateLabel,
+                  speedOpen: _speedOpen,
+                  epOpen: _epOpen,
+                  onPickSpeed: _toggleSpeedPanel,
+                  onPickEpisodes: widget.episodes.length > 1
+                      ? _toggleEpDrawer
+                      : null,
                   fmt: _fmt,
-                  onSeek: (d) {
-                    _player?.seek(d);
-                    unawaited(_saveProgress(force: true));
-                  },
-                  onTogglePlay: () {
-                    final p = _player;
-                    if (p == null) return;
-                    if (_playing) {
-                      p.pause();
-                    } else {
-                      p.play();
-                    }
-                  },
-                  onSeekBy: _seekBy,
-                  onToggleMute: _toggleMute,
-                  onToggleOrientation: _toggleOrientation,
+                  onChangeStart: _onScrubStart,
+                  onChanged: _onScrubUpdate,
+                  onChangeEnd: _onScrubEnd,
+                  onTogglePlay: _togglePlay,
                 ),
               ),
+            // ── 选集抽屉 / 倍速浮层 + 遮罩：盖住视频与控制栏（原型同款层级）──
+            if (!_exiting) ...[
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_epOpen && !_speedOpen,
+                  child: GestureDetector(
+                    onTap: _closePanels,
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedOpacity(
+                      opacity: (_epOpen || _speedOpen) ? 1 : 0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                child: EpisodeDrawer(
+                  open: _epOpen,
+                  episodes: widget.episodes,
+                  currentId: _current.id,
+                  onClose: _closePanels,
+                  onPick: _onPickEpisode,
+                ),
+              ),
+              Positioned(
+                right: Dimens.spacingLg,
+                bottom: Dimens.playerSpeedPanelBottom,
+                child: SpeedPanel(
+                  open: _speedOpen,
+                  rate: _rate,
+                  onChanged: _setRate,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -622,41 +909,55 @@ class _TopChrome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black54,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: kToolbarHeight,
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: '返回',
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                onPressed: onBack,
-              ),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+    return DecoratedBox(
+      // 渐变代替硬边黑条：顶边最深、向下化开，标题在最深处仍可读。
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.black54, Colors.black54, Colors.transparent],
+          stops: [0.0, 0.45, 1.0],
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(
+          bottom: false,
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: '返回',
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
                     color: Colors.white,
-                    fontSize: 14 * form.typeScale,
-                    fontWeight: FontWeight.w700,
+                  ),
+                  onPressed: onBack,
+                ),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14 * form.typeScale,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                'mpv',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 11 * form.typeScale,
-                  fontWeight: FontWeight.w600,
+                Text(
+                  'mpv',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11 * form.typeScale,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              const SizedBox(width: Dimens.spacingMd),
-            ],
+                const SizedBox(width: Dimens.spacingMd),
+              ],
+            ),
           ),
         ),
       ),
@@ -670,26 +971,71 @@ class _BottomChrome extends StatelessWidget {
     required this.playing,
     required this.position,
     required this.duration,
-    required this.muted,
     required this.fmt,
-    required this.onSeek,
+    required this.seeking,
+    required this.rateLabel,
+    required this.speedOpen,
+    required this.epOpen,
+    required this.onPickSpeed,
+    required this.onChangeStart,
+    required this.onChanged,
+    required this.onChangeEnd,
     required this.onTogglePlay,
-    required this.onSeekBy,
-    required this.onToggleMute,
-    required this.onToggleOrientation,
+    this.onPickEpisodes,
+    this.preview,
   });
 
   final DeviceForm form;
   final bool playing;
   final Duration position;
   final Duration duration;
-  final bool muted;
   final String Function(Duration) fmt;
-  final ValueChanged<Duration> onSeek;
+
+  /// 拖动 seek 中（横滑或滑杆）：只留进度条 + 时间，其余控件全收起。
+  final bool seeking;
+  final ValueChanged<Duration> onChangeStart;
+  final ValueChanged<Duration> onChanged;
+  final ValueChanged<Duration> onChangeEnd;
   final VoidCallback onTogglePlay;
-  final ValueChanged<int> onSeekBy;
-  final VoidCallback onToggleMute;
-  final VoidCallback onToggleOrientation;
+
+  /// 倍数按钮文案（如 `1.0X`）与回调。
+  final String rateLabel;
+  final VoidCallback onPickSpeed;
+
+  /// 选集回调；null = 只有一集（电影），按钮整个不显示。
+  final VoidCallback? onPickEpisodes;
+
+  /// 对应浮层开着 → 按钮高亮（accent 字 + accent12% 底）。
+  final bool speedOpen;
+  final bool epOpen;
+
+  /// seek 中的预览位置；非 null 时时间与滑杆都显示它而非真实进度。
+  final Duration? preview;
+
+  /// seek 中把按钮藏起来但**保留占位**：滑杆轨道宽度不变，拇指不会因为
+  /// 布局重排而横跳（那看起来就是进度条在抖）。
+  Widget _hideWhileSeeking(Widget child) => Visibility(
+    visible: !seeking,
+    maintainState: true,
+    maintainAnimation: true,
+    maintainSize: true,
+    child: child,
+  );
+
+  /// 面板按钮样式：对应浮层开着时 accent 字 + accent 12% 底（原型 .text-btn.active）。
+  ButtonStyle _panelBtnStyle(bool active) {
+    return TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
+      minimumSize: Size(44 * form.typeScale, 32),
+      foregroundColor: active ? AppColors.accent : Colors.white,
+      backgroundColor: active
+          ? AppColors.accent.withValues(alpha: 0.12)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Dimens.radiusSm),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -697,82 +1043,120 @@ class _BottomChrome extends StatelessWidget {
       1.0,
       double.infinity,
     );
-    final posMs = position.inMilliseconds.toDouble().clamp(0.0, maxMs);
+    final shownMs = (preview ?? position).inMilliseconds;
+    final posMs = shownMs.toDouble().clamp(0.0, maxMs);
+    final timeStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 12 * form.typeScale,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
-    return Material(
-      color: Colors.black54,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Dimens.spacingSm,
-            Dimens.spacingXs,
-            Dimens.spacingSm,
-            Dimens.spacingSm,
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: playing ? '暂停' : '播放',
-                iconSize: 32 * form.posterScale,
-                icon: Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: Colors.white,
+    return DecoratedBox(
+      // 渐变代替硬边黑条：底边最深、向上化开，亮画面里白字仍可读。
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Colors.black54, Colors.black54, Colors.transparent],
+          stops: [0.0, 0.45, 1.0],
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Dimens.spacingSm,
+              Dimens.spacingXs,
+              Dimens.spacingSm,
+              Dimens.spacingSm,
+            ),
+            child: Row(
+              children: [
+                // seek 中只隐藏不占位地收起按钮 —— 直接从 Row 里删掉会改变
+                // 滑杆轨道宽度，拇指瞬间横跳，反而像抖动。
+                _hideWhileSeeking(
+                  IconButton(
+                    tooltip: playing ? '暂停' : '播放',
+                    iconSize: 32 * form.posterScale,
+                    icon: Icon(
+                      playing
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                    ),
+                    onPressed: onTogglePlay,
+                  ),
                 ),
-                onPressed: onTogglePlay,
-              ),
-              IconButton(
-                tooltip: '后退 10 秒',
-                icon: const Icon(Icons.replay_10_rounded, color: Colors.white),
-                onPressed: () => onSeekBy(-10),
-              ),
-              IconButton(
-                tooltip: '快进 10 秒',
-                icon: const Icon(Icons.forward_10_rounded, color: Colors.white),
-                onPressed: () => onSeekBy(10),
-              ),
-              const SizedBox(width: Dimens.spacingXs),
-              Text(
-                fmt(position),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12 * form.typeScale,
+                const SizedBox(width: Dimens.spacingXs),
+                // 已播/总时长并排（3:43/16:00），总时长压暗一档区分。
+                Text.rich(
+                  TextSpan(
+                    text: fmt(preview ?? position),
+                    style: timeStyle,
+                    children: [
+                      TextSpan(
+                        text: '/${fmt(duration)}',
+                        style: timeStyle.copyWith(color: Colors.white70),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Slider(
-                  value: posMs,
-                  max: maxMs,
-                  onChanged: (ms) {
-                    onSeek(Duration(milliseconds: ms.toInt()));
-                  },
+                Expanded(
+                  child: Slider(
+                    value: posMs,
+                    max: maxMs,
+                    // 拖动中只更新预览，松手才 seek —— 见 _onScrub*。
+                    onChangeStart: (ms) =>
+                        onChangeStart(Duration(milliseconds: ms.toInt())),
+                    onChanged: (ms) =>
+                        onChanged(Duration(milliseconds: ms.toInt())),
+                    onChangeEnd: (ms) =>
+                        onChangeEnd(Duration(milliseconds: ms.toInt())),
+                  ),
                 ),
-              ),
-              Text(
-                fmt(duration),
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12 * form.typeScale,
+                const SizedBox(width: Dimens.spacingXs),
+                _hideWhileSeeking(
+                  TextButton(
+                    style: _panelBtnStyle(speedOpen),
+                    onPressed: onPickSpeed,
+                    child: Text(
+                      rateLabel,
+                      style: TextStyle(
+                        fontSize: 13 * form.typeScale,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: Dimens.spacingXs),
-              IconButton(
-                tooltip: muted ? '取消静音' : '静音',
-                icon: Icon(
-                  muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                  color: Colors.white,
-                ),
-                onPressed: onToggleMute,
-              ),
-              IconButton(
-                tooltip: '旋转屏幕',
-                icon: const Icon(
-                  Icons.screen_rotation_rounded,
-                  color: Colors.white,
-                ),
-                onPressed: onToggleOrientation,
-              ),
-            ],
+                if (onPickEpisodes != null)
+                  _hideWhileSeeking(
+                    TextButton(
+                      style: _panelBtnStyle(epOpen),
+                      onPressed: onPickEpisodes,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.format_list_bulleted_rounded,
+                            size: 17 * form.typeScale,
+                          ),
+                          const SizedBox(width: Dimens.spacingXs),
+                          Text(
+                            '选集',
+                            style: TextStyle(
+                              fontSize: 13 * form.typeScale,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -803,7 +1187,7 @@ class _GestureHud extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final child = speedUp
-        ? Text('2.0x', style: textStyle)
+        ? Text(formatSpeed(2.0), style: textStyle)
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [

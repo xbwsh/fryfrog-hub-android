@@ -66,4 +66,35 @@ class Dimens {
 
   /// Circular watch-progress ring overlaid on the hero poster.
   static const double videoProgressRing = 44;
+
+  // ── 播放器浮层（右侧选集抽屉 / 右下倍速面板）──────────────────────
+  /// 抽屉最大宽度（dp）；小屏取 min(此值, 屏宽 × fraction)。
+  static const double playerDrawerWidth = 352;
+
+  /// 抽屉宽度占屏宽比例上限（窄屏时用它，避免抽屉顶满整屏）。
+  static const double playerDrawerWidthFraction = 0.88;
+
+  /// 选集「列表」样式缩略图宽（16:9）。
+  static const double playerEpisodeThumbWidth = 88;
+
+  /// 「数字」宫格单元最大宽；GridView 按它自适应列数（≈原型 minmax 52+gap）。
+  static const double playerNumCellMaxExtent = 60;
+
+  /// 倍速浮层宽度。
+  static const double playerSpeedPanelWidth = 268;
+
+  /// 倍速浮层距屏幕底部的距离（压在底栏控制条上方）。
+  static const double playerSpeedPanelBottom = 78;
+
+  /// 倍速浮层滑条拇指半径（刻度/气泡按它对齐行程两端）。
+  static const double playerSpeedThumbRadius = 8;
+
+  /// 倍速浮层「拖动气泡」固定宽（按中线定位）。
+  static const double playerSpeedBubbleWidth = 64;
+
+  /// 倍速浮层单个刻度标签的占位宽。
+  static const double playerSpeedTickWidth = 32;
+
+  /// 倍速浮层底部预设档位（0.5X/1.0X/1.5X/2.0X）按钮高。
+  static const double playerSpeedChipHeight = 28;
 }
