@@ -72,6 +72,13 @@ jobs:
       - name: Dependencies
         run: flutter pub get
 
+      # 必须在 pub get 之后（插件要先解压到 pub cache）、构建之前。
+      # 没有这步，release 包会用官方 libmpv：无 fontconfig → ASS 特效
+      # 字幕字形回退/竖排堆叠（见 third_party/.../README.md）。
+      # 脚本幂等，按 PUB_CACHE → 平台默认路径探测插件。
+      - name: Inject custom libmpv (fontconfig + upstream patches)
+        run: python3 tools/patch_libmpv_jar.py
+
       - name: Analyze
         run: flutter analyze
 
