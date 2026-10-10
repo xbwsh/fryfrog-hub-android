@@ -22,38 +22,79 @@ void main() {
   });
 
   group('SeekRules.preview', () {
-    const width = 400.0;
-    const duration = Duration(minutes: 44, seconds: 30); // 2670000ms
+    const duration = Duration(minutes: 44, seconds: 30);
 
-    test('整屏宽右滑走完整集，左滑回到开头', () {
+    test('精细段 0.1s/px + 整秒量化：退几秒指哪打哪', () {
+      // 10px → 1.0s → 1 秒
       expect(
         SeekRules.preview(
           start: Duration.zero,
           duration: duration,
-          deltaPx: width,
-          width: width,
+          deltaPx: 10,
         ),
-        duration,
+        const Duration(seconds: 1),
       );
+      // 从 3:00 退 10px → 精确 -1 秒
       expect(
         SeekRules.preview(
-          start: duration,
+          start: const Duration(minutes: 3),
           duration: duration,
-          deltaPx: -width,
-          width: width,
+          deltaPx: -10,
         ),
-        Duration.zero,
+        const Duration(minutes: 2, seconds: 59),
+      );
+      // 30px → 3 秒
+      expect(
+        SeekRules.preview(
+          start: Duration.zero,
+          duration: duration,
+          deltaPx: 30,
+        ),
+        const Duration(seconds: 3),
       );
     });
 
-    test('半屏宽 = 半集时长（从起点算）', () {
-      final half = SeekRules.preview(
-        start: Duration.zero,
-        duration: duration,
-        deltaPx: width / 2,
-        width: width,
+    test('亚秒位移按秒量化到 1 秒内', () {
+      // 4px → 0.4s → round 到 0 秒？0.4.round()=0 → 0s
+      expect(
+        SeekRules.preview(
+          start: Duration.zero,
+          duration: duration,
+          deltaPx: 4,
+        ),
+        Duration.zero,
       );
-      expect(half.inMilliseconds, duration.inMilliseconds ~/ 2);
+      // 6px → 0.6s → 1 秒
+      expect(
+        SeekRules.preview(
+          start: Duration.zero,
+          duration: duration,
+          deltaPx: 6,
+        ),
+        const Duration(seconds: 1),
+      );
+    });
+
+    test('加速段：超过 150px 后 0.75s/px', () {
+      // 150px 精细段 = 15s；再 +100px 加速段 = 75s；合计 90s
+      expect(
+        SeekRules.preview(
+          start: Duration.zero,
+          duration: duration,
+          deltaPx: 250,
+        ),
+        const Duration(seconds: 90),
+      );
+      // 整屏 ~400px：150*0.1 + 250*0.75 = 15 + 187.5 = 202.5 → 203s
+      //（Dart .round() 半数远离零）
+      expect(
+        SeekRules.preview(
+          start: Duration.zero,
+          duration: duration,
+          deltaPx: 400,
+        ),
+        const Duration(seconds: 203),
+      );
     });
 
     test('越界 clamp 到 [0, 时长]', () {
@@ -61,19 +102,17 @@ void main() {
         SeekRules.preview(
           start: Duration.zero,
           duration: duration,
-          deltaPx: width * 3,
-          width: width,
+          deltaPx: -9999,
         ),
-        duration,
+        Duration.zero,
       );
       expect(
         SeekRules.preview(
           start: duration,
           duration: duration,
-          deltaPx: -width * 2,
-          width: width,
+          deltaPx: 9999,
         ),
-        Duration.zero,
+        duration,
       );
     });
 
@@ -82,31 +121,17 @@ void main() {
       final moved = SeekRules.preview(
         start: start,
         duration: duration,
-        deltaPx: -width / 4,
-        width: width,
+        deltaPx: -20,
       );
-      expect(
-        moved.inMilliseconds,
-        start.inMilliseconds - duration.inMilliseconds ~/ 4,
-      );
+      expect(moved, const Duration(minutes: 19, seconds: 58));
     });
 
-    test('时长/屏宽未知时退回起点，不产生跳转', () {
+    test('时长未知时退回起点，不产生跳转', () {
       expect(
         SeekRules.preview(
-          start: Duration(minutes: 3),
+          start: const Duration(minutes: 3),
           duration: Duration.zero,
           deltaPx: 100,
-          width: width,
-        ),
-        const Duration(minutes: 3),
-      );
-      expect(
-        SeekRules.preview(
-          start: Duration(minutes: 3),
-          duration: duration,
-          deltaPx: 100,
-          width: 0,
         ),
         const Duration(minutes: 3),
       );

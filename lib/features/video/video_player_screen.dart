@@ -121,7 +121,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // seek 起手前控制栏的显隐：松手还原，别让一次拖动把状态永久改掉。
   bool _chromeBeforeSeek = true;
   // seek 刚发出后的短暂窗口：mpv 回吐的旧位置不可信，忽略之，否则进度条回跳。
+  // 3s 上限 + 位置接近目标即提前解锁（见 position 监听器）。
   int _seekSettleUntilMs = 0;
+  // 横滑预览 UI 刷新节流（30fps），见 _updateSeekPreview。
+  int _lastSeekUiMs = 0;
 
   // ── 拖动轴判定：攒够位移前既不动进度也不动亮度/音量 ────────────────
   _DragAxis? _dragAxis;
@@ -278,9 +281,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         // 拿它更新 _position 会把下一段手势的起算点拽回去 → 进度条抖动。
         if (_seeking) return;
         final nowMs = DateTime.now().millisecondsSinceEpoch;
-        if (nowMs < _seekSettleUntilMs &&
-            (pos - _position).abs() > const Duration(milliseconds: 1500)) {
-          return;
+        if (nowMs < _seekSettleUntilMs) {
+          if ((pos - _position).abs() > const Duration(milliseconds: 1500)) {
+            // mpv 还在回吐 seek 前的旧位置，忽略。
+            return;
+          }
+          // 已落到目标附近（exact seek 可能要 1-2s），立即解除保护。
+          _seekSettleUntilMs = 0;
         }
         _position = pos;
         // Rebuild chrome at most ~4fps — full setState per mpv tick freezes UI.
@@ -991,7 +998,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         start: _seekStart,
         duration: _duration,
         deltaPx: _seekDeltaPx,
-        width: MediaQuery.sizeOf(context).width,
       );
     }
     _chromeVisible = true;
@@ -1001,14 +1007,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _updateSeekPreview() {
     if (!_seeking) return;
-    final width = MediaQuery.sizeOf(context).width;
-    // 横滑整个屏宽 ≈ 走完整集时长，clamp 在 [0, 时长]。
+    // 换算规则见 SeekRules：精细 0.1s/px + 超 150px 加速 + 整秒量化。
     _seekPreview = SeekRules.preview(
       start: _seekStart,
       duration: _duration,
       deltaPx: _seekDeltaPx,
-      width: width,
     );
+    // 预览刷新 30fps 封顶：每次 setState 都重建整页，追着 pointer 事件
+    // 全量刷新会掉帧（拖动发"延迟"的来源之一）。数值始终取最新，
+    // 只节流 UI；松手 _commitSeek 会补一次 setState。
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastSeekUiMs < 33) return;
+    _lastSeekUiMs = nowMs;
     if (mounted) setState(() {});
   }
 
@@ -1022,8 +1032,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (player != null && _duration > Duration.zero) {
       // 先落本地位置再存进度，否则存的是跳转前的旧位置。
       _position = target;
-      // 900ms 内 mpv 可能还在回吐 seek 前的旧位置，别让它把进度条拽回去。
-      _seekSettleUntilMs = DateTime.now().millisecondsSinceEpoch + 900;
+      // 松手后 mpv 回吐旧位置的窗口：exact seek 在网络流上常超 1 秒，
+      // 旧的 900ms 不够 → 旧位置灌回、进度条先倒退再追上（"延迟/回弹"）。
+      // 放宽到 3s 上限；位置一旦接近目标（监听器里 ≤1.5s）立即提前解锁。
+      _seekSettleUntilMs = DateTime.now().millisecondsSinceEpoch + 3000;
       unawaited(_seekTo(player, target));
       unawaited(_saveProgress(force: true));
     }
@@ -1206,9 +1218,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               onLongPressEnd: _onLongPressEnd,
               child: Center(child: _body(form)),
             ),
-            // 亮度/音量/倍速的即时反馈，居中悬浮，不参与命中测试。
+            // 亮度/音量/倍速/拖动进度 的即时反馈，居中悬浮，不参与命中测试。
             // 长按倍速期间可能同时在加载（切集），同样避开与进度圈重叠。
-            if ((_adjusting || _speedUp) && !_exiting && !_loading)
+            if ((_adjusting || _speedUp || _seeking) && !_exiting && !_loading)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Center(
@@ -1217,6 +1229,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       speedUp: _speedUp,
                       brightness: _adjustBrightness,
                       value: _adjustValue,
+                      // 横滑/拖进度条期间：目标位置 + 总时长，与音量亮度同款 HUD。
+                      seek: _seeking ? _fmt(_seekPreview) : null,
+                      seekTotal: _seeking ? _fmt(_duration) : null,
+                      seekForward: !_seeking || _seekPreview >= _seekStart,
                     ),
                   ),
                 ),
@@ -2018,12 +2034,24 @@ class _GestureHud extends StatelessWidget {
     required this.speedUp,
     required this.brightness,
     required this.value,
+    this.seek,
+    this.seekTotal,
+    this.seekForward = true,
   });
 
   final DeviceForm form;
   final bool speedUp;
   final bool brightness;
   final double value;
+
+  /// 拖动进度中的目标位置（mm:ss）；非空即渲染 seek 模式 HUD。
+  final String? seek;
+
+  /// 总时长（mm:ss），seek 模式下的副文本。
+  final String? seekTotal;
+
+  /// 快进 / 快退方向图标。
+  final bool seekForward;
 
   @override
   Widget build(BuildContext context) {
@@ -2033,16 +2061,44 @@ class _GestureHud extends StatelessWidget {
       fontWeight: FontWeight.w700,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final child = speedUp
-        ? Text(formatSpeed(2.0), style: textStyle)
-        : Row(
+    final child = seek != null
+        ? Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(_icon, color: Colors.white, size: 20 * form.typeScale),
+              Icon(
+                seekForward ? Icons.fast_forward_rounded : Icons.replay_rounded,
+                color: Colors.white,
+                size: 20 * form.typeScale,
+              ),
               const SizedBox(width: Dimens.spacingSm),
-              Text('${(value * 100).round()}%', style: textStyle),
+              // 目标时间放大一号：拖动时视线聚焦画面中央，读数要一眼可辨。
+              Text(
+                seek!,
+                style: textStyle.copyWith(fontSize: 17 * form.typeScale),
+              ),
+              if (seekTotal != null && seekTotal!.isNotEmpty) ...[
+                const SizedBox(width: Dimens.spacingXs),
+                Text(
+                  '/ $seekTotal',
+                  style: textStyle.copyWith(
+                    fontSize: 12 * form.typeScale,
+                    color: Colors.white54,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ],
-          );
+          )
+        : speedUp
+            ? Text(formatSpeed(2.0), style: textStyle)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_icon, color: Colors.white, size: 20 * form.typeScale),
+                  const SizedBox(width: Dimens.spacingSm),
+                  Text('${(value * 100).round()}%', style: textStyle),
+                ],
+              );
 
     return Container(
       padding: const EdgeInsets.symmetric(
