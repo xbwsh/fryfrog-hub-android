@@ -201,8 +201,14 @@ if ! skip_until fontconfig; then
 		cd "$D/fontconfig"
 		find . -maxdepth 1 -name '_build*' -exec rm -rf {} + 2>/dev/null
 		unset CC CXX
+		# /system/fonts 必须显式传：fontconfig 2.14 的逻辑是
+		# default-fonts-dirs=['yes'] → 按宿主系统给默认目录（交叉编译会拿到
+		# /usr/share/fonts），传 [] → 一个目录都没有；只有显式指定才会烙进
+		# FC_DEFAULT_FONTS（二进制里形如 <dir>/system/fonts</dir>）。
+		# 之前误写成 []，导致 pack_libmpv_jar.py 的 /system/fonts 校验失败，
+		# 且设备上 fontconfig 扫不到系统字体（字幕修复失效）。
 		meson setup _b --prefix=/usr/local --cross-file "$PREFIX/crossfile.txt" \
-			-Ddefault-fonts-dirs=[] \
+			-Ddefault-fonts-dirs=/system/fonts \
 			-Ddefault-hinting=none \
 			-Ddoc=disabled -Ddoc-txt=disabled -Ddoc-man=disabled \
 			-Ddoc-pdf=disabled -Ddoc-html=disabled \

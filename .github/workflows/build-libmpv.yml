@@ -3,6 +3,12 @@ name: Build libmpv (arm64)
 # 云端交叉编译自编译版 libmpv（fontconfig 字幕修复 + 上游 mpv 补丁）。
 # 产物：libs/libmpv-arm64-fontconfig.jar（artifact 下载后替换仓库里的同名文件）。
 #
+# 拆成 build / pack 两个 job：
+#   * build（重活）成功就保存 NDK/源码缓存并上传原始 libmpv.so —— 即使 pack
+#     失败也不用 90 分钟重来；
+#   * pack（秒级）单独跑符号/字体硬校验，失败只挂这一个 job，原始 so 仍在
+#     artifact 里可下载到本地复现排查。
+#
 # 触发：
 #   * 手动（workflow_dispatch）
 #   * build-scripts / 本 workflow / 打包脚本 有改动 push 时
@@ -16,9 +22,10 @@ on:
 
 jobs:
   build:
+    name: Build (fetch + compile)
     runs-on: ubuntu-latest
     # 冷缓存全量构建（ffmpeg 最耗时）约 60-90 分钟，留足余量。
-    timeout-minutes: 180
+    timeout-minutes: 150
     defaults:
       run:
         shell: bash
@@ -56,7 +63,7 @@ jobs:
             third_party/media_kit_libs_android_video/build-scripts/prefix
           # 任何构建脚本/依赖版本/ffmpeg 参数变化都会使缓存失效，
           # 避免用旧 .a 跳过重建（各阶段"已构建跳过"逻辑依赖它）。
-          key: libmpv-deps-v1-${{ hashFiles('third_party/media_kit_libs_android_video/build-scripts/depinfo.sh', 'third_party/media_kit_libs_android_video/build-scripts/fetch-deps.sh', 'third_party/media_kit_libs_android_video/build-scripts/build-inline.sh', 'third_party/media_kit_libs_android_video/build-scripts/ffmpeg-configure-args.txt') }}
+          key: libmpv-deps-v2-${{ hashFiles('third_party/media_kit_libs_android_video/build-scripts/depinfo.sh', 'third_party/media_kit_libs_android_video/build-scripts/fetch-deps.sh', 'third_party/media_kit_libs_android_video/build-scripts/build-inline.sh', 'third_party/media_kit_libs_android_video/build-scripts/ffmpeg-configure-args.txt') }}
 
       - name: Fetch dependency sources
         run: bash third_party/media_kit_libs_android_video/build-scripts/fetch-deps.sh
@@ -66,12 +73,48 @@ jobs:
           export LIBMPV_NDKROOT="$HOME/android-ndk-r28b"
           bash third_party/media_kit_libs_android_video/build-scripts/build-inline.sh
 
-      - name: Pack jar (hard symbol verification)
-        # pack_libmpv_jar.py 会校验 mpv_lavc_set_java_vm / FcInit / /system/fonts，
-        # 任何一项缺失都会失败，坏库出不了厂。
-        run: python3 tools/pack_libmpv_jar.py
+      - name: Diagnostics
+        run: |
+          SO=third_party/media_kit_libs_android_video/build-scripts/prefix/arm64-v8a/lib/libmpv.so
+          ls -la "$SO"
+          echo "--- /system/fonts ---"
+          strings "$SO" | grep -c '/system/fonts' || true
+          echo "--- mpv_lavc_set_java_vm (dynstr) ---"
+          strings "$SO" | grep -c 'mpv_lavc_set_java_vm' || true
+          echo "--- FcInit (local symtab) ---"
+          strings "$SO" | grep -c '^FcInit$' || true
 
-      - name: Upload artifact
+      - name: Upload raw libmpv.so
+        uses: actions/upload-artifact@v4
+        with:
+          name: libmpv-raw-so
+          path: third_party/media_kit_libs_android_video/build-scripts/prefix/arm64-v8a/lib/libmpv.so
+          if-no-files-found: error
+          retention-days: 30
+
+  pack:
+    name: Pack jar (hard verification)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download raw libmpv.so
+        uses: actions/download-artifact@v4
+        with:
+          name: libmpv-raw-so
+          path: raw
+
+      - name: Pack jar
+        # 校验 mpv_lavc_set_java_vm / FcInit / /system/fonts，
+        # 任何一项缺失都会失败，坏库出不了厂。
+        run: python3 tools/pack_libmpv_jar.py raw/libmpv.so
+
+      - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
           name: libmpv-arm64-fontconfig-jar
