@@ -685,9 +685,9 @@ class _DetailView extends StatelessWidget {
     final ep = selected;
     final backdrop = ep?.fanartUrl ?? detail.fanartUrl ?? detail.coverUrl;
     final poster = ep?.coverUrl ?? detail.coverUrl;
-    final progress = (ep?.watchProgressPercent ?? 0) / 100;
-    final isDone = ep?.watched == true || progress >= 1;
-    final showBadge = isDone || progress > 0;
+    // 封面圆环进度已移除：环数据是"选中单集"，贴在海报上会被读成整剧
+    // 进度（打勾也分不清单集/全部），误导大于增量；下方已有"本集/整剧"
+    // 双行进度，列表 tile 上的条与勾语境无歧义，保留。
     final resumeLabel = ep == null
         ? '播放'
         : (ep.watched == true
@@ -765,18 +765,6 @@ class _DetailView extends StatelessWidget {
                                         Dimens.radiusMd,
                                       ),
                                     ),
-                                    if (showBadge)
-                                      Positioned(
-                                        right: Dimens.spacingSm,
-                                        bottom: Dimens.spacingSm,
-                                        child: _ProgressBadge(
-                                          value: progress.clamp(0.0, 1.0),
-                                          completed: isDone,
-                                          size:
-                                              Dimens.videoProgressRing *
-                                              form.posterScale,
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
@@ -1202,80 +1190,6 @@ class _DetailView extends StatelessWidget {
 }
 
 /// Watch badge on the hero poster: percent ring, or green check when done.
-class _ProgressBadge extends StatelessWidget {
-  const _ProgressBadge({
-    required this.value,
-    required this.completed,
-    required this.size,
-  });
-
-  /// 0..1 while watching.
-  final double value;
-  final bool completed;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    if (completed) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: AppColors.success,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 6,
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Icon(
-          Icons.check_rounded,
-          color: Colors.white,
-          size: size * 0.52,
-        ),
-      );
-    }
-
-    final pct = (value * 100).round();
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        shape: BoxShape.circle,
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: size,
-            height: size,
-            child: CircularProgressIndicator(
-              value: value,
-              strokeWidth: 3.5,
-              backgroundColor: Colors.white24,
-              color: AppColors.accentOf(context),
-              strokeCap: StrokeCap.round,
-            ),
-          ),
-          Text(
-            '$pct%',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: size * 0.26,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Compact number chip for the grid episode view (纯数字形态).
 class _EpisodeNumberChip extends StatelessWidget {
   const _EpisodeNumberChip({
