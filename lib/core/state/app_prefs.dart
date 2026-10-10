@@ -13,6 +13,7 @@ class AppPrefs extends ChangeNotifier {
 
   static const _kTheme = 'prefs.themeMode';
   static const _kAccent = 'prefs.accent';
+  static const _kSubScale = 'prefs.subScale';
 
   ThemeModePref themeMode = ThemeModePref.system;
 
@@ -20,6 +21,12 @@ class AppPrefs extends ChangeNotifier {
   AppAccent accent = AppAccent.blue;
 
   bool privacyEnabled = false;
+
+  /// 播放器字幕字号倍率：1.0 默认，四档 0.85 / 1.0 / 1.2 / 1.45
+  /// （与 SubtitlePanel.scaleOptions 对应）。播放页打开时读取；
+  /// 经 [setSubScale] 持久化。只被播放器消费，
+  /// 变更无需 notifyListeners（面板由播放页自己 setState 驱动）。
+  double subScale = 1.0;
 
   /// 当前主题主色。代码里凡是要用accent 的地方一律读这个（或
   /// `Theme.of(context).colorScheme.primary`），不要直接写 `AppColors.accent`。
@@ -29,6 +36,7 @@ class AppPrefs extends ChangeNotifier {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final savedAccent = prefs.getString(_kAccent);
+    subScale = prefs.getDouble(_kSubScale) ?? 1.0;
     if (savedAccent != null) {
       accent = AppAccent.values.firstWhere(
         (a) => a.name == savedAccent,
@@ -79,6 +87,13 @@ class AppPrefs extends ChangeNotifier {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAccent, value.name);
+  }
+
+  /// 字幕字号三档（0.85 / 1.0 / 1.15）持久化。
+  Future<void> setSubScale(double value) async {
+    subScale = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_kSubScale, value);
   }
 }
 

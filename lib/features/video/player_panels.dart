@@ -1296,6 +1296,8 @@ class SubtitlePanel extends StatelessWidget {
     this.externalSubs = const [],
     this.onPickExternal,
     this.onClearExternal,
+    this.subScale = 1.0,
+    this.onScaleChanged,
   });
 
   final bool open;
@@ -1317,8 +1319,19 @@ class SubtitlePanel extends StatelessWidget {
   /// 点「关闭字幕」时清掉外挂轨。
   final VoidCallback? onClearExternal;
 
+  /// 字幕字号倍率（1.0 默认）。三档与 [onScaleChanged] 配对。
+  final double subScale;
+
+  /// 选了字号档位（0.85 / 1.0 / 1.15）。sub-scale 变更可热更新，
+  /// 播放页负责 setProperty 与持久化。
+  final ValueChanged<double>? onScaleChanged;
+
   /// 当前是否正挂着某个外挂字幕（用于高亮）。
   bool get hasExternalSelected => externalSubs.isNotEmpty;
+
+  /// 字号档位（与播放页 _setSubScale / AppPrefs.subScale 约定一致）。
+  /// 按原型四档：更小 0.85 / 默认 1.0 / 大 1.2 / 特大 1.45。
+  static const scaleOptions = <double>[0.85, 1.0, 1.2, 1.45];
 
   @override
   Widget build(BuildContext context) {
@@ -1368,14 +1381,29 @@ class SubtitlePanel extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    '字幕',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12 * scale,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1,
-                    ),
+                  // 头部（原型 sub-head）：左标题 + 右侧当前生效状态。
+                  Row(
+                    children: [
+                      Text(
+                        '字幕',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12 * scale,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _stateText(tracks),
+                        style: TextStyle(
+                          color: AppColors.accentOf(context),
+                          fontSize: 12.5 * scale,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .3,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: Dimens.spacingSm),
                   ConstrainedBox(
@@ -1386,6 +1414,8 @@ class SubtitlePanel extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // ── 语言（原型「语言」分组：填充式选项行 + 右侧勾） ──
+                          _groupLabel('语言', scale),
                           _row(
                             context: context,
                             label: '关闭',
@@ -1398,7 +1428,8 @@ class SubtitlePanel extends StatelessWidget {
                               onPick(SubtitleTrack.no());
                             },
                           ),
-                          for (final track in tracks)
+                          for (final track in tracks) ...[
+                            const SizedBox(height: Dimens.spacingXs),
                             _row(
                               context: context,
                               label: _label(track),
@@ -1407,20 +1438,14 @@ class SubtitlePanel extends StatelessWidget {
                               scale: scale,
                               onTap: () => onPick(track),
                             ),
+                          ],
                           // 外挂字幕单独分组：内封轨来自容器，外挂轨来自同目录
                           // 文件，来源不同混在一起会让人以为是一回事。
                           if (externalSubs.isNotEmpty) ...[
                             const SizedBox(height: Dimens.spacingSm),
-                            Text(
-                              '外挂字幕',
-                              style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: 11 * scale,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: Dimens.spacingXs),
-                            for (final sub in externalSubs)
+                            _groupLabel('外挂字幕', scale),
+                            for (final (i, sub) in externalSubs.indexed) ...[
+                              if (i > 0) const SizedBox(height: Dimens.spacingXs),
                               _row(
                                 context: context,
                                 label: sub.displayName,
@@ -1432,7 +1457,29 @@ class SubtitlePanel extends StatelessWidget {
                                 scale: scale,
                                 onTap: () => onPickExternal?.call(sub),
                               ),
+                            ],
                           ],
+                          // ── 字号（原型：分隔线 + 四个递增「A」预览按钮） ──
+                          const SizedBox(height: Dimens.spacingSm),
+                          Container(height: 1, color: Colors.white10),
+                          const SizedBox(height: Dimens.spacingSm),
+                          _groupLabel('字体大小', scale),
+                          Row(
+                            children: [
+                              for (final (i, s) in scaleOptions.indexed) ...[
+                                if (i > 0)
+                                  const SizedBox(width: Dimens.spacingXs),
+                                Expanded(
+                                  child: _sizeButton(
+                                    context: context,
+                                    value: s,
+                                    index: i,
+                                    scale: scale,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -1464,6 +1511,71 @@ class SubtitlePanel extends StatelessWidget {
     return lang;
   }
 
+  /// 分组小标签（原型 .sub-label：11px 暗色 + 字距）。
+  Widget _groupLabel(String text, double scale) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Dimens.spacingXs),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Colors.white38,
+          fontSize: 11 * scale,
+          fontWeight: FontWeight.w500,
+          letterSpacing: .6,
+        ),
+      ),
+    );
+  }
+
+  /// 头部右上角状态（原型 .sub-state）：关闭 → 已关闭；否则当前生效轨名。
+  String _stateText(List<SubtitleTrack> tracks) {
+    if (selectedId == 'no') return '已关闭';
+    if (selectedId == null || selectedId == 'auto') return '';
+    for (final t in tracks) {
+      if (t.id == selectedId) return _label(t);
+    }
+    return '';
+  }
+
+  /// 字号按钮（原型 .size-btn）：按钮内用递增的「A」直接预览档位大小。
+  Widget _sizeButton({
+    required BuildContext context,
+    required double value,
+    required int index,
+    required double scale,
+  }) {
+    final active = (subScale - value).abs() < 0.01;
+    final accent = AppColors.accentOf(context);
+    // 原型四档字形 12/15/18/21，按 typeScale 缩放。
+    const glyphs = <double>[12, 15, 18, 21];
+    final glyph = glyphs[math.min(index, glyphs.length - 1)];
+    return Material(
+      color: active
+          ? accent.withValues(alpha: 0.15)
+          : Colors.white.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(Dimens.radiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(Dimens.radiusSm),
+        onTap: () => onScaleChanged?.call(value),
+        child: SizedBox(
+          height: Dimens.playerSubRowHeight,
+          child: Center(
+            child: Text(
+              'A',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: active ? accent : const Color(0xFFC3C7D2),
+                fontSize: glyph * scale,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _row({
     required BuildContext context,
     required String label,
@@ -1472,10 +1584,11 @@ class SubtitlePanel extends StatelessWidget {
     required double scale,
     required VoidCallback onTap,
   }) {
+    // 原型 .sub-opt：非选中浅底灰字，选中浅底 + 主色字 + 加粗 + 右侧勾。
     return Material(
       color: selected
-          ? AppColors.accentOf(context).withValues(alpha: 0.15)
-          : Colors.transparent,
+          ? AppColors.accentOf(context).withValues(alpha: 0.13)
+          : Colors.white.withValues(alpha: 0.05),
       borderRadius: BorderRadius.circular(Dimens.radiusSm),
       child: InkWell(
         borderRadius: BorderRadius.circular(Dimens.radiusSm),
@@ -1483,7 +1596,7 @@ class SubtitlePanel extends StatelessWidget {
         child: SizedBox(
           height: Dimens.playerSubRowHeight,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingXs),
+            padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
             child: Row(
               children: [
                 Expanded(
@@ -1494,7 +1607,7 @@ class SubtitlePanel extends StatelessWidget {
                     style: TextStyle(
                       color: selected
                           ? AppColors.accentOf(context)
-                          : Colors.white,
+                          : const Color(0xFFCFD3DD),
                       fontSize: 13 * scale,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -58,6 +59,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   StreamSubscription<bool>? _playSub;
   StreamSubscription<String>? _errSub;
   StreamSubscription<Tracks>? _tracksSub;
+  // 字幕诊断：mpv error 级日志（PlayerConfiguration.logLevel 默认 error 即有）。
+  StreamSubscription<PlayerLog>? _mpvLogSub;
   StreamSubscription<Track>? _trackSub;
 
   // ── 内封字幕（libmpv 上报的 sid；外挂字幕待后端接口）────────────────
@@ -89,6 +92,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   // ── 倍数（长按临时 2.0x 时不改这里）────────────────────────────────
   double _rate = 1.0;
+
+  /// 字幕字号倍率（四档 0.85 / 1.0 / 1.2 / 1.45，1.0 默认），持久化于 AppPrefs。
+  double _subScale = 1.0;
 
   double _lastProgressSave = 0;
   int _lastUiMs = -1000;
@@ -136,6 +142,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _current = widget.video;
     _titleText = widget.title ?? widget.video.title;
     _startAt = widget.startPosition;
+    _subScale = widget.session.prefs.subScale;
     // 音量手势自己画 HUD，不要 Android 再弹一条系统音量条盖住画面。
     VolumeController.instance.showSystemUI = false;
     _enterImmersive();
@@ -231,12 +238,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       await _teardownPlayer();
       if (_exiting || !mounted) return;
 
-      final player = Player();
+      // ★ 决定性修复：media_kit 的 PlayerConfiguration.libass **默认 false**，
+      //   会下发 sub-ass=no —— ASS 样式和全部 tag（\p1 矢量绘图、\k 卡拉OK、
+      //   \pos 定位…）被禁用，按纯文本渲染：满屏绘图指令、卡拉OK崩坏、
+      //   双图层错位……iOS 端直连 libmpv 没有这层，默认就是完整 ASS，
+      //   所以一直正常。libass=true → sub-ass=yes 才是完整特效渲染。
+      //   （media_kit 配套的 libassAndroidFont 资产字体方案是给官方残废
+      //     libmpv 用的，我们有 fontconfig+/system/fonts，不需要。）
+      final player = Player(
+        configuration: PlayerConfiguration(libass: true),
+      );
       final controller = VideoController(player);
       _player = player;
       _controller = controller;
       // 倍数是跨集保留的：换集后新 player 要重新套上。
       unawaited(player.setRate(_rate));
+      // VideoController 的创建是异步的，media_kit 的 Android 实现会在
+      // AndroidVideoController.create 里把 sub-font-provider 设成 none
+      // （官方 libmpv 没编 fontconfig，关了也无所谓；但我们自编的带
+      // fontconfig，关掉就白编了）。不等它设完就改会被覆盖回去 → libass
+      // 找不到系统字体 → ASS 特效字幕竖排堆叠。platform 是 VideoController
+      // 暴露的 Completer，await 它就能拿到「create 已全部写完」的时机。
+      try {
+        await controller.platform.future.timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // 创建超时/异常不该阻塞播放；后面的字幕参数照常下发，
+        // open 后还有一次兜底重设（该选项 UPDATE_SUB_HARD，可热更）。
+      }
       // 字幕参数（字体/编码等）**必须在 open 之前**设好：libass 在打开媒体的
       // 时刻就解析字体，失了之后再设就不生效了。所以这里 await，不能
       // unawaited（那会与下面的 open 竞态，谁先到不定）。
@@ -282,7 +310,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       });
       _errSub = player.stream.error.listen((err) {
         if (!mounted || _exiting || err.isEmpty) return;
+        debugPrint('[SUBDBG|player-error] $err');
         setState(() => _error = err);
+      });
+      _mpvLogSub = player.stream.log.listen((l) {
+        if (!mounted || _exiting) return;
+        debugPrint('[MPV-${l.level}] ${l.prefix}: ${l.text}');
       });
       _tracksSub = player.stream.tracks.listen((tracks) {
         if (!mounted || _exiting) return;
@@ -290,16 +323,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             .where((t) => t.id != 'auto' && t.id != 'no')
             .toList(growable: false);
         setState(() => _subTracks = real);
+        debugPrint('[SUBDBG|tracks-event] ${real.map((t) => 'id=${t.id}/'
+            '${t.title ?? t.language ?? '?'}').join(', ')}');
+        // 轨道表刚就绪时同步一次选中态（自动选轨的解析见方法注释）。
+        unawaited(_syncSubSelectionFromMpv());
         // 换片后轨道表被清空 → 兜底收起字幕面板，别让按钮悬空。
         if (real.isEmpty && _subOpen) _closePanels();
       });
       _trackSub = player.stream.track.listen((track) {
         if (!mounted || _exiting) return;
-        setState(() => _subSelectedId = track.subtitle.id);
+        final id = track.subtitle.id;
+        // mpv 自动选轨时 media_kit 上报占位 id 'auto'——画面已有字幕但
+        // 面板对不上任何一行。等 tracks 里拿到具体 id，或直接查 mpv。
+        if (id == 'auto') {
+          unawaited(_syncSubSelectionFromMpv());
+          return;
+        }
+        setState(() => _subSelectedId = id);
       });
 
       await player.open(Media(url), play: true);
       if (_exiting || !mounted) return;
+      // 兜底重设：上面 await 控制器创建若超时，media_kit 的 none 可能晚于
+      // 我们那次写入；sub-font-provider 带 UPDATE_SUB_HARD，此刻再写一次
+      // 会重建字幕轨并生效，确保最终值是 fontconfig。
+      final postOpenPlat = player.platform;
+      if (postOpenPlat is NativePlayer) {
+        try {
+          await postOpenPlat.setProperty('sub-font-provider', 'fontconfig');
+        } catch (_) {
+          // 设不上不影响播放，字幕参数问题会在画面上暴露。
+        }
+      }
+      unawaited(_debugSubs('open-done'));
 
       final start = _startAt;
       if (start > 1) {
@@ -335,9 +391,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     await _durSub?.cancel();
     await _playSub?.cancel();
     await _errSub?.cancel();
+    await _mpvLogSub?.cancel();
     await _tracksSub?.cancel();
     await _trackSub?.cancel();
     _posSub = _durSub = _playSub = _errSub = null;
+    _mpvLogSub = null;
     _tracksSub = _trackSub = null;
     final player = _player;
     _player = null;
@@ -618,13 +676,103 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     await _player?.setRate(value);
   }
 
+  /// 字幕字号四档切换（0.85 / 1.0 / 1.2 / 1.45，见 SubtitlePanel.scaleOptions）。
+  ///
+  /// 热更新已核对 mpv 源码链路：sub-scale 变更携带 UPDATE_OSD →
+  /// `mp_option_change_callback` 对每条字幕轨发 `SD_CTRL_UPDATE_OPTS` →
+  /// sd_ass 无条件置 `ass_configured=false` → 下一帧 `get_bitmaps`
+  /// 重跑 `configure_ass` → `ass_set_font_scale(新值)`，无需重建字幕轨。
+  Future<void> _setSubScale(double value) async {
+    if (_exiting) return;
+    setState(() => _subScale = value);
+    unawaited(widget.session.prefs.setSubScale(value));
+    final plat = _player?.platform;
+    if (plat is NativePlayer) {
+      try {
+        await plat.setProperty('sub-scale', value.toStringAsFixed(2));
+      } catch (_) {
+        // 设不上不影响播放，下次 open 时 _applySubtitleDefaults 会补。
+      }
+    }
+    _scheduleAutoHide();
+  }
+
+  /// 字幕诊断快照：把 mpv 的 sid/secondary-sid/track-list 等关键状态打到
+  /// logcat（[SUBDBG] 前缀），用于排查双字幕、关了选不回来这类状态问题。
+  Future<void> _debugSubs(String why) async {
+    final player = _player;
+    if (player == null) return;
+    final plat = player.platform;
+    if (plat is! NativePlayer) return;
+    final parts = <String>[];
+    for (final name in [
+      'sid',
+      'secondary-sid',
+      'sub-visibility',
+      'secondary-sub-visibility',
+      'sub-font-provider',
+      'embeddedfonts',
+    ]) {
+      try {
+        parts.add('$name=${await plat.getProperty(name)}');
+      } catch (_) {
+        parts.add('$name=ERR');
+      }
+    }
+    final sel = player.state.track.subtitle;
+    parts.add('sel(id=${sel.id},title=${sel.title})');
+    debugPrint('[SUBDBG|$why] ${parts.join(' ')}');
+    try {
+      final tl = await plat.getProperty('track-list');
+      debugPrint('[SUBDBG|$why] track-list=$tl');
+    } catch (e) {
+      debugPrint('[SUBDBG|$why] track-list ERR: $e');
+    }
+  }
+
+  /// 面板选中态与 mpv 实际显示对齐。
+  ///
+  /// mpv 自动选轨（`sid=auto` → 默认简体）后 media_kit 上报的当前轨是
+  /// 占位 id `'auto'`，面板按 `selectedId == track.id` 高亮 → 对不上任何
+  /// 一行（画面有字幕、面板却没选中）。mpv 的 `track-list` 里每个 sub
+  /// 条目带 `"selected": true/false`，以它为唯一事实来源解析出具体 id。
+  /// 仅在当前状态为 null/'auto' 时介入，不覆盖用户显式选择（含"关闭"）。
+  Future<void> _syncSubSelectionFromMpv() async {
+    final cur = _subSelectedId;
+    if (cur != null && cur != 'auto') return;
+    final plat = _player?.platform;
+    if (plat is! NativePlayer) return;
+    try {
+      final raw = await plat.getProperty('track-list');
+      final list = jsonDecode(raw) as List<dynamic>;
+      String? sel;
+      for (final t in list) {
+        if (t is Map && t['type'] == 'sub' && t['selected'] == true) {
+          sel = '${t['id']}';
+          break;
+        }
+      }
+      if (!mounted || _exiting) return;
+      // 解析不出（真没选任何轨）时保持"关闭"高亮，别把 no 冲掉。
+      final next = sel ?? (cur == 'no' ? 'no' : null);
+      if (_subSelectedId != next) {
+        setState(() => _subSelectedId = next);
+      }
+    } catch (_) {
+      // track-list 未就绪/解析失败：维持现状，不影响播放。
+    }
+  }
+
   /// 字幕面板里选了一轨（`SubtitleTrack.no()` = 关闭）：先收面板再切轨。
   Future<void> _setSubtitle(SubtitleTrack track) async {
     if (_exiting) return;
     _closePanels();
+    debugPrint('[SUBDBG|user-select] id=${track.id} title=${track.title}');
+    await _debugSubs('before-select');
     // 切轨就等于换轨：mpv 在 setSubtitleTrack 时会卸掉上一条 uri 轨，
     // 所以不用像 iOS 那样手工 sub-remove记账。
     await _player?.setSubtitleTrack(track);
+    await _debugSubs('after-select');
     _scheduleAutoHide();
   }
 
@@ -662,30 +810,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _applySubtitleDefaults(Player player) async {
     final platform = player.platform;
     if (platform is! NativePlayer) return;
-    const opts = <List<String>>[
+    // final（非 const）：sub-scale 取运行时的 _subScale 档位值。
+    final opts = <List<String>>[
+      // ── 与 iOS 端（MpvPlayer.swift）对齐的最小集 ─────────────────────
+      // iOS 端几乎只设 vo/sub-auto，ASS 全走 mpv 默认——特效字幕正常。
+      // mpv 的 sub-ass-override 默认 yes：所有 sub-ass-* 选项都会应用到
+      // ASS 上，文档明说 sub-ass-scale-with-window/sub-scale "can break
+      // ASS subtitles"——之前设的 sub-ass-scale-with-window=yes 正是
+      // 卡拉OK双图层错位、布局崩坏的元凶。默认值能对齐 iOS 就别动。
+
       // 不自动探测 sidecar 文件（会对流地址刷 404，且会乱掉 sid）。
       ['sub-auto', 'no'],
       // 显式保证字幕层可见。
       ['sub-visibility', 'yes'],
-      // Android 上默认字号偏小，放大一点更易读。
-      ['sub-scale', '1.15'],
-      // 上下留一点边距，别贴着画面边缘。
-      ['sub-margin-y', '36'],
-      // 强制走 libass：ASS 特效字幕全靠它。
-      ['sub-ass-ffmpeg', 'yes'],
-      // 中文字幕常是 GBK/Big5 编码，统一按 UTF-8 试一次，避免乱码。
-      ['sub-ass-encoding', 'UTF-8'],
-      // 字号按**窗口**而不是视频原始分辨率缩放。
-      // 缺省是按视频分辨率算，而播放的是1920x1080 的流、渲染到手机上尺寸
-      // 差异极大时字会明显偏小；按窗口算则始终是所见尺寸的合理大小。
-      ['sub-ass-scale-with-window', 'yes'],
-      // ASS 行高/间距：默认 0（用字体自身行高）。部分特效字幕依赖行高做
-      // 定位，给一点余量避免行与行挤在一起。
-      ['sub-ass-line-spacing', '0'],
-      // 描边/阴影模糊按窗口缩放，与字号保持一致观感。
-      ['sub-ass-hinting', 'yes'],
-      // 强制 OSD 层用 libass 渲染（与 vo=libmpv 一致的做法）。
-      ['osd-ass-cc', 'no'],
+      // 字幕字号倍率（三档设置的持久化值）。sub-scale 在 override≥yes 时
+      // 经 ass_set_font_scale 作用于 ASS；变更带 UPDATE_OSD 标志会触发
+      // sd_ass 重跑 configure_ass（mpv command.c → SD_CTRL_UPDATE_OPTS →
+      // ass_configured=false → 下一帧生效），可热更新。
+      ['sub-scale', _subScale.toStringAsFixed(2)],
+      // ⚠️ 不要设 sub-scale 以外的 sub-ass-* 覆盖项：它们同样会作用于
+      // ASS（override 默认 yes），破坏与 iOS 一致的原始 Style。
+      ['sub-font-provider', 'fontconfig'],
     ];
     for (final opt in opts) {
       try {
@@ -728,7 +873,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _clearExternalSubtitle() async {
     if (_exiting) return;
     _closePanels();
+    debugPrint('[SUBDBG|user-off]');
+    await _debugSubs('before-off');
     await _player?.setSubtitleTrack(SubtitleTrack.no());
+    await _debugSubs('after-off');
     _scheduleAutoHide();
   }
 
@@ -1172,6 +1320,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   tracks: _subTracks,
                   selectedId: _subSelectedId,
                   onPick: _setSubtitle,
+                  subScale: _subScale,
+                  onScaleChanged: _setSubScale,
                   externalSubs: _externalSubs,
                   onPickExternal: _setExternalSubtitle,
                   onClearExternal: _clearExternalSubtitle,
