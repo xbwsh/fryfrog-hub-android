@@ -50,53 +50,47 @@ class _BooksScreenState extends State<BooksScreen> {
         return SafeArea(
           bottom: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              pad,
-              pad,
-              pad,
-              pad + dockClearance,
-            ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!form.isTabletPortrait)
-                    Text(
-                      '书架',
-                      style: TextStyle(
-                        fontSize: 28 * form.typeScale,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  const SizedBox(height: Dimens.spacingLg),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: GlassSegmentedControl(
-                        segments: [
-                          for (final label in _labels)
-                            GlassSegment(label: label),
-                        ],
-                        selectedIndex: _section,
-                        onSegmentSelected: (i) => setState(() => _section = i),
-                      ),
+            padding: EdgeInsets.fromLTRB(pad, pad, pad, pad + dockClearance),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!form.isTabletPortrait)
+                  Text(
+                    '书架',
+                    style: TextStyle(
+                      fontSize: 28 * form.typeScale,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: Dimens.spacingXl),
-                  Expanded(
-                    child: _BookShelfGrid(
-                      kind: kind,
-                      books: books,
-                      form: form,
-                      session: session,
-                      emptyLabel: '暂无${_labels[_section]}',
-                      isLoading: session.isLoadingCatalog && books.isEmpty,
-                      error: books.isEmpty ? session.catalogError : null,
+                const SizedBox(height: Dimens.spacingLg),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: GlassSegmentedControl(
+                      segments: [
+                        for (final label in _labels) GlassSegment(label: label),
+                      ],
+                      selectedIndex: _section,
+                      onSegmentSelected: (i) => setState(() => _section = i),
                     ),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: Dimens.spacingXl),
+                Expanded(
+                  child: _BookShelfGrid(
+                    kind: kind,
+                    books: books,
+                    form: form,
+                    session: session,
+                    emptyLabel: '暂无${_labels[_section]}',
+                    isLoading: session.isLoadingCatalog && books.isEmpty,
+                    error: books.isEmpty ? session.catalogError : null,
+                  ),
+                ),
+              ],
             ),
+          ),
         );
       },
     );
@@ -125,9 +119,9 @@ class _BookShelfGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           strokeWidth: 2.5,
         ),
       );
@@ -245,7 +239,7 @@ class _BookShelfGrid extends StatelessWidget {
                                 value: progress.clamp(0.0, 1.0),
                                 minHeight: 4,
                                 backgroundColor: Colors.black26,
-                                color: AppColors.accent,
+                                color: AppColors.accentOf(context),
                               ),
                             ),
                           ),

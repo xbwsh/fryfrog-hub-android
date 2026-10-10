@@ -33,9 +33,7 @@ class _FakeEbookGateway implements EbookGateway {
     required double positionPercent,
     required int chapterIndex,
   }) async {
-    saves.add(
-      (positionPercent: positionPercent, chapterIndex: chapterIndex),
-    );
+    saves.add((positionPercent: positionPercent, chapterIndex: chapterIndex));
   }
 }
 

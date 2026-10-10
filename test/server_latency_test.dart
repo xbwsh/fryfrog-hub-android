@@ -35,13 +35,12 @@ class _FakeClient extends http.BaseClient {
 }
 
 ServerConnection _connection(http.Client client, {String? lanHost}) =>
-    ServerConnection(probeClient: client)
-      ..apply(
-        scheme: 'http',
-        port: '20058',
-        publicHost: 'example.com',
-        lanHost: lanHost ?? '',
-      );
+    ServerConnection(probeClient: client)..apply(
+      scheme: 'http',
+      port: '20058',
+      publicHost: 'example.com',
+      lanHost: lanHost ?? '',
+    );
 
 void main() {
   group('ServerConnection 延迟', () {
@@ -49,9 +48,7 @@ void main() {
       final client = _FakeClient()..delay = const Duration(milliseconds: 40);
       final connection = _connection(client);
 
-      final ms = await connection.measureLatency(
-        ServerConnectionMode.public,
-      );
+      final ms = await connection.measureLatency(ServerConnectionMode.public);
       expect(ms, isNotNull);
       expect(ms, greaterThanOrEqualTo(40));
 
@@ -67,10 +64,7 @@ void main() {
       final client = _FakeClient();
       final connection = _connection(client);
 
-      expect(
-        await connection.measureLatency(ServerConnectionMode.lan),
-        isNull,
-      );
+      expect(await connection.measureLatency(ServerConnectionMode.lan), isNull);
       expect(client.calls, 0);
       connection.dispose();
     });
@@ -108,9 +102,7 @@ void main() {
       AdaptiveScope(
         form: DeviceForm.phone,
         child: MaterialApp(
-          home: Scaffold(
-            body: ProfileScreen(session: session, active: true),
-          ),
+          home: Scaffold(body: ProfileScreen(session: session, active: true)),
         ),
       ),
     );
@@ -142,9 +134,7 @@ void main() {
       AdaptiveScope(
         form: DeviceForm.phone,
         child: MaterialApp(
-          home: Scaffold(
-            body: ProfileScreen(session: session, active: false),
-          ),
+          home: Scaffold(body: ProfileScreen(session: session, active: false)),
         ),
       ),
     );

@@ -311,9 +311,9 @@ class _EbookReaderScreenState extends State<EbookReaderScreen>
     }
 
     if (_c.loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           strokeWidth: 2.5,
         ),
       );

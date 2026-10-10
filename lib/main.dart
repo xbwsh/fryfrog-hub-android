@@ -4,7 +4,6 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'app/app.dart';
-import 'core/theme/app_colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +43,8 @@ Future<void> main() async {
 }
 
 /// Shared seed for material accents across glass chrome.
-final ColorScheme kAppScheme = ColorScheme.fromSeed(
-  seedColor: AppColors.accent,
-  brightness: Brightness.dark,
-);
+///
+/// 实际定义在 [app_colors.dart]（与 AppColors 同模块，方便 AppPrefs 直接调用
+/// [notifyGlobalAccent] 更新而不用反向依赖 main.dart）。
+/// 玻璃控件请用 `kAppScheme`，Material 控件请用
+/// `Theme.of(context).colorScheme.primary`。

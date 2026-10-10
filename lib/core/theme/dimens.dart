@@ -104,6 +104,17 @@ class Dimens {
   /// 字幕浮层轨道列表最大高度（超出滚动）。
   static const double playerSubPanelMaxHeight = 240;
 
+  /// 播放器 chrome（顶栏/底栏）进出场动画时长。
+  ///
+  /// 系统栏恒定沉浸，控件动画无需再迁就系统栏，取200ms —— 跟手且不拖沓。
+  static const Duration playerChromeAnimDuration = Duration(milliseconds: 200);
+
+  /// 播放器顶栏距屏幕顶部的留白。
+  ///
+  /// 系统栏隐藏时 `SafeArea` 给不出任何避让（`padding.top` 为 0），返回键会
+  /// 贴到物理顶边；给一个固定呼吸位，横屏/退出全屏过程中位置也恒定不变。
+  static const double playerChromeMinTop = 8;
+
   /// 字幕浮层单条轨道行高。
   static const double playerSubRowHeight = 40;
 }

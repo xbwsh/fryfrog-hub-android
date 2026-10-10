@@ -31,6 +31,7 @@ class VideoLogo extends StatefulWidget {
   final String title;
   final double height;
   final Session? session;
+
   /// 测量/加载 logo 期间是否先显示文字标题。
   /// 轮播图等大图场景闪文字会很难看，传 false 让这块区域保持空白。
   final bool showTitleWhileLoading;
@@ -38,6 +39,7 @@ class VideoLogo extends StatefulWidget {
   /// 内容包围盒的宽高比可用区间：低于下限偏竖排、高于上限过于扁平。
   static const double minAspect = 1.2;
   static const double maxAspect = 8.0;
+
   /// 内容至少占画布这么大比例，否则视为“画布大、字很小”。
   static const double minContentRatio = 0.10;
 
@@ -78,7 +80,8 @@ class _VideoLogoState extends State<VideoLogo> {
       final provider = NetworkImage(
         resolved,
         headers: {
-          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
         },
       );
       final stream = provider.resolve(ImageConfiguration.empty);

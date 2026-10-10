@@ -55,9 +55,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
     // Skip while `load()` is in flight: its first notify reports an empty
     // list, which must not be mistaken for "every library was removed".
     if (!_c.loading) {
-      final signature = [
-        for (final l in _c.libraries) '${l.id}:${l.enabled}',
-      ].join(',');
+      final signature = [for (final l in _c.libraries) '${l.id}:${l.enabled}']
+          .join(',');
       if (_libsSignature != null && _libsSignature != signature) {
         widget.session.loadCatalog();
       }
@@ -257,9 +256,9 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
         listenable: _c,
         builder: (context, _) {
           if (_c.loading && _c.libraries.isEmpty) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(
-                color: AppColors.accent,
+                color: AppColors.accentOf(context),
                 strokeWidth: 2.5,
               ),
             );
@@ -386,7 +385,7 @@ class _ScanProgressCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13 * form.typeScale,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.accent,
+                  color: AppColors.accentOf(context),
                   fontFamily: 'monospace',
                 ),
               ),
@@ -411,7 +410,7 @@ class _ScanProgressCard extends StatelessWidget {
               value: percent / 100,
               minHeight: 6,
               backgroundColor: AppColors.background(context),
-              color: AppColors.accent,
+              color: AppColors.accentOf(context),
             ),
           ),
         ],
@@ -472,11 +471,11 @@ class _LibraryCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: Dimens.spacingSm),
+            SizedBox(width: Dimens.spacingSm),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.14),
+                color: AppColors.accentOf(context).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -484,7 +483,7 @@ class _LibraryCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11 * form.typeScale,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.accent,
+                  color: AppColors.accentOf(context),
                 ),
               ),
             ),
@@ -941,12 +940,12 @@ class _DirBrowserDialogState extends State<_DirBrowserDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: Dimens.spacingSm),
+            SizedBox(height: Dimens.spacingSm),
             Expanded(
               child: _loading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
-                        color: AppColors.accent,
+                        color: AppColors.accentOf(context),
                         strokeWidth: 2.5,
                       ),
                     )

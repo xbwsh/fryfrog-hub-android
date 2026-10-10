@@ -47,7 +47,7 @@ final _kTabPillGlass = AnimatedGlassIndicator.baseIndicatorSettings.copyWith(
   chromaticAberration: 0.15,
 );
 
-/// 选中态统一用 `AppColors.accent`（与轮播图/详情页播放按钮同一个蓝）。
+/// 选中态统一用 `kAppScheme.primary`（与轮播图/详情页播放按钮同一个蓝）。
 ///
 /// `GlassTabBar` 是三方玻璃控件，**不读** Material 的 `NavigationBarTheme`，
 /// 所以必须显式给色；否则选中态会是控件自带的颜色，与播放按钮对不上。
@@ -209,12 +209,12 @@ class _PhoneShell extends StatelessWidget {
             glowBlurRadius: 40,
             glowSpreadRadius: 10,
             glowOpacity: 0.65,
-            indicatorColor: AppColors.accent.withValues(
+            indicatorColor: kAppScheme.primary.withValues(
               alpha: _kTabIndicatorAlpha,
             ),
-            selectedIconColor: AppColors.accent,
-            selectedLabelColor: AppColors.accent,
-            interactionGlowColor: AppColors.accent,
+            selectedIconColor: kAppScheme.primary,
+            selectedLabelColor: kAppScheme.primary,
+            interactionGlowColor: kAppScheme.primary,
             tabs: _kGlassTabs,
           ),
         ),
@@ -273,12 +273,12 @@ class _TabletPortraitShell extends StatelessWidget {
             glowBlurRadius: 40,
             glowSpreadRadius: 10,
             glowOpacity: 0.65,
-            indicatorColor: AppColors.accent.withValues(
+            indicatorColor: kAppScheme.primary.withValues(
               alpha: _kTabIndicatorAlpha,
             ),
-            selectedIconColor: AppColors.accent,
-            selectedLabelColor: AppColors.accent,
-            interactionGlowColor: AppColors.accent,
+            selectedIconColor: kAppScheme.primary,
+            selectedLabelColor: kAppScheme.primary,
+            interactionGlowColor: kAppScheme.primary,
             tabs: _kGlassTabs,
           ),
         ),
@@ -517,13 +517,10 @@ class _SideRailShellState extends State<_SideRailShell> {
                                     children: [
                                       Icon(
                                         Icons.logout_rounded,
-                                        size:
-                                            (widget.wide ? 28 : 22) * scale,
+                                        size: (widget.wide ? 28 : 22) * scale,
                                         color: AppColors.danger,
                                       ),
-                                      const SizedBox(
-                                        width: Dimens.spacingMd,
-                                      ),
+                                      const SizedBox(width: Dimens.spacingMd),
                                       Text(
                                         '退出登录',
                                         style: TextStyle(

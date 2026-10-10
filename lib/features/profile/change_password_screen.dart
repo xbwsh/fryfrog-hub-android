@@ -140,10 +140,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 ),
               ),
             ),
-          const SizedBox(height: Dimens.spacingXl),
+          SizedBox(height: Dimens.spacingXl),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.accent,
+              backgroundColor: AppColors.accentOf(context),
               minimumSize: const Size.fromHeight(48),
             ),
             onPressed: _canSubmit ? _save : null,

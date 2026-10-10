@@ -42,7 +42,7 @@ void main() {
           deltaPx: -width,
           width: width,
         ),
-          Duration.zero,
+        Duration.zero,
       );
     });
 

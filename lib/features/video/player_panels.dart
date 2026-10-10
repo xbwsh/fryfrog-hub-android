@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
+import '../../core/models/video.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
@@ -258,18 +259,18 @@ class _StyleSwitch extends StatelessWidget {
           for (final style in _EpisodeStyle.values) ...[
             if (style != _EpisodeStyle.values.first)
               const SizedBox(width: Dimens.spacingXs),
-            Expanded(child: _chip(style)),
+            Expanded(child: _chip(context, style)),
           ],
         ],
       ),
     );
   }
 
-  Widget _chip(_EpisodeStyle style) {
+  Widget _chip(BuildContext context, _EpisodeStyle style) {
     final active = style == selected;
     return Material(
       color: active
-          ? AppColors.accent.withValues(alpha: 0.16)
+          ? AppColors.accentOf(context).withValues(alpha: 0.16)
           : Colors.transparent,
       borderRadius: BorderRadius.circular(Dimens.radiusSm),
       child: InkWell(
@@ -281,7 +282,7 @@ class _StyleSwitch extends StatelessWidget {
             child: Text(
               style.label,
               style: TextStyle(
-                color: active ? AppColors.accent : Colors.white54,
+                color: active ? AppColors.accentOf(context) : Colors.white54,
                 fontSize: 12 * scale,
                 fontWeight: FontWeight.w600,
               ),
@@ -434,7 +435,9 @@ class _NumPaneState extends _EpisodePaneState<_NumPane> {
     final scale = widget.scale;
     final onAccent = Theme.of(context).colorScheme.onPrimary;
     return Material(
-      color: active ? AppColors.accent : Colors.white.withValues(alpha: 0.07),
+      color: active
+          ? AppColors.accentOf(context)
+          : Colors.white.withValues(alpha: 0.07),
       borderRadius: BorderRadius.circular(Dimens.radiusMd),
       child: InkWell(
         borderRadius: BorderRadius.circular(Dimens.radiusMd),
@@ -520,13 +523,14 @@ class _ListPaneState extends _EpisodePaneState<_ListPane> {
           padding: _padding,
           itemExtent: _itemExtent,
           itemCount: widget.episodes.length,
-          itemBuilder: (context, index) => _row(widget.episodes[index]),
+          itemBuilder: (context, index) =>
+              _row(context, widget.episodes[index]),
         );
       },
     );
   }
 
-  Widget _row(VideoItem ep) {
+  Widget _row(BuildContext context, VideoItem ep) {
     final active = ep.id == widget.currentId;
     final scale = widget.scale;
     final meta = _meta(ep);
@@ -534,7 +538,7 @@ class _ListPaneState extends _EpisodePaneState<_ListPane> {
       padding: const EdgeInsets.symmetric(vertical: Dimens.spacingSm),
       child: Material(
         color: active
-            ? AppColors.accent.withValues(alpha: 0.13)
+            ? AppColors.accentOf(context).withValues(alpha: 0.13)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(Dimens.radiusMd),
         child: InkWell(
@@ -561,7 +565,9 @@ class _ListPaneState extends _EpisodePaneState<_ListPane> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: active ? AppColors.accent : Colors.white,
+                          color: active
+                              ? AppColors.accentOf(context)
+                              : Colors.white,
                           fontSize: 13 * scale,
                           fontWeight: active
                               ? FontWeight.w700
@@ -594,7 +600,8 @@ class _ListPaneState extends _EpisodePaneState<_ListPane> {
   String _meta(VideoItem ep) {
     final parts = <String>[
       if (ep.episodeNumber != null) ep.episodeLabel,
-      if (ep.durationMinutes != null) '${ep.durationMinutes} 分钟',
+      // 时长同样先隐藏：后端把 TMDB 季详情的 runtime（整季总时长）写进了
+      // 每一集 duration_minutes，所有集会显示同一个假时长。后端修好后恢复。
     ];
     return parts.join(' · ');
   }
@@ -684,7 +691,7 @@ class _GridPaneState extends _EpisodePaneState<_GridPane> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: active ? AppColors.accent : Colors.white54,
+                color: active ? AppColors.accentOf(context) : Colors.white54,
                 fontSize: 11.5 * scale,
                 fontWeight: active ? FontWeight.w600 : FontWeight.w500,
               ),
@@ -747,7 +754,6 @@ class _BigPaneState extends _EpisodePaneState<_BigPane> {
   Widget _card(VideoItem ep, int index, double thumbH, double infoH) {
     final active = ep.id == widget.currentId;
     final scale = widget.scale;
-    final minutes = ep.durationMinutes;
     final tag = active ? '正在播放' : (ep.resolutionLabel ?? '');
     return Padding(
       // itemExtent 里给大卡留了底部间距，卡本体只占到 info 行为止。
@@ -767,8 +773,11 @@ class _BigPaneState extends _EpisodePaneState<_BigPane> {
                   scale: scale,
                   radius: Dimens.radiusMd,
                   badgeText: '第 ${ep.episodeNumber ?? index + 1} 集',
-                  // 原型大图里时长徽标与 EQ 同在右下（会重叠）→ 大图不放 EQ。
-                  durationText: minutes != null ? '$minutes 分' : null,
+                  // 时长暂时不显示：后端把 TMDB「季详情」的 runtime（整季总时长）
+                  // 写进了每一集的 duration_minutes，导致所有集都显示同一个
+                  // 假时长（实测全是 30 分钟）。等后端修好、重新刮削写入每集
+                  // 真实时长后再恢复；那时只需把下面这行注释放开。
+                  // durationText: minutes != null ? '$minutes 分' : null,
                 ),
               ),
               const SizedBox(height: Dimens.spacingSm),
@@ -782,18 +791,22 @@ class _BigPaneState extends _EpisodePaneState<_BigPane> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: active ? AppColors.accent : Colors.white,
+                          color: active
+                              ? AppColors.accentOf(context)
+                              : Colors.white,
                           fontSize: 13.5 * scale,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     if (tag.isNotEmpty) ...[
-                      const SizedBox(width: Dimens.spacingSm),
+                      SizedBox(width: Dimens.spacingSm),
                       Text(
                         tag,
                         style: TextStyle(
-                          color: active ? AppColors.accent : Colors.white54,
+                          color: active
+                              ? AppColors.accentOf(context)
+                              : Colors.white54,
                           fontSize: 10.5 * scale,
                           fontWeight: active
                               ? FontWeight.w700
@@ -814,7 +827,7 @@ class _BigPaneState extends _EpisodePaneState<_BigPane> {
 
 // ── 缩略图公共件 ─────────────────────────────────────────────────────
 
-/// 集缩略图：图 + 左下角标 + 可选右下时长 / EQ + 当前集 accent 描边。
+/// 集缩略图：图 + 左下角标 + 可选 EQ + 当前集 accent 描边。
 class _EpisodeThumb extends StatelessWidget {
   const _EpisodeThumb({
     required this.ep,
@@ -824,7 +837,6 @@ class _EpisodeThumb extends StatelessWidget {
     this.radius = Dimens.radiusSm,
     this.badgeText,
     this.showEq = false,
-    this.durationText,
   });
 
   final VideoItem ep;
@@ -834,7 +846,6 @@ class _EpisodeThumb extends StatelessWidget {
   final double radius;
   final String? badgeText;
   final bool showEq;
-  final String? durationText;
 
   @override
   Widget build(BuildContext context) {
@@ -862,12 +873,6 @@ class _EpisodeThumb extends StatelessWidget {
             bottom: Dimens.spacingXs,
             child: _numBadge(ep.episodeNumber!.toString()),
           ),
-        if (durationText != null)
-          Positioned(
-            right: Dimens.spacingSm,
-            bottom: Dimens.spacingSm,
-            child: _badge(durationText!, false, onAccent),
-          ),
         if (showEq && active)
           Positioned(
             right: Dimens.spacingSm,
@@ -878,7 +883,10 @@ class _EpisodeThumb extends StatelessWidget {
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.accent, width: 2),
+                border: Border.all(
+                  color: AppColors.accentOf(context),
+                  width: 2,
+                ),
                 borderRadius: borderRadius,
               ),
             ),
@@ -907,20 +915,19 @@ class _EpisodeThumb extends StatelessWidget {
   }
 
   Widget _badge(String text, bool active, Color onAccent) {
-    return Container(
-      padding: const EdgeInsets.all(Dimens.spacingXs),
-      decoration: BoxDecoration(
-        color: active ? AppColors.accent : Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(Dimens.radiusSm),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: active ? onAccent : Colors.white,
-          fontSize: 11 * scale,
-          fontWeight: FontWeight.w700,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        ),
+    // 不再铺半透明黑底：压在画面上会糊掉一块，且集数/时长这类辅助信息不该有
+    // 实心胶囊。改成白字 + 阴影，和 [_numBadge] 保持一致的可读性方案。
+    return Text(
+      text,
+      style: TextStyle(
+        color: active ? onAccent : Colors.white,
+        fontSize: 11 * scale,
+        fontWeight: FontWeight.w700,
+        fontFeatures: const [FontFeature.tabularFigures()],
+        shadows: const [
+          Shadow(color: Colors.black87, blurRadius: 5, offset: Offset(0, 1)),
+          Shadow(color: Colors.black54, blurRadius: 2),
+        ],
       ),
     );
   }
@@ -980,7 +987,7 @@ class _PlayingBarsState extends State<_PlayingBars>
         width: 2.5,
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           borderRadius: BorderRadius.circular(1),
         ),
       ),
@@ -1100,7 +1107,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
                           Text(
                             formatSpeed(rate),
                             style: TextStyle(
-                              color: AppColors.accent,
+                              color: AppColors.accentOf(context),
                               fontSize: 16 * scale,
                               fontWeight: FontWeight.w700,
                               fontFeatures: const [
@@ -1130,7 +1137,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
                       SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 4,
-                          activeTrackColor: AppColors.accent,
+                          activeTrackColor: AppColors.accentOf(context),
                           inactiveTrackColor: Colors.white.withValues(
                             alpha: 0.16,
                           ),
@@ -1138,9 +1145,8 @@ class _SpeedPanelState extends State<SpeedPanel> {
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: Dimens.playerSpeedThumbRadius,
                           ),
-                          overlayColor: AppColors.accent.withValues(
-                            alpha: 0.16,
-                          ),
+                          overlayColor: AppColors.accentOf(context)
+                              .withValues(alpha: 0.16),
                           overlayShape: const RoundSliderOverlayShape(
                             overlayRadius: 12,
                           ),
@@ -1219,7 +1225,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
             vertical: Dimens.spacingXs,
           ),
           decoration: BoxDecoration(
-            color: AppColors.accent,
+            color: AppColors.accentOf(context),
             borderRadius: BorderRadius.circular(Dimens.radiusSm),
           ),
           child: Text(
@@ -1236,7 +1242,11 @@ class _SpeedPanelState extends State<SpeedPanel> {
           offset: const Offset(0, -4),
           child: Transform.rotate(
             angle: math.pi / 4,
-            child: Container(width: 7, height: 7, color: AppColors.accent),
+            child: Container(
+              width: 7,
+              height: 7,
+              color: AppColors.accentOf(context),
+            ),
           ),
         ),
       ],
@@ -1247,7 +1257,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
     final selected = rate == value;
     return Material(
       color: selected
-          ? AppColors.accent.withValues(alpha: 0.15)
+          ? AppColors.accentOf(context).withValues(alpha: 0.15)
           : Colors.white.withValues(alpha: 0.07),
       borderRadius: BorderRadius.circular(Dimens.radiusSm),
       child: InkWell(
@@ -1259,7 +1269,7 @@ class _SpeedPanelState extends State<SpeedPanel> {
             child: Text(
               formatSpeed(value),
               style: TextStyle(
-                color: selected ? AppColors.accent : Colors.white70,
+                color: selected ? AppColors.accentOf(context) : Colors.white70,
                 fontSize: 12 * scale,
                 fontWeight: FontWeight.w600,
                 fontFeatures: const [FontFeature.tabularFigures()],
@@ -1283,6 +1293,9 @@ class SubtitlePanel extends StatelessWidget {
     required this.tracks,
     required this.selectedId,
     required this.onPick,
+    this.externalSubs = const [],
+    this.onPickExternal,
+    this.onClearExternal,
   });
 
   final bool open;
@@ -1294,6 +1307,18 @@ class SubtitlePanel extends StatelessWidget {
   final String? selectedId;
 
   final ValueChanged<SubtitleTrack> onPick;
+
+  /// 外挂字幕（与视频同目录的 .srt/.ass）。mpv 不会自动识别，需`sub-add` 加载。
+  final List<ExternalSubtitle> externalSubs;
+
+  /// 点某个外挂字幕（已选中的传 null 表示不区分，由调用方判断高亮）。
+  final ValueChanged<ExternalSubtitle>? onPickExternal;
+
+  /// 点「关闭字幕」时清掉外挂轨。
+  final VoidCallback? onClearExternal;
+
+  /// 当前是否正挂着某个外挂字幕（用于高亮）。
+  bool get hasExternalSelected => externalSubs.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -1362,19 +1387,52 @@ class SubtitlePanel extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _row(
+                            context: context,
                             label: '关闭',
                             selected: selectedId == 'no',
                             scale: scale,
-                            onTap: () => onPick(SubtitleTrack.no()),
+                            onTap: () {
+                              // 有外挂字幕挂着时，「关闭」要把外挂轨也撤掉，
+                              // 否则 mpv 上还留着 sub-add 的轨，字幕不会消失。
+                              onClearExternal?.call();
+                              onPick(SubtitleTrack.no());
+                            },
                           ),
                           for (final track in tracks)
                             _row(
+                              context: context,
                               label: _label(track),
                               trailing: _trailing(track),
                               selected: selectedId == track.id,
                               scale: scale,
                               onTap: () => onPick(track),
                             ),
+                          // 外挂字幕单独分组：内封轨来自容器，外挂轨来自同目录
+                          // 文件，来源不同混在一起会让人以为是一回事。
+                          if (externalSubs.isNotEmpty) ...[
+                            const SizedBox(height: Dimens.spacingSm),
+                            Text(
+                              '外挂字幕',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 11 * scale,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: Dimens.spacingXs),
+                            for (final sub in externalSubs)
+                              _row(
+                                context: context,
+                                label: sub.displayName,
+                                trailing: sub.filename
+                                    .split('.')
+                                    .last
+                                    .toUpperCase(),
+                                selected: false,
+                                scale: scale,
+                                onTap: () => onPickExternal?.call(sub),
+                              ),
+                          ],
                         ],
                       ),
                     ),
@@ -1407,6 +1465,7 @@ class SubtitlePanel extends StatelessWidget {
   }
 
   Widget _row({
+    required BuildContext context,
     required String label,
     String? trailing,
     required bool selected,
@@ -1415,7 +1474,7 @@ class SubtitlePanel extends StatelessWidget {
   }) {
     return Material(
       color: selected
-          ? AppColors.accent.withValues(alpha: 0.15)
+          ? AppColors.accentOf(context).withValues(alpha: 0.15)
           : Colors.transparent,
       borderRadius: BorderRadius.circular(Dimens.radiusSm),
       child: InkWell(
@@ -1433,7 +1492,9 @@ class SubtitlePanel extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: selected ? AppColors.accent : Colors.white,
+                      color: selected
+                          ? AppColors.accentOf(context)
+                          : Colors.white,
                       fontSize: 13 * scale,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
@@ -1454,7 +1515,7 @@ class SubtitlePanel extends StatelessWidget {
                   Icon(
                     Icons.check_rounded,
                     size: 18 * scale,
-                    color: AppColors.accent,
+                    color: AppColors.accentOf(context),
                   ),
               ],
             ),

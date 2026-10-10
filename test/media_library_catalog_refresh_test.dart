@@ -165,17 +165,13 @@ void main() {
     await _pump(tester);
 
     expect(api.groupedCalls, 1, reason: '开关变化必须触发 session.loadCatalog()');
-    expect(
-      session.videoGroups.map((g) => g.libraryName),
-      ['电影'],
-      reason: '重载后的目录里关掉的库要消失（视频页直接消费这份缓存）',
-    );
+    expect(session.videoGroups.map((g) => g.libraryName), [
+      '电影',
+    ], reason: '重载后的目录里关掉的库要消失（视频页直接消费这份缓存）');
     expect(session.catalogVersion, 2);
   });
 
-  testWidgets('打开管理页本身不重载目录（首屏 load 的空列表不算变化）', (
-    tester,
-  ) async {
+  testWidgets('打开管理页本身不重载目录（首屏 load 的空列表不算变化）', (tester) async {
     final api = _FakeApiClient();
     final session = _TestSession()..api = api;
     session.catalogVersion = 1;

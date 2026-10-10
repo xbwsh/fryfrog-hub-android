@@ -254,12 +254,12 @@ class _HomeCarouselState extends State<HomeCarousel>
                                   fontSize: 13,
                                 ),
                               ),
-                            const SizedBox(height: Dimens.spacingXs),
+                            SizedBox(height: Dimens.spacingXs),
                             Row(
                               children: [
                                 Icon(
                                   Icons.play_circle_fill_rounded,
-                                  color: AppColors.accent,
+                                  color: AppColors.accentOf(context),
                                   size: 28 * formScale,
                                 ),
                                 const SizedBox(width: Dimens.spacingXs),

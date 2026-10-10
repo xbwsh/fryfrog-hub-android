@@ -4,65 +4,115 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fryfrog_hub/core/theme/app_colors.dart';
 
-/// 主题色统一：详情页播放按钮（`FilledButton` 吃 `colorScheme.primary`）与
-/// 轮播图播放按钮（显式 `AppColors.accent`）必须是同一个蓝。
+/// 主题色约束：每个可选主题色都必须满足同一套规则。
 ///
-/// 坑：`ColorScheme.fromSeed` **不会**把 primary 设成种子色，而是算出一整套
-/// 色调板——实测暗色主题下 primary 会变成 #AAC7FF（浅蓝），和 #0A84FF 明显不同。
-/// 所以 app.dart 里显式把 primary 钉回 accent，这个测试守住它。
+/// 两条硬约束：
+///  1. `ColorScheme.fromSeed` **不会**把 primary 设成种子色，而是算出一整套
+///     色调板（实测暗色下 primary 变成 #AAC7FF）。所以 app.dart 里显式把
+///     primary 钉回主题色，这个测试守住它。
+///  2. primary 上的文字必须达到 WCAG AA(4.5:1)。两个主题色配白字都不达标
+///     （经典蓝 3.65、青绿 2.12），所以统一用深色字。
 ///
-/// tabbar 不走主题：底部/顶部用的是三方 `GlassTabBar`，它不读 Material 主题，
-/// 颜色在 main_shell.dart 里显式给（同一个 accent）。
+/// tabbar 不走 Material 主题：底部/顶部用三方 GlassTabBar，它读
+/// [kAppScheme]，由 `notifyGlobalAccent` 单独维护。
 void main() {
-  // 与 lib/app/app.dart 的 _buildTheme 保持同一套关键约束
-  // （不复用私有方法：那是 State 的私有实现，这里复刻约束即可）
-  ColorScheme schemeFor(Brightness b) => ColorScheme.fromSeed(
-    seedColor: AppColors.accent,
+  // 与 app.dart 的 _buildTheme 保持同一套关键约束（不复用私有实现）。
+  ColorScheme schemeFor(Brightness b, Color accent) => ColorScheme.fromSeed(
+    seedColor: accent,
     brightness: b,
-  ).copyWith(primary: AppColors.accent, onPrimary: AppColors.backgroundDark);
+  ).copyWith(primary: accent, onPrimary: AppColors.backgroundDark);
 
-  test('primary 就是 accent，不是 fromSeed 算出的近似色', () {
-    for (final b in Brightness.values) {
+  test('每个主题色：primary 就是它本身，不是 fromSeed 的近似色', () {
+    for (final a in AppAccent.values) {
+      for (final b in Brightness.values) {
+        expect(
+          schemeFor(b, a.color).primary,
+          a.color,
+          reason:
+              '${a.title} 在 $b 主题下 primary 必须是它本身，'
+              '否则播放按钮颜色会与轮播图不一致',
+        );
+      }
+    }
+  });
+
+  test('fromSeed 的原始 primary 确实不等于主题色（说明这个覆盖有必要）', () {
+    for (final a in AppAccent.values) {
+      for (final b in Brightness.values) {
+        final seeded = ColorScheme.fromSeed(seedColor: a.color, brightness: b);
+        expect(
+          seeded.primary,
+          isNot(a.color),
+          reason:
+              '${a.title}/$b：若哪天 fromSeed 直接返回种子色，'
+              '这个覆盖就可以删掉了',
+        );
+      }
+    }
+  });
+
+  test('每个主题色：onPrimary 达到 WCAG AA 对比度', () {
+    for (final a in AppAccent.values) {
+      for (final b in Brightness.values) {
+        final s = schemeFor(b, a.color);
+        expect(
+          s.onPrimary,
+          AppColors.backgroundDark,
+          reason: '${a.title}：主色上的字必须是深色',
+        );
+        expect(
+          _contrastRatio(s.primary, s.onPrimary),
+          greaterThanOrEqualTo(4.5),
+          reason: '${a.title} 在 $b：主色底上的字需要 ≥4.5:1',
+        );
+      }
+    }
+  });
+
+  test('白字在所有主题色上都不达标（说明必须用深色字）', () {
+    for (final a in AppAccent.values) {
       expect(
-        schemeFor(b).primary,
-        AppColors.accent,
-        reason: '$b 主题下 primary 必须是 accent，否则播放按钮颜色会与轮播图不一致',
+        _contrastRatio(a.color, Colors.white),
+        lessThan(4.5),
+        reason:
+            '${a.title}：若哪天某个主题色变暗到白字达标，'
+            '这条约束就可以单独放宽了',
       );
     }
   });
 
-  test('fromSeed 的原始 primary 确实不等于 accent（说明这个覆盖有必要）', () {
-    for (final b in Brightness.values) {
-      final seeded = ColorScheme.fromSeed(
-        seedColor: AppColors.accent,
-        brightness: b,
-      );
-      expect(
-        seeded.primary,
-        isNot(AppColors.accent),
-        reason: '$b：若哪天 fromSeed 直接返回种子色，这个覆盖就可以删掉了',
-      );
+  test('枚举里包含需求指定的新主题色 #00c8b4', () {
+    expect(
+      AppAccent.values.map((a) => a.color),
+      contains(const Color(0xFF00C8B4)),
+      reason: '需求：新增 #00c8b4（青绿/绿松石）主题色',
+    );
+  });
+
+  test('主题色名称非空且互不重复（持久化按 name 存取）', () {
+    final names = AppAccent.values.map((a) => a.name).toSet();
+    expect(
+      names.length,
+      AppAccent.values.length,
+      reason: '枚举 name 必须唯一，否则持久化后无法区分',
+    );
+    for (final a in AppAccent.values) {
+      expect(a.title, isNotEmpty, reason: '${a.name} 缺少展示名');
     }
   });
 
-  test('onPrimary 在 accent 上达到 WCAG AA 对比度', () {
-    for (final b in Brightness.values) {
-      final s = schemeFor(b);
-      // 为什么不用白字：accent(#0A84FF) 配白字只有 3.65:1，不达标；
-      // 配深色字（backgroundDark）是 4.52:1。分集选择 chip 也是这个组合
-      // （选中态 primary 底 + onPrimary 字，字号 14），所以必须守这条。
-      expect(s.onPrimary, AppColors.backgroundDark);
+  test('notifyGlobalAccent 会更新 kAppScheme.primary（玻璃控件换色）', () {
+    final before = kAppScheme.primary;
+    for (final a in AppAccent.values) {
+      notifyGlobalAccent(a.color);
       expect(
-        _contrastRatio(s.primary, s.onPrimary),
-        greaterThanOrEqualTo(4.5),
-        reason: '$b：accent 底上的字色需要 ≥4.5:1',
+        kAppScheme.primary,
+        a.color,
+        reason: '${a.title}：GlassTabBar 读的 kAppScheme.primary 要跟着变',
       );
     }
-  });
-
-  test('白字在 accent 上确实不达标（说明不能用白色）', () {
-    final ratio = _contrastRatio(AppColors.accent, Colors.white);
-    expect(ratio, lessThan(4.5), reason: '若哪天 accent 变暗到白字达标，这条约束就可以放宽了');
+    // 复位，避免影响其它用例的全局状态。
+    notifyGlobalAccent(before);
   });
 }
 

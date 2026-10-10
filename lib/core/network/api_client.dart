@@ -442,7 +442,10 @@ class ApiClient {
       try {
         final page = await fetchEbookChapterPage(id, page: 0);
         if (page.content.isNotEmpty) {
-          return detail.withChapters(page.content, totalChapters: page.totalElements);
+          return detail.withChapters(
+            page.content,
+            totalChapters: page.totalElements,
+          );
         }
       } catch (_) {
         // TOC failure must not break the detail page — just no read entry.
@@ -478,9 +481,7 @@ class ApiClient {
         );
       }
       final map = raw as Map<String, dynamic>?;
-      return map == null
-          ? null
-          : PageResponse.fromJson(map, _chapterFromJson);
+      return map == null ? null : PageResponse.fromJson(map, _chapterFromJson);
     });
   }
 
@@ -712,6 +713,33 @@ class ApiClient {
     final signed = video.streamUrl;
     if (signed != null && signed.isNotEmpty) return resolveUrl(signed);
     return resolveUrl('/api/v1/video/${video.id}/stream');
+  }
+
+  /// Backend: `GET /api/v1/video/{id}/subtitles` — 与视频同目录的外挂字幕。
+  ///
+  /// 容器内嵌字幕（mkv 的 track）由 mpv 自己识别，但**外挂的 .srt/.ass 不会**
+  /// 被自动识别——必须由客户端拉列表、再用 mpv 的 `sub-add` 主动加载。
+  /// iOS 端就是这么做的（`MpvPlayer.selectSubtitle` 的 `.external` 分支）。
+  ///
+  /// 后端返回的 `url` 已带签名，直接给 mpv 用即可。
+  Future<List<ExternalSubtitle>> fetchSubtitles(int videoId) async {
+    final json = await _send('/api/v1/video/$videoId/subtitles');
+    final data = json['data'];
+    if (data is! List) return const [];
+    final out = <ExternalSubtitle>[];
+    for (final item in data) {
+      if (item is! Map) continue;
+      final url = item['url']?.toString() ?? '';
+      if (url.isEmpty) continue;
+      out.add(
+        ExternalSubtitle(
+          filename: item['filename']?.toString() ?? '',
+          language: item['language']?.toString(),
+          url: resolveUrl(url),
+        ),
+      );
+    }
+    return out;
   }
 
   /// Relative paths like `/api/v1/video/2/cover` → absolute URL.

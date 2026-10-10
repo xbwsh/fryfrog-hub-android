@@ -40,43 +40,37 @@ class _MusicScreenState extends State<MusicScreen> {
         return SafeArea(
           bottom: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              pad,
-              pad,
-              pad,
-              pad + dockClearance,
-            ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!form.isTabletPortrait)
-                    Text(
-                      '音乐',
-                      style: TextStyle(
-                        fontSize: 28 * form.typeScale,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  const SizedBox(height: Dimens.spacingLg),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: GlassSegmentedControl(
-                        segments: [
-                          for (final label in _modes)
-                            GlassSegment(label: label),
-                        ],
-                        selectedIndex: _mode,
-                        onSegmentSelected: (i) => setState(() => _mode = i),
-                      ),
+            padding: EdgeInsets.fromLTRB(pad, pad, pad, pad + dockClearance),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!form.isTabletPortrait)
+                  Text(
+                    '音乐',
+                    style: TextStyle(
+                      fontSize: 28 * form.typeScale,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: Dimens.spacingXl),
-                  Expanded(child: _browseBody(session, form)),
-                ],
-              ),
+                const SizedBox(height: Dimens.spacingLg),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: GlassSegmentedControl(
+                      segments: [
+                        for (final label in _modes) GlassSegment(label: label),
+                      ],
+                      selectedIndex: _mode,
+                      onSegmentSelected: (i) => setState(() => _mode = i),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: Dimens.spacingXl),
+                Expanded(child: _browseBody(session, form)),
+              ],
             ),
+          ),
         );
       },
     );

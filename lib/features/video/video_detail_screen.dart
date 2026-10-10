@@ -444,10 +444,10 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
             ],
           ),
           body: _c.loading
-              ? const SafeArea(
+              ? SafeArea(
                   child: Center(
                     child: CircularProgressIndicator(
-                      color: AppColors.accent,
+                      color: AppColors.accentOf(context),
                       strokeWidth: 2.5,
                     ),
                   ),
@@ -977,20 +977,41 @@ class _DetailView extends StatelessWidget {
                       const SizedBox(height: Dimens.spacingXl),
                     ],
                     if (ep != null && (ep.isWatched || ep.hasProgress)) ...[
+                      // 明确区分「本集」与「整部剧」两种进度——原先只写「已看完」
+                      // /「已看 42%」，用户分不清是这一集还是整部剧的比例，
+                      // 看完一集打勾后更会以为「整部都看完了」。
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              ep.isWatched
-                                  ? '已看完'
-                                  : '已看 ${(ep.watchProgressPercent ?? 0).toStringAsFixed(0)}%',
-                              style: TextStyle(
-                                fontSize: 13 * form.typeScale,
-                                color: ep.isWatched
-                                    ? AppColors.success
-                                    : theme.hintColor,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  // 本集：说清是哪一集、什么状态。
+                                  ep.isWatched
+                                      ? '本集已看完'
+                                      : '本集已看 ${(ep.watchProgressPercent ?? 0).toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    fontSize: 13 * form.typeScale,
+                                    color: ep.isWatched
+                                        ? AppColors.success
+                                        : theme.hintColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                // 整部：仅剧集才有总集数进度，与上面「本集」区分开。
+                                if (!detail.isStandalone &&
+                                    (detail.episodeCount ?? 0) > 0) ...[
+                                  const SizedBox(height: Dimens.spacingXs),
+                                  Text(
+                                    _seriesProgressText(detail, ep),
+                                    style: TextStyle(
+                                      fontSize: 12 * form.typeScale,
+                                      color: theme.hintColor,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           TextButton(
@@ -1165,6 +1186,19 @@ class _DetailView extends StatelessWidget {
     ];
     return parts.join(' · ');
   }
+
+  /// 整部剧的观看进度文案（仅剧集）。
+  ///
+  /// 与「本集已看 x%」区分开：这里说的是**这部剧**看到第几集、以及还剩多少集。
+  /// 后端没给「已看集数」时，退回显示当前集号，避免显示成 0/59 那样的假信息。
+  String _seriesProgressText(SeriesDetail detail, VideoItem? ep) {
+    final total = detail.episodeCount ?? 0;
+    if (total <= 0) return '';
+    final current = ep?.episodeNumber;
+    if (current == null || current <= 0) return '全 $total 集';
+    if (current >= total) return '已看到第 $current 集（全剧完）';
+    return '已看到第 $current 集 · 共 $total 集';
+  }
 }
 
 /// Watch badge on the hero poster: percent ring, or green check when done.
@@ -1223,7 +1257,7 @@ class _ProgressBadge extends StatelessWidget {
               value: value,
               strokeWidth: 3.5,
               backgroundColor: Colors.white24,
-              color: AppColors.accent,
+              color: AppColors.accentOf(context),
               strokeCap: StrokeCap.round,
             ),
           ),
@@ -1355,7 +1389,7 @@ class _EpisodeTile extends StatelessWidget {
                               value: progress.clamp(0.0, 1.0),
                               minHeight: 3,
                               backgroundColor: Colors.black45,
-                              color: AppColors.accent,
+                              color: AppColors.accentOf(context),
                             ),
                           ),
                       ],

@@ -107,10 +107,7 @@ class _InLibrarySearchScreenState extends State<InLibrarySearchScreen> {
       _loading = true;
       _error = null;
     });
-    _debounce = Timer(
-      const Duration(milliseconds: 300),
-      () => _runSearch(q),
-    );
+    _debounce = Timer(const Duration(milliseconds: 300), () => _runSearch(q));
   }
 
   Future<void> _runSearch(String q) async {

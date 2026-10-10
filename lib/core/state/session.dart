@@ -81,8 +81,16 @@ class Session extends ChangeNotifier {
   /// 公网地址与用户名**没有**硬编码兜底——留空表示"还没连过服务器"，
   /// 预填 frostine.top/admin 会误导首次使用者（ServerConnection 默认空串）。
   /// 端口与协议是无歧义的部署约定，保留默认 20058 / http。
-  Future<({String publicHost, String lanHost, String port, String scheme, String username})>
-      savedLoginDefaults() async {
+  Future<
+    ({
+      String publicHost,
+      String lanHost,
+      String port,
+      String scheme,
+      String username,
+    })
+  >
+  savedLoginDefaults() async {
     final prefs = await SharedPreferences.getInstance();
     return (
       publicHost: prefs.getString(_kPublic) ?? '',

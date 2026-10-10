@@ -209,7 +209,6 @@ class _FakeVideoGateway implements VideoGateway {
     required String kind,
   }) async => '/tmp/cover.jpg';
 
-
   @override
   Future<SeasonRefreshResult> refreshSeasonCovers(int seriesId) async =>
       const SeasonRefreshResult();
@@ -245,7 +244,11 @@ class _FakeVideoGateway implements VideoGateway {
   }
 }
 
-SeriesDetail _detail({bool favorite = false, List<VideoItem>? eps, int? tmdbId}) {
+SeriesDetail _detail({
+  bool favorite = false,
+  List<VideoItem>? eps,
+  int? tmdbId,
+}) {
   return SeriesDetail(
     id: 1,
     type: 'series',
@@ -452,7 +455,12 @@ void main() {
   test('fetchCoverOptions 透传候选，applyCover 提交选中图并标记 mutated', () async {
     final gw = _FakeVideoGateway(detail: _detail(tmdbId: 77))
       ..coverOptions = const [
-        CoverOption(filePath: '/a.jpg', url: '/proxy?path=/a.jpg', width: 1920, height: 1080),
+        CoverOption(
+          filePath: '/a.jpg',
+          url: '/proxy?path=/a.jpg',
+          width: 1920,
+          height: 1080,
+        ),
         CoverOption(filePath: '/b.jpg', url: '/proxy?path=/b.jpg'),
       ];
     final c = VideoDetailController(

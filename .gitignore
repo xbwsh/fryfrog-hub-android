@@ -54,3 +54,6 @@ app.*.map.json
 /.mimocode/
 /.zcode/
 local.properties
+
+# AI 助手工作记录（本地元数据，不入库）
+/.workbuddy/

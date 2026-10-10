@@ -30,6 +30,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   BookDetail? _detail;
   String? _error;
   bool _loading = true;
+
   /// 电子书目录已加载的章数（详情页只加载第一页，其余按"加载更多"追加）。
   int _loadedChapters = 0;
   bool _loadingMore = false;
@@ -85,11 +86,15 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       if (!mounted) return;
       final merged = <BookChapter>[
         ...detail.chapters,
-        ...next.content.where((c) =>
-            !detail.chapters.any((e) => e.chapterIndex == c.chapterIndex)),
+        ...next.content.where(
+          (c) => !detail.chapters.any((e) => e.chapterIndex == c.chapterIndex),
+        ),
       ];
       setState(() {
-        _detail = detail.withChapters(merged, totalChapters: next.totalElements);
+        _detail = detail.withChapters(
+          merged,
+          totalChapters: next.totalElements,
+        );
         _loadedChapters = merged.length;
         _loadingMore = false;
       });
@@ -254,9 +259,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         ],
       ),
       body: _loading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(
-                color: AppColors.accent,
+                color: AppColors.accentOf(context),
                 strokeWidth: 2.5,
               ),
             )
@@ -576,9 +581,7 @@ class _DetailView extends StatelessWidget {
                               icon: const Icon(Icons.expand_more_rounded),
                               label: Text(
                                 '加载更多章节',
-                                style: TextStyle(
-                                  fontSize: 13 * form.typeScale,
-                                ),
+                                style: TextStyle(fontSize: 13 * form.typeScale),
                               ),
                             ),
                     ),

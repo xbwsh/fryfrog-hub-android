@@ -392,7 +392,8 @@ class VideoDetailController extends ChangeNotifier {
     }
   }
 
-  Future<List<FrameCandidate>> generateFrames() async {    _ensureIdle();
+  Future<List<FrameCandidate>> generateFrames() async {
+    _ensureIdle();
     final videoId = _requireVideoId();
     busy = true;
     if (!_disposed) notifyListeners();

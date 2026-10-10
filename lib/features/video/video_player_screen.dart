@@ -9,6 +9,7 @@ import 'package:volume_controller/volume_controller.dart';
 
 import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
+import '../../core/models/video.dart';
 import '../../core/rules/seek_rules.dart';
 import '../../core/rules/watch_rules.dart';
 import '../../core/state/session.dart';
@@ -80,6 +81,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late String _titleText;
   double _startAt = 0;
 
+  // ── 顶栏留白 ───────────────────────────────────────────────────────
+  //
+  /// 播放期间系统栏恒定隐藏，所以**不能**用 SafeArea：immersive 下
+  /// `padding.top` 为 0（横屏时开孔也在侧边），SafeArea 等于没留白，
+  /// 返回键会贴到屏幕物理顶边。改用固定的最小留白，位置恒定、不会跳动。
+
   // ── 倍数（长按临时 2.0x 时不改这里）────────────────────────────────
   double _rate = 1.0;
 
@@ -136,13 +143,46 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   /// Landscape + hide system bars while the player owns the screen.
+  ///
+  /// 播放期间**恒定沉浸**：状态栏与底部导航条全程不出现，画面占满整屏。
+  /// 控制栏自己显隐，但不再牵动系统栏——两者各管各的反而更稳，也不会因为
+  /// 系统栏进出导致顶栏留白硬切而跳动。
+  ///
+  /// 竖屏进场有两个坑（都实测复现过），顺序很关键：
+  ///   1. **先旋转再设 immersive 会闪一下**：竖屏→横屏的旋转动画期间系统栏
+  ///      可见，要等 immersive 生效才消失，中间约半秒状态栏「先出现再消失」。
+  ///      横屏进场旋转瞬时完成，所以看不出问题。
+  ///      → 先设 immersive 压制系统栏，再旋转。
+  ///   2. **旋转会冲掉 immersive**：Android 在旋转中重建窗口并重新应用系统栏
+  ///      策略，把设好的 immersive 重置——于是状态栏和小白条一直留着。
+  ///      → 旋转落定后补设一次（见 [_confirmImmersive]）。
   Future<void> _enterImmersive() async {
+    // 顺序要紧：先压制系统栏（避免旋转期间闪现），再锁横屏。
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    unawaited(_confirmImmersive());
+  }
+
+  /// 旋转落定后补一次 immersive。
+  ///
+  /// 竖屏进场时，方向锁定的旋转动画会重建窗口并重置系统栏策略。等旋转跑完
+  /// 再重设一次即可稳定隐藏。横屏进场时旋转几乎瞬时，这次调用同样无害
+  /// （幂等）。
+  ///
+  /// 延迟取 [_immersiveRetryDelay]：略长于系统旋转动画（实测约 300ms 级）。
+  /// 因为进场时已经先设过 immersive，这段等待期系统栏也是藏着的，不会闪。
+  Future<void> _confirmImmersive() async {
+    if (_exiting) return;
+    await Future<void>.delayed(_immersiveRetryDelay);
+    if (_exiting || !mounted) return;
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
+
+  /// 旋转落定后补设 immersive 的等待时长。
+  static const Duration _immersiveRetryDelay = Duration(milliseconds: 450);
 
   Future<void> _restoreAppChrome() async {
     await SystemChrome.setEnabledSystemUIMode(
@@ -179,7 +219,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _seekSettleUntilMs = 0;
       _subTracks = const [];
       _subSelectedId = null;
+      _externalSubs = const [];
     });
+    // 拉外挂字幕（与视频同目录的 .srt/.ass，mpv 不会自动识别）。
+    unawaited(_loadExternalSubs(_current.id));
     try {
       final api = widget.session.api;
       if (api == null) throw Exception('未登录');
@@ -194,6 +237,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _controller = controller;
       // 倍数是跨集保留的：换集后新 player 要重新套上。
       unawaited(player.setRate(_rate));
+      // 字幕参数（字体/编码等）**必须在 open 之前**设好：libass 在打开媒体的
+      // 时刻就解析字体，失了之后再设就不生效了。所以这里 await，不能
+      // unawaited（那会与下面的 open 竞态，谁先到不定）。
+      await _applySubtitleDefaults(player);
+      if (_exiting || !mounted) return;
 
       _posSub = player.stream.position.listen((pos) {
         if (!mounted || _exiting) return;
@@ -223,6 +271,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         setState(() => _playing = playing);
         if (!playing) {
           unawaited(_saveProgress(force: true));
+        }
+        // 播放→开始自动隐藏计时；暂停→取消（控件留在屏上）。
+        _syncAutoHide();
+        // 状态真的变了才闪图标，避免「点了没反应」时给出错误反馈。
+        if (playing != _lastFlashPlayState) {
+          _lastFlashPlayState = playing;
+          _flashPlayState();
         }
       });
       _errSub = player.stream.error.listen((err) {
@@ -354,6 +409,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           .ignore();
     }
     // Cancel listeners first so no setState after dispose.
+    _autoHideTimer?.cancel();
+    _autoHideTimer = null;
+    _playFlashTimer?.cancel();
+    _playFlashTimer = null;
     unawaited(_posSub?.cancel());
     unawaited(_durSub?.cancel());
     unawaited(_playSub?.cancel());
@@ -377,7 +436,81 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _toggleChrome() {
     if (_exiting) return;
     setState(() => _chromeVisible = !_chromeVisible);
+    if (_chromeVisible) {
+      _scheduleAutoHide();
+    } else {
+      _autoHideTimer?.cancel();
+    }
   }
+
+  // ── 控制栏自动隐藏 ─────────────────────────────────────────────────
+  ///
+  /// 播放器不该一直挂着控件挡画面：显示后 [_chromeAutoHideDelay] 内无操作就收起。
+  /// 只在**播放中**计时——暂停时把控件留在屏上，用户才看得见进度/继续按钮。
+  Timer? _autoHideTimer;
+
+  /// 无操作多久后自动收起控制栏。
+  static const Duration _chromeAutoHideDelay = Duration(seconds: 5);
+
+  /// 安排一次自动隐藏。已安排/正在 seek/已暂停/控制栏本就隐藏时不重复安排。
+  void _scheduleAutoHide() {
+    _autoHideTimer?.cancel();
+    _autoHideTimer = null;
+    if (_exiting || !_chromeVisible || _seeking || !_playing) return;
+    _autoHideTimer = Timer(_chromeAutoHideDelay, () {
+      _autoHideTimer = null;
+      if (!mounted || _exiting || !_chromeVisible || !_playing) return;
+      // 面板/抽屉开着时别收，否则会盖住用户正在操作的东西。
+      if (_epOpen || _speedOpen || _subOpen) return;
+      setState(() => _chromeVisible = false);
+    });
+  }
+
+  /// 播放状态变化后重新安排/取消自动隐藏。
+  void _syncAutoHide() {
+    if (_playing && _chromeVisible) {
+      _scheduleAutoHide();
+    } else {
+      _autoHideTimer?.cancel();
+      _autoHideTimer = null;
+    }
+  }
+
+  /// 进度条被拖动时暂停自动隐藏，松手后再重新计时——拖动过程中控件不能消失。
+  void _holdAutoHide() {
+    _autoHideTimer?.cancel();
+    _autoHideTimer = null;
+  }
+
+  // ── 播放/暂停的中央图标反馈 ─────────────────────────────────────────
+  //
+  /// null = 不显示；否则显示该状态的图标。
+  ///
+  /// 暂停时**常驻**（不自动消失），恢复播放时才闪一下就淡出——和主流播放器
+  /// 一致。理由：暂停是个稳定状态，用户要靠这个图标（和进度条一起）确认
+  /// 「现在是停着的」，闪一下就没等于没反馈；而恢复播放是个瞬时动作，图标只需
+  /// 短暂确认一下就会消失，不该挡着画面。
+  bool? _playFlash;
+
+  /// 播放/暂停时在中央闪一下图标，给用户明确反馈。
+  void _flashPlayState() {
+    // 加载中不闪：加载背景中央已有进度圈，再叠一个图标会糊在一起。
+    if (!mounted || _loading) return;
+    _playFlashTimer?.cancel();
+    _playFlashTimer = null;
+    setState(() => _playFlash = _playing);
+    // 只在「恢复播放」时淡出；暂停时保持常驻。
+    if (!_playing) return;
+    _playFlashTimer = Timer(_PlayFlashState.fadeDuration, () {
+      _playFlashTimer = null;
+      if (mounted) setState(() => _playFlash = null);
+    });
+  }
+
+  Timer? _playFlashTimer;
+
+  /// 上一次闪图标时的播放状态，用来判断「状态是否真的变了」。
+  bool _lastFlashPlayState = true;
 
   /// Leave immediately. Progress is saved fire-and-forget in dispose —
   /// never block back-gesture on network.
@@ -489,7 +622,114 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _setSubtitle(SubtitleTrack track) async {
     if (_exiting) return;
     _closePanels();
+    // 切轨就等于换轨：mpv 在 setSubtitleTrack 时会卸掉上一条 uri 轨，
+    // 所以不用像 iOS 那样手工 sub-remove记账。
     await _player?.setSubtitleTrack(track);
+    _scheduleAutoHide();
+  }
+
+  // ── 外挂字幕 ────────────────────────────────────────────────────────
+  //
+  // mpv 只自动识别**容器内嵌**的字幕轨；与视频同目录的外挂 .srt/.ass 需要
+  // 客户端主动加载。iOS 端一直用 `sub-add` 加载，Android 端原先没接，
+  // 于是只有内嵌字幕能用——这就是两端表现不一致的根因。
+  //
+  // 这里用 media_kit 官方的 [SubtitleTrack.uri]：它内部就是 sub-add，
+  // 但切走时 mpv 会自动卸载 uri 轨，不用像 iOS 那样手工记账 sub-remove。
+  List<ExternalSubtitle> _externalSubs = const [];
+
+  /// 播放器创建后立刻下发的字幕相关 mpv 参数。
+  ///
+  /// 必须在 [Player.open] **之前**设：libass 在打开媒体的瞬间就按当时的
+  /// 配置建立字体缓存，之后再设不生效。
+  ///
+  /// 不设这些就是 libmpv 默认值，和 iOS 端（`MpvPlayer.swift` 里显式
+  /// `vo=libmpv` + `sub-auto=no` + 手动选轨）行为不一致，字幕就会表现不同：
+  ///
+  /// · `sub-auto=no`：默认 `all`，会探测**流URL 旁边**的 sidecar 字幕文件。
+  ///   流地址（`/api/v1/video/{id}/stream`）旁边当然什么都没有，于是刷一串
+  ///   404，还可能打乱自动选中的 `sid`。外挂字幕走 [SubtitleTrack.uri]
+  ///   显式加载，所以关掉自动探测。
+  /// · `sub-ass-scale-with-window=yes`：字号按窗口而非视频原始分辨率缩放。
+  ///   1920x1080 的流渲到手机屏时，按原始分辨率算的字会明显偏小、行距错乱。
+  ///
+  /// ⚠️ **不要瞎加字体相关参数**：这个 libmpv（media_kit 预编译）**没有**
+  /// `sub-fonts` / `sub-ass-fonts` / `sub-ass-font-fallback` 这些选项——
+  /// 二进制里搜不到，设了会被静默忽略。字体只能由 libass 走 fontconfig
+  /// 自找，客户端改不了。
+  ///
+  /// 参数下发失败不能影响播放，所以全部吞掉异常。
+  Future<void> _applySubtitleDefaults(Player player) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    const opts = <List<String>>[
+      // 不自动探测 sidecar 文件（会对流地址刷 404，且会乱掉 sid）。
+      ['sub-auto', 'no'],
+      // 显式保证字幕层可见。
+      ['sub-visibility', 'yes'],
+      // Android 上默认字号偏小，放大一点更易读。
+      ['sub-scale', '1.15'],
+      // 上下留一点边距，别贴着画面边缘。
+      ['sub-margin-y', '36'],
+      // 强制走 libass：ASS 特效字幕全靠它。
+      ['sub-ass-ffmpeg', 'yes'],
+      // 中文字幕常是 GBK/Big5 编码，统一按 UTF-8 试一次，避免乱码。
+      ['sub-ass-encoding', 'UTF-8'],
+      // 字号按**窗口**而不是视频原始分辨率缩放。
+      // 缺省是按视频分辨率算，而播放的是1920x1080 的流、渲染到手机上尺寸
+      // 差异极大时字会明显偏小；按窗口算则始终是所见尺寸的合理大小。
+      ['sub-ass-scale-with-window', 'yes'],
+      // ASS 行高/间距：默认 0（用字体自身行高）。部分特效字幕依赖行高做
+      // 定位，给一点余量避免行与行挤在一起。
+      ['sub-ass-line-spacing', '0'],
+      // 描边/阴影模糊按窗口缩放，与字号保持一致观感。
+      ['sub-ass-hinting', 'yes'],
+      // 强制 OSD 层用 libass 渲染（与 vo=libmpv 一致的做法）。
+      ['osd-ass-cc', 'no'],
+    ];
+    for (final opt in opts) {
+      try {
+        await platform.setProperty(opt[0], opt[1]);
+      } catch (_) {
+        // 单个参数不支持就跳过，不影响其它。
+      }
+    }
+  }
+
+  /// 拉取当前视频的外挂字幕列表（切集后要重拉）。
+  Future<void> _loadExternalSubs(int videoId) async {
+    final api = widget.session.api;
+    if (api == null) return;
+    try {
+      final subs = await api.fetchSubtitles(videoId);
+      if (!mounted || _exiting) return;
+      setState(() => _externalSubs = subs);
+    } catch (_) {
+      // 拉不到就当没有外挂字幕，不该影响内嵌字幕和播放本身。
+    }
+  }
+
+  /// 选中某个外挂字幕。
+  Future<void> _setExternalSubtitle(ExternalSubtitle sub) async {
+    final player = _player;
+    if (_exiting || player == null) return;
+    _closePanels();
+    await player.setSubtitleTrack(
+      SubtitleTrack.uri(
+        sub.url,
+        title: sub.displayName,
+        language: sub.language,
+      ),
+    );
+    _scheduleAutoHide();
+  }
+
+  /// 关闭外挂字幕（并彻底关掉字幕输出）。
+  Future<void> _clearExternalSubtitle() async {
+    if (_exiting) return;
+    _closePanels();
+    await _player?.setSubtitleTrack(SubtitleTrack.no());
+    _scheduleAutoHide();
   }
 
   /// 抽屉里点了一集：先关面板，再走复用同一个播放器的换集流程。
@@ -579,6 +819,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (_duration <= Duration.zero) return false;
     if (!_seeking) _chromeBeforeSeek = _chromeVisible;
     _seeking = true;
+    // 拖动期间控件必须留在屏上（拖到一半消失没法用），暂停自动隐藏计时。
+    _holdAutoHide();
     _seekStart = _position;
     _seekDeltaPx = _dragDx;
     if (from != null) {
@@ -625,6 +867,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       unawaited(_saveProgress(force: true));
     }
     if (mounted) setState(() {});
+    // 松手后恢复自动隐藏计时（拖动过程中由 _beginSeek 暂停过）。
+    _syncAutoHide();
   }
 
   /// 精确 seek。mpv 默认按关键帧 seek，会落在目标前面的 I 帧上——松手后
@@ -802,7 +1046,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               child: Center(child: _body(form)),
             ),
             // 亮度/音量/倍速的即时反馈，居中悬浮，不参与命中测试。
-            if ((_adjusting || _speedUp) && !_exiting)
+            // 长按倍速期间可能同时在加载（切集），同样避开与进度圈重叠。
+            if ((_adjusting || _speedUp) && !_exiting && !_loading)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Center(
@@ -815,45 +1060,68 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                 ),
               ),
-            // 拖动 seek 中控制栏收到只剩进度条：顶栏也一并收起。
-            if (_chromeVisible && !_seeking && !_exiting)
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: _TopChrome(form: form, title: _title, onBack: _exit),
-              ),
-            if (_chromeVisible && !_exiting && _initialized && _player != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _BottomChrome(
-                  form: form,
-                  playing: _playing,
-                  position: _position,
-                  // 拖动中（横滑或滑杆）进度条跟预览走，松手才真正跳转。
-                  seeking: _seeking,
-                  preview: _seeking ? _seekPreview : null,
-                  duration: _duration,
-                  rateLabel: _rateLabel,
-                  speedOpen: _speedOpen,
-                  epOpen: _epOpen,
-                  subOpen: _subOpen,
-                  onPickSpeed: _toggleSpeedPanel,
-                  onPickSubtitles: _subTracks.isNotEmpty
-                      ? _toggleSubPanel
-                      : null,
-                  onPickEpisodes: widget.episodes.length > 1
-                      ? _toggleEpDrawer
-                      : null,
-                  fmt: _fmt,
-                  onChangeStart: _onScrubStart,
-                  onChanged: _onScrubUpdate,
-                  onChangeEnd: _onScrubEnd,
-                  onTogglePlay: _togglePlay,
+            // 播放/暂停的中央大图标反馈（短暂淡出，不抢画面）。
+            //
+            // 加载中不显示：加载背景自带中央进度圈，两者都在正中会叠成
+            // 「圈里套个图标」的糊状。加载时也没有可暂停的帧，提示无意义。
+            if (_playFlash != null && !_exiting && !_loading)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(child: _PlayFlash(playing: _playFlash!)),
                 ),
               ),
+            // 控制栏常驻树内，只靠滑入/滑出动画进出（见 _ChromeReveal）：
+            // 顶栏从上往下、底栏从下往上，与系统栏的显隐方向一致。
+            // _exiting 时才真正从树里摘掉，避免退出动画中途被重建打断。
+            if (!_exiting) ...[
+              if (_initialized || _loading || _error != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _ChromeReveal(
+                    // seek 中顶栏也一并收起（只剩底部进度条）。
+                    shown: _chromeVisible && !_seeking,
+                    axis: _ChromeAxis.top,
+                    child: _TopChrome(form: form, title: _title, onBack: _exit),
+                  ),
+                ),
+              if (_initialized && _player != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _ChromeReveal(
+                    shown: _chromeVisible,
+                    axis: _ChromeAxis.bottom,
+                    child: _BottomChrome(
+                      form: form,
+                      playing: _playing,
+                      position: _position,
+                      // 拖动中（横滑或滑杆）进度条跟预览走，松手才真正跳转。
+                      seeking: _seeking,
+                      preview: _seeking ? _seekPreview : null,
+                      duration: _duration,
+                      rateLabel: _rateLabel,
+                      speedOpen: _speedOpen,
+                      epOpen: _epOpen,
+                      subOpen: _subOpen,
+                      onPickSpeed: _toggleSpeedPanel,
+                      onPickSubtitles: _subTracks.isNotEmpty
+                          ? _toggleSubPanel
+                          : null,
+                      onPickEpisodes: widget.episodes.length > 1
+                          ? _toggleEpDrawer
+                          : null,
+                      fmt: _fmt,
+                      onChangeStart: _onScrubStart,
+                      onChanged: _onScrubUpdate,
+                      onChangeEnd: _onScrubEnd,
+                      onTogglePlay: _togglePlay,
+                    ),
+                  ),
+                ),
+            ],
             // ── 选集抽屉 / 倍速·字幕浮层 + 遮罩：盖住视频与控制栏 ──────
             if (!_exiting) ...[
               Positioned.fill(
@@ -904,6 +1172,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   tracks: _subTracks,
                   selectedId: _subSelectedId,
                   onPick: _setSubtitle,
+                  externalSubs: _externalSubs,
+                  onPickExternal: _setExternalSubtitle,
+                  onClearExternal: _clearExternalSubtitle,
                 ),
               ),
             ],
@@ -915,10 +1186,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Widget _body(DeviceForm form) {
     if (_loading) {
-      return const CircularProgressIndicator(
-        color: AppColors.accent,
-        strokeWidth: 2.5,
-      );
+      // 加载中：绿紫晕染背景铺满画面 + 呼吸动画，中央再叠一个进度圈。
+      // 黑屏等视频太「硬」，用有色彩层次的背景过渡更像是在「准备播放」。
+      return const _LoadingBackdrop();
     }
     if (_error != null) {
       return Padding(
@@ -954,7 +1224,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
     final controller = _controller;
     if (controller == null) {
-      return const CircularProgressIndicator(color: AppColors.accent);
+      return CircularProgressIndicator(color: AppColors.accentOf(context));
     }
     return Video(
       controller: controller,
@@ -962,6 +1232,324 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       fit: BoxFit.contain,
     );
   }
+}
+
+/// chrome 滑入/滑出的方向：顶栏自上而下，底栏自下而上。
+enum _ChromeAxis { top, bottom }
+
+/// 控制栏的进出场包装：按方向滑入/滑出 + 渐隐，并屏蔽隐藏态的点击。
+///
+/// 为什么不用 `if (_chromeVisible)` 直接增删：
+///   直接增删没有任何过渡，「啪一下出现」，观感上就是「卡一下」。
+///
+/// **进出必须对称**：进场与退场用同一条曲线、同一个时长，否则一侧「唰」
+/// 地消失、另一侧「黏」地淡出，两下看起来不是一个动作。位移上，进场从
+/// 视口外滑到原位、退场从原位滑回视口外，方向严格相反、对称。
+class _ChromeReveal extends StatelessWidget {
+  const _ChromeReveal({
+    required this.shown,
+    required this.axis,
+    required this.child,
+  });
+
+  final bool shown;
+  final _ChromeAxis axis;
+  final Widget child;
+
+  /// 隐藏时滑出的方向：顶栏往上、底栏往下（与进场方向相反）。
+  Offset get _hiddenOffset => switch (axis) {
+    _ChromeAxis.top => const Offset(0, -1.2),
+    _ChromeAxis.bottom => const Offset(0, 1.2),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // 用户在系统里开了「移除动画」时干脆不播，直接到位。
+    final dur = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : Dimens.playerChromeAnimDuration;
+
+    // easeInOutCubic：进出共用一条自带对称性的曲线（前半段渐快、后半段渐慢，
+    // 反向播放正好是它的镜像），这样「滑入」与「滑出」严格互为镜像、时长一致。
+    // 早前用 easeOutCubic 是错的——它是单向曲线，退场时「猛地淡出」，与进场的
+    // 「缓缓淡入」不对称，看着像两个动作。
+    const curve = Curves.easeInOutCubic;
+
+    final content = AnimatedSlide(
+      offset: shown ? Offset.zero : _hiddenOffset,
+      duration: dur,
+      curve: curve,
+      child: AnimatedOpacity(
+        opacity: shown ? 1 : 0,
+        duration: dur,
+        curve: curve,
+        child: child,
+      ),
+    );
+
+    return IgnorePointer(ignoring: !shown, child: content);
+  }
+}
+
+/// 视频加载中的过渡背景（≈原型 `.loading-bg`）。
+///
+/// 三层叠加：左上偏中的青绿径向光晕 + 右下的蓝紫径向光晕 + 深色斜向底渐变；
+/// 另叠一层极淡的网格线（径向遮罩，只在画面中心附近可见）。整体做 2.4s 的
+/// 明暗呼吸动画，避免静止画面显得死板。
+///
+/// 配色按需求固定为原型值（不跟随主题色）。
+class _LoadingBackdrop extends StatefulWidget {
+  const _LoadingBackdrop();
+
+  @override
+  State<_LoadingBackdrop> createState() => _LoadingBackdropState();
+}
+
+class _LoadingBackdropState extends State<_LoadingBackdrop>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: _LoadingBackdropState.pulseDuration,
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 三层渐变整体做呼吸：明暗 1↔1.15、饱和 1↔1.2（原型 loadingPulse）。
+        AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final t = Curves.easeInOut.transform(_c.value);
+            final brightness = 1.0 + 0.15 * t;
+            final saturate = 1.0 + 0.20 * t;
+            return DecoratedBox(
+              // 底层：深蓝灰 → 近黑，斜向（对应原型 160° linear-gradient）。
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF161A22), Color(0xFF0A0B0F)],
+                ),
+              ),
+              // 两处径向光晕用内层 Stack 叠在底渐变上——BoxDecoration 只支持
+              // 单个渐变，画不了三个。
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  for (final g in _LoadingGlowSpec.values)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: g.center,
+                          radius: g.radius,
+                          colors: [
+                            g.color.withValues(
+                              alpha: (g.baseAlpha * saturate * brightness)
+                                  .clamp(0.0, 1.0),
+                            ),
+                            g.color.withValues(alpha: 0),
+                          ],
+                          // 原型 transparent 落在 55% 处。
+                          stops: const [0.0, 0.55],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+        // 极淡网格线（原型 ::after）。
+        const _GridOverlay(),
+        // 中央进度圈：叠在背景之上。
+        Center(
+          child: SizedBox(
+            width: 34,
+            height: 34,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 呼吸动画周期（原型 loadingPulse 2.4s ease-in-out）。
+  static const Duration pulseDuration = Duration(milliseconds: 2400);
+}
+
+/// 两处径向光晕的位置与配色。
+enum _LoadingGlowSpec {
+  teal(
+    center: Alignment(-0.44, -0.36),
+    color: Color(0xFF00C8B4),
+    baseAlpha: 0.30,
+  ),
+  indigo(
+    center: Alignment(0.52, 0.44),
+    color: Color(0xFF5868FF),
+    baseAlpha: 0.28,
+  );
+
+  const _LoadingGlowSpec({
+    required this.center,
+    required this.color,
+    required this.baseAlpha,
+  });
+
+  /// 中心点：原型 28%/32% → Alignment(-0.44,-0.36)；76%/72% → (0.52,0.44)。
+  final Alignment center;
+
+  /// 光晕颜色。
+  final Color color;
+
+  /// 峰值不透明度（原型 .30 / .28）。
+  final double baseAlpha;
+
+  /// 半径（原型 transparent 55%，这里作为 RadialGradient 的归一化半径）。
+  double get radius => 1.1;
+}
+
+/// 原型 `.loading-bg::after` 的极淡网格线：52px 网格 + 径向遮罩。
+class _GridOverlay extends StatelessWidget {
+  const _GridOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(painter: _GridPainter(), size: Size.infinite),
+    );
+  }
+}
+
+class _GridPainter extends CustomPainter {
+  /// 网格间距（原型 52px）。
+  static const double cell = 52;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final half = size.longestSide / 2;
+    final origin = Offset(size.width / 2, size.height / 2);
+    for (double x = 0; x < size.width; x += cell) {
+      for (double y = 0; y < size.height; y += cell) {
+        final center = Offset(x + cell / 2, y + cell / 2);
+        final dist = ((center - origin).distance / half).clamp(0.0, 1.0);
+        // 径向遮罩：中心 1 → 边缘 0；基础透明度取原型的 .028。
+        final alpha = (1.0 - Curves.easeOut.transform(dist)) * 0.028;
+        if (alpha <= 0.002) continue;
+        final paint = Paint()
+          ..color = const Color(0xFFFFFFFF).withValues(alpha: alpha)
+          ..strokeWidth = 1;
+        canvas.drawLine(Offset(x, y), Offset(x + cell, y), paint);
+        canvas.drawLine(Offset(x, y), Offset(x, y + cell), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// 播放/暂停时在画面中央闪一下的大图标。
+///
+/// 没有它时，用户点了暂停却看不到任何反馈——画面在动、控件又可能已自动收起，
+/// 很容易以为没点上。
+///
+/// **两种模式**：
+/// · 暂停（playing=true 表示刚点暂停）→ **常驻**，不淡出。暂停是稳定状态，
+///   用户需要它一直提示「现在是停着的」，和进度条一起构成完整状态反馈。
+/// · 恢复播放 → 闪现约 [fadeDuration] 后淡出，不长期遮挡画面。
+class _PlayFlash extends StatefulWidget {
+  const _PlayFlash({required this.playing});
+
+  /// true = 刚点暂停 → 显示「暂停」图标并常驻。
+  final bool playing;
+
+  @override
+  State<_PlayFlash> createState() => _PlayFlashState();
+}
+
+class _PlayFlashState extends State<_PlayFlash>
+    with SingleTickerProviderStateMixin {
+  /// 恢复播放时的闪现时长；暂停态的淡入动画在 [fadeDuration] 前段就走完了，
+  /// 之后停住不动，所以两种模式可以共用一个 controller。
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: fadeDuration,
+  );
+
+  /// 是否已经播过一次。
+  ///
+  /// 关键点：`_playFlash` 是从 `null` 变成 true/false 的，所以每闪一次都是
+  /// **新建** `_PlayFlash`——不是更新已有的。而 `AnimationController` 初始
+  /// 值就是 1.0（已播完），只有 `didUpdateWidget` 会 `forward(from: 0)`，
+  /// 新建的这首个 build 什么都不触发，动画永远不播（图标一出现就没了）。
+  /// 所以首次 build 必须主动 forward。
+  @override
+  void initState() {
+    super.initState();
+    _c.forward(from: 0);
+  }
+
+  @override
+  void didUpdateWidget(_PlayFlash old) {
+    super.didUpdateWidget(old);
+    if (old.playing != widget.playing) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: FadeTransition(
+        // 前 35% 时间淡入，之后**保持不透明**（Interval 在 0.35 之后被 clamp
+        // 到 1，不会自动淡出）。暂停态靠外层「不启动消失计时器」常驻，
+        // 恢复播放态靠计时器移除组件，两者都无需在这里做淡出。
+        opacity: CurvedAnimation(
+          parent: _c,
+          curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
+        ),
+        child: ScaleTransition(
+          scale: Tween(
+            begin: 0.82,
+            end: 1.0,
+          ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutBack)),
+          child: Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              // 半透明圆底：在亮画面上也能看清，但不遮挡画面主体。
+              color: Colors.black.withValues(alpha: 0.42),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              widget.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+              size: 46,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 大图标从出现到淡出的总时长。
+  static const Duration fadeDuration = Duration(milliseconds: 620);
 }
 
 class _TopChrome extends StatelessWidget {
@@ -989,8 +1577,10 @@ class _TopChrome extends StatelessWidget {
       ),
       child: Material(
         type: MaterialType.transparency,
-        child: SafeArea(
-          bottom: false,
+        // 不用 SafeArea：系统栏恒定沉浸，padding.top 为 0，等于没避让，
+        // 返回键会贴到物理顶边。给固定留白，位置恒定。
+        child: Padding(
+          padding: const EdgeInsets.only(top: Dimens.playerChromeMinTop),
           child: SizedBox(
             height: kToolbarHeight,
             child: Row(
@@ -1097,13 +1687,13 @@ class _BottomChrome extends StatelessWidget {
   );
 
   /// 面板按钮样式：对应浮层开着时 accent 字 + accent 12% 底（原型 .text-btn.active）。
-  ButtonStyle _panelBtnStyle(bool active) {
+  ButtonStyle _panelBtnStyle(BuildContext context, bool active) {
     return TextButton.styleFrom(
       padding: const EdgeInsets.symmetric(horizontal: Dimens.spacingSm),
       minimumSize: Size(44 * form.typeScale, 32),
-      foregroundColor: active ? AppColors.accent : Colors.white,
+      foregroundColor: active ? AppColors.accentOf(context) : Colors.white,
       backgroundColor: active
-          ? AppColors.accent.withValues(alpha: 0.12)
+          ? AppColors.accentOf(context).withValues(alpha: 0.12)
           : Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Dimens.radiusSm),
@@ -1137,122 +1727,120 @@ class _BottomChrome extends StatelessWidget {
       ),
       child: Material(
         type: MaterialType.transparency,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Dimens.spacingSm,
-              Dimens.spacingXs,
-              Dimens.spacingSm,
-              Dimens.spacingSm,
-            ),
-            child: Row(
-              children: [
-                // seek 中只隐藏不占位地收起按钮 —— 直接从 Row 里删掉会改变
-                // 滑杆轨道宽度，拇指瞬间横跳，反而像抖动。
-                _hideWhileSeeking(
-                  IconButton(
-                    tooltip: playing ? '暂停' : '播放',
-                    iconSize: 32 * form.posterScale,
-                    icon: Icon(
-                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      color: Colors.white,
+        // 与顶栏同理：系统栏恒定隐藏，SafeArea 给不出避让，统一用固定内边距。
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Dimens.spacingSm,
+            Dimens.spacingXs,
+            Dimens.spacingSm,
+            Dimens.spacingSm,
+          ),
+          child: Row(
+            children: [
+              // seek 中只隐藏不占位地收起按钮 —— 直接从 Row 里删掉会改变
+              // 滑杆轨道宽度，拇指瞬间横跳，反而像抖动。
+              _hideWhileSeeking(
+                IconButton(
+                  tooltip: playing ? '暂停' : '播放',
+                  iconSize: 32 * form.posterScale,
+                  icon: Icon(
+                    playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                  ),
+                  onPressed: onTogglePlay,
+                ),
+              ),
+              const SizedBox(width: Dimens.spacingXs),
+              // 已播/总时长并排（3:43/16:00），总时长压暗一档区分。
+              Text.rich(
+                TextSpan(
+                  text: fmt(preview ?? position),
+                  style: timeStyle,
+                  children: [
+                    TextSpan(
+                      text: '/${fmt(duration)}',
+                      style: timeStyle.copyWith(color: Colors.white70),
                     ),
-                    onPressed: onTogglePlay,
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Slider(
+                  value: posMs,
+                  max: maxMs,
+                  // 拖动中只更新预览，松手才 seek —— 见 _onScrub*。
+                  onChangeStart: (ms) =>
+                      onChangeStart(Duration(milliseconds: ms.toInt())),
+                  onChanged: (ms) =>
+                      onChanged(Duration(milliseconds: ms.toInt())),
+                  onChangeEnd: (ms) =>
+                      onChangeEnd(Duration(milliseconds: ms.toInt())),
+                ),
+              ),
+              const SizedBox(width: Dimens.spacingXs),
+              _hideWhileSeeking(
+                TextButton(
+                  style: _panelBtnStyle(context, speedOpen),
+                  onPressed: onPickSpeed,
+                  child: Text(
+                    rateLabel,
+                    style: TextStyle(
+                      fontSize: 13 * form.typeScale,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-                const SizedBox(width: Dimens.spacingXs),
-                // 已播/总时长并排（3:43/16:00），总时长压暗一档区分。
-                Text.rich(
-                  TextSpan(
-                    text: fmt(preview ?? position),
-                    style: timeStyle,
-                    children: [
-                      TextSpan(
-                        text: '/${fmt(duration)}',
-                        style: timeStyle.copyWith(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Slider(
-                    value: posMs,
-                    max: maxMs,
-                    // 拖动中只更新预览，松手才 seek —— 见 _onScrub*。
-                    onChangeStart: (ms) =>
-                        onChangeStart(Duration(milliseconds: ms.toInt())),
-                    onChanged: (ms) =>
-                        onChanged(Duration(milliseconds: ms.toInt())),
-                    onChangeEnd: (ms) =>
-                        onChangeEnd(Duration(milliseconds: ms.toInt())),
-                  ),
-                ),
-                const SizedBox(width: Dimens.spacingXs),
+              ),
+              if (onPickSubtitles != null)
                 _hideWhileSeeking(
                   TextButton(
-                    style: _panelBtnStyle(speedOpen),
-                    onPressed: onPickSpeed,
-                    child: Text(
-                      rateLabel,
-                      style: TextStyle(
-                        fontSize: 13 * form.typeScale,
-                        fontWeight: FontWeight.w700,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+                    style: _panelBtnStyle(context, subOpen),
+                    onPressed: onPickSubtitles,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.subtitles_rounded,
+                          size: 17 * form.typeScale,
+                        ),
+                        const SizedBox(width: Dimens.spacingXs),
+                        Text(
+                          '字幕',
+                          style: TextStyle(
+                            fontSize: 13 * form.typeScale,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                if (onPickSubtitles != null)
-                  _hideWhileSeeking(
-                    TextButton(
-                      style: _panelBtnStyle(subOpen),
-                      onPressed: onPickSubtitles,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.subtitles_rounded,
-                            size: 17 * form.typeScale,
+              if (onPickEpisodes != null)
+                _hideWhileSeeking(
+                  TextButton(
+                    style: _panelBtnStyle(context, epOpen),
+                    onPressed: onPickEpisodes,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.format_list_bulleted_rounded,
+                          size: 17 * form.typeScale,
+                        ),
+                        const SizedBox(width: Dimens.spacingXs),
+                        Text(
+                          '选集',
+                          style: TextStyle(
+                            fontSize: 13 * form.typeScale,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: Dimens.spacingXs),
-                          Text(
-                            '字幕',
-                            style: TextStyle(
-                              fontSize: 13 * form.typeScale,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                if (onPickEpisodes != null)
-                  _hideWhileSeeking(
-                    TextButton(
-                      style: _panelBtnStyle(epOpen),
-                      onPressed: onPickEpisodes,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.format_list_bulleted_rounded,
-                            size: 17 * form.typeScale,
-                          ),
-                          const SizedBox(width: Dimens.spacingXs),
-                          Text(
-                            '选集',
-                            style: TextStyle(
-                              fontSize: 13 * form.typeScale,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),

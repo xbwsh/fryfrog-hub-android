@@ -90,20 +90,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return SafeArea(
           bottom: false,
           child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: form.contentMaxWidth),
-                // One shared glass layer for all section cards: grouped glass
-                // batches the 5 cards into a single backdrop pass. Without a
-                // parent layer every GlassCard runs its own live backdrop
-                // blur, re-composited on every scroll frame — the cause of
-                // the profile page jank.
-                child: AdaptiveLiquidGlassLayer(
-                  child: ListView(
-                    padding: EdgeInsets.all(
-                      form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
-                    ),
-                    children: [
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: form.contentMaxWidth),
+              // One shared glass layer for all section cards: grouped glass
+              // batches the 5 cards into a single backdrop pass. Without a
+              // parent layer every GlassCard runs its own live backdrop
+              // blur, re-composited on every scroll frame — the cause of
+              // the profile page jank.
+              child: AdaptiveLiquidGlassLayer(
+                child: ListView(
+                  padding: EdgeInsets.all(
+                    form.isTv ? Dimens.spacingXxl : Dimens.spacingLg,
+                  ),
+                  children: [
                     if (!form.isTabletPortrait)
                       Text(
                         '我的',
@@ -121,15 +121,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ListTile(
                             leading: CircleAvatar(
                               radius: 26 * form.posterScale * 0.8,
-                              backgroundColor: AppColors.accent.withValues(
-                                alpha: 0.2,
-                              ),
+                              backgroundColor: AppColors.accentOf(context)
+                                  .withValues(alpha: 0.2),
                               child: Text(
                                 (user?.title.isNotEmpty ?? false)
                                     ? user!.title.characters.first
                                     : '?',
                                 style: TextStyle(
-                                  color: AppColors.accent,
+                                  color: AppColors.accentOf(context),
                                   fontSize: 20 * form.typeScale,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -146,9 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               user == null
                                   ? ''
                                   : '@${user.username} · ${user.roleText}',
-                              style: TextStyle(
-                                fontSize: 13 * form.typeScale,
-                              ),
+                              style: TextStyle(fontSize: 13 * form.typeScale),
                             ),
                           ),
                           const Divider(height: 1),
@@ -162,9 +159,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 form: form,
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute<void>(
-                                    builder: (_) => ChangePasswordScreen(
-                                      session: session,
-                                    ),
+                                    builder: (_) =>
+                                        ChangePasswordScreen(session: session),
                                   ),
                                 ),
                               ),
@@ -230,9 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             form: form,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.all(
-                                  Dimens.spacingLg,
-                                ),
+                                padding: const EdgeInsets.all(Dimens.spacingLg),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -249,14 +243,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         for (final mode in ThemeModePref.values)
                                           GlassSegment(label: mode.title),
                                       ],
-                                      selectedIndex:
-                                          ThemeModePref.values.indexOf(
-                                            session.prefs.themeMode,
-                                          ),
+                                      selectedIndex: ThemeModePref.values
+                                          .indexOf(session.prefs.themeMode),
                                       onSegmentSelected: (i) =>
                                           session.prefs.setThemeMode(
                                             ThemeModePref.values[i],
                                           ),
+                                    ),
+                                    const SizedBox(height: Dimens.spacingLg),
+                                    Text(
+                                      '主题色',
+                                      style: TextStyle(
+                                        fontSize: 13 * form.typeScale,
+                                        color: Theme.of(context).hintColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: Dimens.spacingSm),
+                                    // 用色块而不是分段控件：主题色的辨识靠颜色本身，
+                                    // 文字标签反而是多余的。
+                                    Row(
+                                      children: [
+                                        for (final a in AppAccent.values) ...[
+                                          _AccentSwatch(
+                                            accent: a,
+                                            selected: a == session.prefs.accent,
+                                            form: form,
+                                            onTap: () =>
+                                                session.prefs.setAccent(a),
+                                          ),
+                                          if (a != AppAccent.values.last)
+                                            const SizedBox(
+                                              width: Dimens.spacingMd,
+                                            ),
+                                        ],
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -323,17 +343,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       SizedBox(
                         // Dock + gesture-bar inset: with only dockHeight the
                         // logout button slid under the tab bar.
-                        height: Dimens.dockHeight +
+                        height:
+                            Dimens.dockHeight +
                             Dimens.spacingXl +
                             MediaQuery.paddingOf(context).bottom,
                       ),
                     ] else
                       const SizedBox(height: Dimens.spacingXl),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
+          ),
         );
       },
     );
@@ -381,6 +402,78 @@ class _SectionCard extends StatelessWidget {
           child: Column(children: children),
         ),
       ],
+    );
+  }
+}
+
+/// 主题色色块：圆点 + 名称，选中时加一圈accent描边和对勾。
+class _AccentSwatch extends StatelessWidget {
+  const _AccentSwatch({
+    required this.accent,
+    required this.selected,
+    required this.form,
+    required this.onTap,
+  });
+
+  final AppAccent accent;
+  final bool selected;
+  final DeviceForm form;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '主题色 ${accent.title}',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Dimens.radiusMd),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Dimens.spacingSm,
+            vertical: Dimens.spacingXs,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: accent.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    // 选中态用深色描边 + 白内圈，和未选中的纯色块区分开。
+                    // 描边色跟着主题走会分不清（本来就是这个颜色），所以固定灰。
+                    color: selected
+                        ? Theme.of(context).colorScheme.onSurface
+                        : Colors.transparent,
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+                child: selected
+                    ? Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        // 勾选色必须在该底色上可读 → 用配套的 onColor。
+                        color: accent.onColor,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: Dimens.spacingXs),
+              Text(
+                accent.title,
+                style: TextStyle(
+                  fontSize: 13 * form.typeScale,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -433,24 +526,26 @@ class _AddressTile extends StatelessWidget {
         mode == ServerConnectionMode.lan
             ? Icons.wifi_rounded
             : Icons.public_rounded,
-        color: active ? AppColors.accent : Theme.of(context).hintColor,
+        color: active
+            ? AppColors.accentOf(context)
+            : Theme.of(context).hintColor,
       ),
       title: Row(
         children: [
           Text(label, style: TextStyle(fontSize: 15 * form.typeScale)),
           if (active) ...[
-            const SizedBox(width: Dimens.spacingSm),
+            SizedBox(width: Dimens.spacingSm),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.14),
+                color: AppColors.accentOf(context).withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
                 '使用中',
                 style: TextStyle(
                   fontSize: 11 * form.typeScale,
-                  color: AppColors.accent,
+                  color: AppColors.accentOf(context),
                   fontWeight: FontWeight.w700,
                 ),
               ),

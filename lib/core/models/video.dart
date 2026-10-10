@@ -689,3 +689,47 @@ class VideoActorDto {
     imageUrl: json['imageUrl'] as String?,
   );
 }
+
+/// 外挂字幕（与视频同目录的 .srt/.ass/.vtt 等）。
+///
+/// 与容器内嵌字幕（mpv 的 track）不同，外挂文件 mpv 不会自动识别，
+/// 需要客户端拉列表后用 `sub-add` 主动加载。
+class ExternalSubtitle {
+  const ExternalSubtitle({
+    required this.filename,
+    required this.url,
+    this.language,
+  });
+
+  /// 原始文件名，如 `Your.Name.S01E01.zh.srt`。
+  final String filename;
+
+  /// 后端签名的完整下载地址，可直接交给 mpv。
+  final String url;
+
+  /// 后端从文件名里解析出的语言标识（如 `zh` / `en`），可能为空。
+  final String? language;
+
+  /// 界面上显示的名字：优先用语言，否则退回文件主名。
+  ///
+  /// 刻意**不**显示完整文件名——`Movie.2024.1080p.zh.srt` 这类名字又长又
+  /// 带画质信息，在字幕菜单里既挤又不好看。
+  String get displayName {
+    final lang = language?.trim();
+    if (lang != null && lang.isNotEmpty) return lang;
+    final stem = filename.contains('.')
+        ? filename.substring(0, filename.lastIndexOf('.'))
+        : filename;
+    // 去掉常见的画质/年份后缀噪声。
+    return stem
+        .replaceAll(
+          RegExp(
+            r'\b(1080p|720p|2160p|4k|x264|x265|h264|h265)\b',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(RegExp(r'[._]'), ' ')
+        .trim();
+  }
+}

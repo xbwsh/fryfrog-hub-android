@@ -111,18 +111,18 @@ class _UserLibraryAccessScreenState extends State<UserLibraryAccessScreen> {
           TextButton(
             onPressed: _dirty && !_saving ? _save : null,
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
-                      color: AppColors.accent,
+                      color: AppColors.accentOf(context),
                       strokeWidth: 2,
                     ),
                   )
                 : Text(
                     '保存',
                     style: TextStyle(
-                      color: AppColors.accent,
+                      color: AppColors.accentOf(context),
                       fontSize: 15 * form.typeScale,
                       fontWeight: FontWeight.w600,
                     ),
@@ -137,9 +137,9 @@ class _UserLibraryAccessScreenState extends State<UserLibraryAccessScreen> {
 
   Widget _buildBody(DeviceForm form) {
     if (_loading && _libraries.isEmpty) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           strokeWidth: 2.5,
         ),
       );
@@ -215,7 +215,7 @@ class _UserLibraryAccessScreenState extends State<UserLibraryAccessScreen> {
                   color: Theme.of(context).hintColor,
                 ),
               ),
-              activeColor: AppColors.accent,
+              activeColor: AppColors.accentOf(context),
             ),
           ),
         if (_libraries.isNotEmpty)

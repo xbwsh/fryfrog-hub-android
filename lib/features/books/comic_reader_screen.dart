@@ -521,9 +521,9 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
     }
 
     if (_c.loading || _c.pageUrls.isEmpty) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           strokeWidth: 2.5,
         ),
       );

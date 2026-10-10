@@ -23,8 +23,7 @@ class SeekRules {
   }) {
     if (duration <= Duration.zero || width <= 0) return start;
     final ms =
-        start.inMilliseconds +
-        duration.inMilliseconds * (deltaPx / width);
+        start.inMilliseconds + duration.inMilliseconds * (deltaPx / width);
     final capped = ms.clamp(0.0, duration.inMilliseconds.toDouble());
     return Duration(milliseconds: capped.round());
   }

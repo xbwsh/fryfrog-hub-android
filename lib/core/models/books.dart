@@ -246,24 +246,24 @@ class BookDetail {
   /// Copy with the chapter TOC fetched from a side endpoint (ebook TXT).
   BookDetail withChapters(List<BookChapter> list, {int? totalChapters}) =>
       BookDetail(
-    id: id,
-    title: title,
-    author: author,
-    narrator: narrator,
-    overview: overview,
-    series: series,
-    seriesPart: seriesPart,
-    metadataSource: metadataSource,
-    sourceId: sourceId,
-    pubYear: pubYear,
-    rating: rating,
-    totalChapters: totalChapters ?? this.totalChapters,
-    format: format,
-    coverUrl: coverUrl,
-    positionPercent: positionPercent,
-    progress: progress,
-    chapters: list,
-  );
+        id: id,
+        title: title,
+        author: author,
+        narrator: narrator,
+        overview: overview,
+        series: series,
+        seriesPart: seriesPart,
+        metadataSource: metadataSource,
+        sourceId: sourceId,
+        pubYear: pubYear,
+        rating: rating,
+        totalChapters: totalChapters ?? this.totalChapters,
+        format: format,
+        coverUrl: coverUrl,
+        positionPercent: positionPercent,
+        progress: progress,
+        chapters: list,
+      );
 
   factory BookDetail.fromJson(Map<String, dynamic> json) => BookDetail(
     id: (json['id'] as num?)?.toInt() ?? 0,

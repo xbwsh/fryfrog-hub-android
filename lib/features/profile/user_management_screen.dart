@@ -108,9 +108,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openLibraries(UserProfile user) async {
@@ -125,11 +124,8 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
   Future<void> _openEdit({UserProfile? user}) async {
     final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => _UserEditDialog(
-        session: widget.session,
-        user: user,
-        meId: _meId,
-      ),
+      builder: (_) =>
+          _UserEditDialog(session: widget.session, user: user, meId: _meId),
     );
     if (saved == true) {
       await _load();
@@ -222,9 +218,9 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
   Widget _buildBody(DeviceForm form) {
     if (_loading && _users.isEmpty) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           strokeWidth: 2.5,
         ),
       );
@@ -275,7 +271,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      color: AppColors.accent,
+      color: AppColors.accentOf(context),
       child: ListView.separated(
         padding: const EdgeInsets.all(Dimens.spacingLg),
         itemCount: _users.length,
@@ -309,7 +305,7 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
                         : Theme.of(context).hintColor,
                   ),
                   if (isSelf)
-                    const _UserTag(text: '我', color: AppColors.accent),
+                    _UserTag(text: '我', color: AppColors.accentOf(context)),
                 ],
               ),
               subtitle: Text(
@@ -381,7 +377,6 @@ class _UsersManagementScreenState extends State<UsersManagementScreen> {
       ),
     );
   }
-
 }
 
 class _Avatar extends StatelessWidget {
@@ -397,20 +392,17 @@ class _Avatar extends StatelessWidget {
         child: SizedBox(
           width: 36,
           height: 36,
-          child: ServerImage(
-            url: user.avatar,
-            borderRadius: BorderRadius.zero,
-          ),
+          child: ServerImage(url: user.avatar, borderRadius: BorderRadius.zero),
         ),
       );
     }
     return CircleAvatar(
       radius: 18,
-      backgroundColor: AppColors.accent.withValues(alpha: 0.15),
+      backgroundColor: AppColors.accentOf(context).withValues(alpha: 0.15),
       child: Text(
         (user.title.isNotEmpty) ? user.title.characters.first : '?',
         style: TextStyle(
-          color: AppColors.accent,
+          color: AppColors.accentOf(context),
           fontSize: 15 * form.typeScale,
           fontWeight: FontWeight.w700,
         ),
@@ -447,11 +439,7 @@ class _UserTag extends StatelessWidget {
 
 /// 创建 / 编辑用户表单（对应 iOS UserEditView）。
 class _UserEditDialog extends StatefulWidget {
-  const _UserEditDialog({
-    required this.session,
-    required this.meId,
-    this.user,
-  });
+  const _UserEditDialog({required this.session, required this.meId, this.user});
 
   final Session session;
   final int? meId;
@@ -560,10 +548,7 @@ class _UserEditDialogState extends State<_UserEditDialog> {
               ] else ...[
                 const SizedBox(height: Dimens.spacingMd),
                 _label(form, '昵称（选填）'),
-                GlassTextField(
-                  controller: _nickname,
-                  placeholder: '昵称（选填）',
-                ),
+                GlassTextField(controller: _nickname, placeholder: '昵称（选填）'),
                 const SizedBox(height: Dimens.spacingMd),
                 _label(form, '密码'),
                 GlassTextField(
@@ -621,7 +606,9 @@ class _UserEditDialogState extends State<_UserEditDialog> {
           child: const Text('取消'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.accentOf(context),
+          ),
           onPressed: _canSubmit ? _save : null,
           child: _loading
               ? const SizedBox(
