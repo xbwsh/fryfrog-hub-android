@@ -57,3 +57,8 @@ local.properties
 
 # AI 助手工作记录（本地元数据，不入库）
 /.workbuddy/
+
+# libmpv 交叉编译工作区：依赖源码 / 静态库产物 / NDK，只在本地或 CI 缓存
+/third_party/media_kit_libs_android_video/build-scripts/deps/
+/third_party/media_kit_libs_android_video/build-scripts/prefix/
+/third_party/media_kit_libs_android_video/build-scripts/sdk/

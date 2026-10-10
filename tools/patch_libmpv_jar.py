@@ -26,19 +26,57 @@ Gradle 构建（构建出的 APK 里完全没有 libmpv.so，其他原生库也�
 * 脚本只改 arm64 一个条目，可重复执行（幂等）。
 """
 
+# macOS 自带 python3 可能还是 3.9，注解里的 str | None 需要延迟求值。
+from __future__ import annotations
+
 import os
 import re
 import shutil
 import sys
 
 PLUGIN_VERSION = "1.3.8"
-PLUGIN_DIR = os.path.expanduser(
-    f"~/.pub-cache/hosted/pub.dev/media_kit_libs_android_video-{PLUGIN_VERSION}"
+PLUGIN_REL = os.path.join(
+    "hosted", "pub.dev",
+    f"media_kit_libs_android_video-{PLUGIN_VERSION}", "android", "build.gradle",
 )
-BUILD_GRADLE = os.path.join(PLUGIN_DIR, "android", "build.gradle")
 
 MARK_BEGIN = "// >>> fryfrog: 使用自编译的 arm64 libmpv（带 fontconfig 字体支持）"
 MARK_END = "// <<< fryfrog"
+
+
+def find_build_gradle() -> tuple[str | None, list[str]]:
+    """按 PUB_CACHE 环境变量 → 平台默认路径 依次探测插件的 build.gradle。
+
+    Windows 上 flutter 默认把 pub cache 放在 %LOCALAPPDATA%\\Pub\\Cache，
+    而不是 ~/.pub-cache——写死后者的旧版脚本在这台机器上永远找不到插件。
+    """
+    candidates: list[str] = []
+    env = os.environ.get("PUB_CACHE")
+    if env:
+        candidates.append(env)
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            candidates.append(os.path.join(local, "Pub", "Cache"))
+    candidates.append(os.path.expanduser("~/.pub-cache"))
+    if sys.platform == "darwin":
+        candidates.append(
+            os.path.expanduser("~/Library/Application Support/pub/cache")
+        )
+
+    tried: list[str] = []
+    seen: set[str] = set()
+    for c in candidates:
+        c = os.path.abspath(c)
+        if c in seen:
+            continue
+        seen.add(c)
+        path = os.path.join(c, PLUGIN_REL)
+        tried.append(path)
+        if os.path.isfile(path):
+            return path, tried
+    return None, tried
+
 
 
 def main() -> int:
@@ -57,21 +95,25 @@ def main() -> int:
               file=sys.stderr)
         return 1
 
-    if not os.path.isfile(BUILD_GRADLE):
-        print(f"✗ 找不到插件 build.gradle：{BUILD_GRADLE}", file=sys.stderr)
-        print("  先跑一次 `flutter pub get` 让 pub 把插件解压出来。", file=sys.stderr)
+    build_gradle, tried = find_build_gradle()
+    if build_gradle is None:
+        print("✗ 找不到插件 build.gradle，已尝试以下路径：", file=sys.stderr)
+        for p in tried:
+            print(f"    {p}", file=sys.stderr)
+        print("  先跑一次 `flutter pub get` 让 pub 把插件解压出来；", file=sys.stderr)
+        print("  若自定义了 pub cache，设置 PUB_CACHE 环境变量后重试。", file=sys.stderr)
         return 1
 
-    src = open(BUILD_GRADLE, encoding="utf-8").read()
+    src = open(build_gradle, encoding="utf-8").read()
 
     if MARK_BEGIN in src:
         print("✓ 已经 patch 过，跳过（幂等）")
         return 0
 
     # 备份一次
-    backup = BUILD_GRADLE + ".orig"
+    backup = build_gradle + ".orig"
     if not os.path.exists(backup):
-        shutil.copy2(BUILD_GRADLE, backup)
+        shutil.copy2(build_gradle, backup)
         print(f"  已备份原文件到 {os.path.basename(backup)}")
 
     # 把 arm64 的下载条目整体替换成从仓库取本地 jar。
@@ -129,7 +171,7 @@ def main() -> int:
     )
     src = src.replace(loop_anchor, local_handling, 1)
 
-    open(BUILD_GRADLE, "w", encoding="utf-8").write(src)
+    open(build_gradle, "w", encoding="utf-8").write(src)
     print("✓ 已 patch 插件 build.gradle：arm64 将使用自编译的 libmpv")
     print(f"  jar: {jar}")
     return 0

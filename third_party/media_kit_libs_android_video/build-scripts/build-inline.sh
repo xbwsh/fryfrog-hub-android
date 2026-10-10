@@ -7,9 +7,13 @@
 #   导致 "source directory already configured"），且 expat.pc 生成失败。
 #   这里每个库的构建步骤全部内联、cwd 与路径全部用绝对路径，行为可预测。
 #
-# 相对上游的唯一功能改动：libass 用 --enable-fontconfig 取代
-#   --disable-require-system-font-provider，让 libass 能枚举 /system/fonts，
-#   从而正确渲染 ASS 特效字幕（尤其日式竖排 \fscx/\frz）。
+# 相对上游的功能改动：
+#   1. libass 用 --enable-fontconfig 取代
+#      --disable-require-system-font-provider，让 libass 能枚举 /system/fonts，
+#      从而正确渲染 ASS 特效字幕（尤其日式竖排 \fscx/\frz）。
+#   2. 打上游 media-kit 的补丁（patches/{mpv,ffmpeg}/*.patch）——之前漏打了，
+#      导致缺 mpv_lavc_set_java_vm 导出符号，media_kit 启动时注入 JavaVM
+#      失败 → mediacodec 硬解不可用，播放器报「播放失败」。详见 README。
 #
 # 用法：./build-inline.sh [start-stage]
 #   start-stage 可选，指定从哪个库开始（断点续跑），如 ./build-inline.sh fontconfig
@@ -20,8 +24,10 @@ B="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 D="$B/deps"
 PREFIX="$B/prefix/arm64-v8a"
 NATIVE="$B/../libmpv/src/main/jniLibs/arm64-v8a"
-NDKROOT="$B/sdk/android-sdk-linux/ndk/28.2.13676358"
-CORES=$(sysctl -n hw.ncpu)
+# NDK 路径可用 LIBMPV_NDKROOT 覆盖（CI / WSL 不把 NDK 放仓库目录里）。
+NDKROOT="${LIBMPV_NDKROOT:-$B/sdk/android-sdk-linux/ndk/28.2.13676358}"
+# Linux 没有 sysctl（macOS 没有 nproc——brew coreutils 装的是 g 前缀）。
+CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
 export PATH="$HOME/bin:/opt/homebrew/bin:$PATH"
 toolchain=$(echo "$NDKROOT/toolchains/llvm/prebuilt/"*)
@@ -71,6 +77,39 @@ skip_until() { # 若指定了起始库，跳过它之前的
 	[ -z "$START" ] && return 1
 	[ "$START" == "$1" ] && { START=""; return 1; }
 	return 0
+}
+
+# 给 $1（源码目录）打 $2（补丁目录）下的全部 *.patch，幂等。
+# 上游 buildscripts/patch.sh 的等价物（那边会先 git reset --hard，这里不做
+# 破坏性操作：已打过就跳过，没打过才应用）。
+apply_patches() {
+	local dep_dir="$1" pdir="$2" p
+	[ -d "$pdir" ] || return 0
+	for p in "$pdir"/*.patch; do
+		[ -e "$p" ] || continue
+		cd "$dep_dir" || exit 1
+		if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+			if git apply --reverse --check "$p" >/dev/null 2>&1; then
+				echo "已打过补丁，跳过：$(basename "$p")"
+				continue
+			fi
+			if git apply --check "$p" >/dev/null 2>&1; then
+				git apply "$p" || exit 1
+				echo "✓ 已打补丁：$(basename "$p")"
+				continue
+			fi
+		fi
+		# 非 git 目录或 git apply 不适用 → 退回 patch(1)
+		if patch -p1 -N -s --dry-run < "$p" >/dev/null 2>&1; then
+			patch -p1 -N -s < "$p" || exit 1
+			echo "✓ 已打补丁(patch)：$(basename "$p")"
+		elif patch -p1 -R -s --dry-run < "$p" >/dev/null 2>&1; then
+			echo "已打过补丁，跳过：$(basename "$p")"
+		else
+			echo "✗ 打补丁失败：$p（源码状态与补丁上下文不符）" >&2
+			exit 1
+		fi
+	done
 }
 
 START="$1"
@@ -266,6 +305,8 @@ if ! skip_until ffmpeg; then
 		pc_env
 		cd "$D/ffmpeg"
 		find . -maxdepth 1 -name '_build*' -exec rm -rf {} + 2>/dev/null
+		# 上游 ffmpeg 补丁（dash URL 转义、hls mp4 seek）；已打过会自动跳过。
+		apply_patches "$D/ffmpeg" "$B/patches/ffmpeg"
 		# ⚠️ 不要删源码目录的 Makefile！它是 ffmpeg 构建系统的一部分
 		# （out-of-source 时 _build/Makefile 会 include 它），
 		# 删掉会导致 make 报 "No rule to make target .../ffmpeg/Makefile"。
@@ -286,6 +327,9 @@ if ! skip_until mpv; then
 	log "mpv → libmpv.so"
 	cd "$D/mpv"
 	find . -maxdepth 1 -name '_build*' -exec rm -rf {} + 2>/dev/null
+	# ★ 关键：上游 mpv 补丁（mpv_lavc_set_java_vm）——media_kit 启动强依赖该
+	#   导出符号；缺失时 JavaVM 注入中断 → mediacodec 硬解不可用 → 播放失败。
+	apply_patches "$D/mpv" "$B/patches/mpv"
 	pc_env
 	unset CC CXX
 	meson setup _b --prefix=/usr/local --cross-file "$PREFIX/crossfile.txt" \
@@ -302,6 +346,14 @@ if ! skip_until mpv; then
 	ninja -C _b -j$CORES || exit 1
 	DESTDIR="$PREFIX" ninja -C _b install || exit 1
 	cp -f "$PREFIX/lib/libmpv.so" "$NATIVE/" 2>/dev/null || true
+	# 构建后硬校验：media_kit 启动要查这个符号，缺了必播放失败。
+	# （不用 grep -q：pipefail 下它首个匹配就退出会给 nm 造成 SIGPIPE 误报）
+	if ! llvm-nm -D --defined-only "$PREFIX/lib/libmpv.so" 2>/dev/null | grep mpv_lavc_set_java_vm > /dev/null; then
+		echo "✗ libmpv.so 未导出 mpv_lavc_set_java_vm —— mpv 补丁没打上！" >&2
+		echo "  检查 $B/patches/mpv/*.patch 是否存在、apply_patches 是否报错。" >&2
+		exit 1
+	fi
+	echo "✓ 符号核验通过：mpv_lavc_set_java_vm 已导出"
 fi
 
 log "全部完成"

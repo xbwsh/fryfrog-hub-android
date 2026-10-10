@@ -1,0 +1,80 @@
+name: Build libmpv (arm64)
+
+# 云端交叉编译自编译版 libmpv（fontconfig 字幕修复 + 上游 mpv 补丁）。
+# 产物：libs/libmpv-arm64-fontconfig.jar（artifact 下载后替换仓库里的同名文件）。
+#
+# 触发：
+#   * 手动（workflow_dispatch）
+#   * build-scripts / 本 workflow / 打包脚本 有改动 push 时
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'third_party/media_kit_libs_android_video/build-scripts/**'
+      - 'tools/pack_libmpv_jar.py'
+      - '.github/workflows/build-libmpv.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # 冷缓存全量构建（ffmpeg 最耗时）约 60-90 分钟，留足余量。
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            meson ninja-build pkg-config gperf \
+            autoconf automake libtool autoconf-archive gettext \
+            curl ca-certificates patch zip unzip xz-utils bzip2 python3
+
+      - name: Cache NDK (r28b = 28.2.13676358)
+        id: ndk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/android-ndk-r28b
+          key: ndk-r28b-linux
+
+      - name: Download NDK
+        if: steps.ndk-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-r28b-linux.zip
+          unzip -q /tmp/ndk.zip -d "$HOME"
+          rm -f /tmp/ndk.zip
+
+      - name: Cache sources & static libs
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            third_party/media_kit_libs_android_video/build-scripts/deps
+            third_party/media_kit_libs_android_video/build-scripts/prefix
+          # 任何构建脚本/依赖版本/ffmpeg 参数变化都会使缓存失效，
+          # 避免用旧 .a 跳过重建（各阶段"已构建跳过"逻辑依赖它）。
+          key: libmpv-deps-v1-${{ hashFiles('third_party/media_kit_libs_android_video/build-scripts/depinfo.sh', 'third_party/media_kit_libs_android_video/build-scripts/fetch-deps.sh', 'third_party/media_kit_libs_android_video/build-scripts/build-inline.sh', 'third_party/media_kit_libs_android_video/build-scripts/ffmpeg-configure-args.txt') }}
+
+      - name: Fetch dependency sources
+        run: bash third_party/media_kit_libs_android_video/build-scripts/fetch-deps.sh
+
+      - name: Build libmpv
+        run: |
+          export LIBMPV_NDKROOT="$HOME/android-ndk-r28b"
+          bash third_party/media_kit_libs_android_video/build-scripts/build-inline.sh
+
+      - name: Pack jar (hard symbol verification)
+        # pack_libmpv_jar.py 会校验 mpv_lavc_set_java_vm / FcInit / /system/fonts，
+        # 任何一项缺失都会失败，坏库出不了厂。
+        run: python3 tools/pack_libmpv_jar.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libmpv-arm64-fontconfig-jar
+          path: third_party/media_kit_libs_android_video/libs/libmpv-arm64-fontconfig.jar
+          if-no-files-found: error
+          retention-days: 30
