@@ -132,7 +132,7 @@ class Session extends ChangeNotifier {
       final merged = [incoming, ...rest].take(_maxProfiles).toList();
       await prefs.setString(_kProfiles, ServerProfile.encodeList(merged));
     } catch (e) {
-      debugPrint('rememberServer failed: $e');
+      if (kDebugMode) debugPrint('rememberServer failed: $e');
     }
   }
 
@@ -170,7 +170,7 @@ class Session extends ChangeNotifier {
         await loadCatalog();
         return;
       } catch (e) {
-        debugPrint('restoreSession failed: $e');
+        if (kDebugMode) debugPrint('restoreSession failed: $e');
         isAuthenticated = false;
         token = null;
         api = null;
@@ -309,7 +309,7 @@ class Session extends ChangeNotifier {
       _rollCarousel();
     } catch (e) {
       catalogError = '$e';
-      debugPrint('loadCatalog failed: $e');
+      if (kDebugMode) debugPrint('loadCatalog failed: $e');
     }
 
     isLoadingCatalog = false;
@@ -323,7 +323,7 @@ class Session extends ChangeNotifier {
         ..clear()
         ..addAll(page.content);
     } catch (e) {
-      debugPrint('loadBooks $kind failed: $e');
+      if (kDebugMode) debugPrint('loadBooks $kind failed: $e');
     }
   }
 
@@ -386,7 +386,7 @@ class Session extends ChangeNotifier {
       user = await client.me();
       notifyListeners();
     } catch (e) {
-      debugPrint('refreshUser failed: $e');
+      if (kDebugMode) debugPrint('refreshUser failed: $e');
     }
   }
 }

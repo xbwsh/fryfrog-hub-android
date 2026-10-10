@@ -159,7 +159,7 @@ class ComicReaderController extends ChangeNotifier {
         pageIndex: pi,
       );
     } catch (e) {
-      debugPrint('save comic progress failed: $e');
+      if (kDebugMode) debugPrint('save comic progress failed: $e');
     } finally {
       _saving = false;
     }

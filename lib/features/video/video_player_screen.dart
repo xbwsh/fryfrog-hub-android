@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -310,20 +311,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       });
       _errSub = player.stream.error.listen((err) {
         if (!mounted || _exiting || err.isEmpty) return;
-        debugPrint('[SUBDBG|player-error] $err');
+        _logSub('[SUBDBG|player-error] $err');
         setState(() => _error = err);
       });
-      _mpvLogSub = player.stream.log.listen((l) {
-        if (!mounted || _exiting) return;
-        debugPrint('[MPV-${l.level}] ${l.prefix}: ${l.text}');
-      });
+      // mpv 日志订阅只在 debug 构建建立：release 下 error 文本可能带
+      // 签名流 URL，不进正式包 logcat。
+      if (kDebugMode) {
+        _mpvLogSub = player.stream.log.listen((l) {
+          if (!mounted || _exiting) return;
+          _logSub('[MPV-${l.level}] ${l.prefix}: ${l.text}');
+        });
+      }
       _tracksSub = player.stream.tracks.listen((tracks) {
         if (!mounted || _exiting) return;
         final real = tracks.subtitle
             .where((t) => t.id != 'auto' && t.id != 'no')
             .toList(growable: false);
         setState(() => _subTracks = real);
-        debugPrint('[SUBDBG|tracks-event] ${real.map((t) => 'id=${t.id}/'
+        _logSub('[SUBDBG|tracks-event] ${real.map((t) => 'id=${t.id}/'
             '${t.title ?? t.language ?? '?'}').join(', ')}');
         // 轨道表刚就绪时同步一次选中态（自动选轨的解析见方法注释）。
         unawaited(_syncSubSelectionFromMpv());
@@ -449,7 +454,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _markedWatched = true;
       }
     } catch (e) {
-      debugPrint('save progress failed: $e');
+      if (kDebugMode) debugPrint('save progress failed: $e');
     } finally {
       _saving = false;
     }
@@ -697,9 +702,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _scheduleAutoHide();
   }
 
+  /// 诊断日志门：`kDebugMode` 是编译期常量，release 构建整段裁剪——
+  /// [SUBDBG]/mpv 错误文本（可能含签名流 URL）不会进正式包 logcat，
+  /// debug 包保留完整排查能力。
+  void _logSub(String message) {
+    if (kDebugMode) debugPrint(message);
+  }
+
   /// 字幕诊断快照：把 mpv 的 sid/secondary-sid/track-list 等关键状态打到
   /// logcat（[SUBDBG] 前缀），用于排查双字幕、关了选不回来这类状态问题。
   Future<void> _debugSubs(String why) async {
+    if (!kDebugMode) return;
     final player = _player;
     if (player == null) return;
     final plat = player.platform;
@@ -767,7 +780,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _setSubtitle(SubtitleTrack track) async {
     if (_exiting) return;
     _closePanels();
-    debugPrint('[SUBDBG|user-select] id=${track.id} title=${track.title}');
+    _logSub('[SUBDBG|user-select] id=${track.id} title=${track.title}');
     await _debugSubs('before-select');
     // 切轨就等于换轨：mpv 在 setSubtitleTrack 时会卸掉上一条 uri 轨，
     // 所以不用像 iOS 那样手工 sub-remove记账。
@@ -873,7 +886,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _clearExternalSubtitle() async {
     if (_exiting) return;
     _closePanels();
-    debugPrint('[SUBDBG|user-off]');
+    _logSub('[SUBDBG|user-off]');
     await _debugSubs('before-off');
     await _player?.setSubtitleTrack(SubtitleTrack.no());
     await _debugSubs('after-off');

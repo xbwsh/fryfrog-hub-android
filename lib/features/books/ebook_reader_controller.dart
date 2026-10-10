@@ -139,7 +139,7 @@ class EbookReaderController extends ChangeNotifier {
         chapterIndex: ci,
       );
     } catch (e) {
-      debugPrint('save ebook progress failed: $e');
+      if (kDebugMode) debugPrint('save ebook progress failed: $e');
       _dirty = true;
     } finally {
       _saving = false;

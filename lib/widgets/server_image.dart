@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/state/session.dart';
@@ -76,7 +77,7 @@ class ServerImage extends StatelessWidget {
             placeholder: (_, _) => placeholder,
             errorWidget: (_, _, _) => placeholder,
             errorListener: (e) {
-              debugPrint('ServerImage failed: $resolved — $e');
+              if (kDebugMode) debugPrint('ServerImage failed: $resolved — $e');
             },
           );
         },
