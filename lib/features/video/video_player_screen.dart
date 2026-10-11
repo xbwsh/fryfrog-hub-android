@@ -118,8 +118,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Duration _seekStart = Duration.zero;
   Duration _seekPreview = Duration.zero;
   double _seekDeltaPx = 0;
-  // seek 起手前控制栏的显隐：松手还原，别让一次拖动把状态永久改掉。
-  bool _chromeBeforeSeek = true;
   // seek 刚发出后的短暂窗口：mpv 回吐的旧位置不可信，忽略之，否则进度条回跳。
   // 3s 上限 + 位置接近目标即提前解锁（见 position 监听器）。
   int _seekSettleUntilMs = 0;
@@ -1047,17 +1045,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   /// 进入 seek 模式：显示值改走预览。
   ///
-  /// 拖动前控制栏是隐藏的 → 进入"只留进度条"极简态（顶栏不出现、底部栏
-  /// 拉出来收起按钮，见 build 处 progressOnly / 顶栏条件）；拖动前本就
-  /// 显示 → 控件一律原地不动，避免显隐来回切造成的闪烁。
+  /// 控制栏**不因拖动而进出**：本来就显示的保持原样（进度条/时间走预览），
+  /// 本来就隐藏的继续隐藏——那种场景只用居中 HUD 报目标时间，不把底部栏
+  /// 拉出来，一次快进闪一排控件太吵。
   /// [from] 非空表示滑杆自己被拖（绝对目标），空表示横滑（由位移换算）。
   bool _beginSeek({Duration? from}) {
     // 拖进度是面板关闭后才可能发生的路径，兜底关一下浮层。
     _closePanels();
     if (_duration <= Duration.zero) return false;
-    if (!_seeking) _chromeBeforeSeek = _chromeVisible;
     _seeking = true;
-    // 拖动期间控件必须留在屏上（拖到一半消失没法用），暂停自动隐藏计时。
+    // 控制栏若正显示，拖动期间必须留在屏上（拖到一半消失没法用），
+    // 暂停自动隐藏计时。
     _holdAutoHide();
     _seekStart = _position;
     _seekDeltaPx = _dragDx;
@@ -1070,7 +1068,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         deltaPx: _seekDeltaPx,
       );
     }
-    _chromeVisible = true;
     if (mounted) setState(() {});
     return true;
   }
@@ -1092,13 +1089,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (mounted) setState(() {});
   }
 
-  /// 松手：真的跳过去 + 存进度，并把控制栏还原成拖动前的样子。
+  /// 松手：真的跳过去 + 存进度（控制栏全程未动，无需还原）。
   void _commitSeek() {
     if (!_seeking) return;
     final target = _seekPreview;
     final player = _player;
     _seeking = false;
-    _chromeVisible = _chromeBeforeSeek;
     if (player != null && _duration > Duration.zero) {
       // 先落本地位置再存进度，否则存的是跳转前的旧位置。
       _position = target;
@@ -1260,9 +1256,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
-    // 拖动前控制栏是隐藏的 → 拖动期间底部栏是「只留进度条」的临时态。
-    // 它不算真正的控制栏显示：锁定按钮不该跟着冒出来。
-    final progressOnlySeek = _seeking && !_chromeBeforeSeek;
 
     return PopScope(
       canPop: false,
@@ -1385,11 +1378,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   right: 0,
                   top: 0,
                   child: _ChromeReveal(
-                    // 拖动 seek 时顶栏收起（只剩底部进度条）——仅当拖动前
-                    // 控制栏本是隐藏的（收起是为了在无 UI 状态下露出进度条）。
-                    // 拖动前本就显示时顶栏原地不动：显隐来回切一遍，
-                    // 按钮闪灭再弹回，肉眼就是闪烁。
-                    shown: _chromeVisible && (!_seeking || _chromeBeforeSeek),
+                    // 控制栏显隐只由用户/自动隐藏决定：拖动 seek 全程不动它
+                    // （本来就显示的保持显示，本来就隐藏的继续隐藏）。
+                    shown: _chromeVisible,
                     axis: _ChromeAxis.top,
                     child: _TopChrome(form: form, title: _title, onBack: _exit),
                   ),
@@ -1408,10 +1399,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       playing: _playing,
                       position: _position,
                       // 拖动中（横滑或滑杆）进度条跟预览走，松手才真正跳转。
-                      // 按钮收起只发生在拖动前控制栏隐藏的场景（那时底部栏
-                      // 是被拉出来当进度条用的，需要"只留进度条"极简态）；
-                      // 拖动前本就显示时按钮原地不动，不做闪现闪灭。
-                      progressOnly: progressOnlySeek,
+                      // 控制栏隐藏时底栏根本不在屏上，也就无从"收起按钮"——
+                      // 那种场景只有居中 HUD 报时间。
                       preview: _seeking ? _seekPreview : null,
                       duration: _duration,
                       rateLabel: _rateLabel,
@@ -1446,11 +1435,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 right: Dimens.playerLockInset,
                 child: Center(
                   child: _LockReveal(
-                    // 未锁定：跟随控制栏显隐，但要排除「只留进度条」的
-                    // 拖动临时态——那时并没有真的显示控制栏。
-                    visible: _locked
-                        ? _lockButtonsVisible
-                        : (_chromeVisible && !progressOnlySeek),
+                    // 未锁定：跟随控制栏显隐（拖动 seek 不再改变 chrome，
+                    // 所以拖动期间它也不会冒出来）。
+                    visible: _locked ? _lockButtonsVisible : _chromeVisible,
                     fromRight: true,
                     child: _LockButton(
                       locked: _locked,
@@ -1987,7 +1974,6 @@ class _BottomChrome extends StatelessWidget {
     required this.position,
     required this.duration,
     required this.fmt,
-    required this.progressOnly,
     required this.rateLabel,
     required this.speedOpen,
     required this.epOpen,
@@ -2007,12 +1993,6 @@ class _BottomChrome extends StatelessWidget {
   final Duration position;
   final Duration duration;
   final String Function(Duration) fmt;
-
-  /// 进度条独占态：拖动 seek 且**拖动前控制栏是隐藏的**——那时底部栏刚
-  /// 被拉出来当进度条用，其余控件收起、只留进度条 + 时间。
-  /// 拖动前控制栏本就显示时为 false：控件原地不动，只让进度条走预览，
-  /// 否则按钮闪灭再弹回，观感就是闪烁。
-  final bool progressOnly;
   final ValueChanged<Duration> onChangeStart;
   final ValueChanged<Duration> onChanged;
   final ValueChanged<Duration> onChangeEnd;
@@ -2035,16 +2015,6 @@ class _BottomChrome extends StatelessWidget {
 
   /// seek 中的预览位置；非 null 时时间与滑杆都显示它而非真实进度。
   final Duration? preview;
-
-  /// 进度条独占态把按钮藏起来但**保留占位**：滑杆轨道宽度不变，拇指不会
-  /// 因为布局重排而横跳（那看起来就是进度条在抖）。
-  Widget _hideInProgressOnly(Widget child) => Visibility(
-    visible: !progressOnly,
-    maintainState: true,
-    maintainAnimation: true,
-    maintainSize: true,
-    child: child,
-  );
 
   /// 面板按钮样式：对应浮层开着时 accent 字 + accent 12% 底（原型 .text-btn.active）。
   ButtonStyle _panelBtnStyle(BuildContext context, bool active) {
@@ -2097,18 +2067,14 @@ class _BottomChrome extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // seek 中只隐藏不占位地收起按钮 —— 直接从 Row 里删掉会改变
-              // 滑杆轨道宽度，拇指瞬间横跳，反而像抖动。
-              _hideInProgressOnly(
-                IconButton(
-                  tooltip: playing ? '暂停' : '播放',
-                  iconSize: 32 * form.posterScale,
-                  icon: Icon(
-                    playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: Colors.white,
-                  ),
-                  onPressed: onTogglePlay,
+              IconButton(
+                tooltip: playing ? '暂停' : '播放',
+                iconSize: 32 * form.posterScale,
+                icon: Icon(
+                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: Colors.white,
                 ),
+                onPressed: onTogglePlay,
               ),
               const SizedBox(width: Dimens.spacingXs),
               // 已播/总时长并排（3:43/16:00），总时长压暗一档区分。
@@ -2138,66 +2104,60 @@ class _BottomChrome extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Dimens.spacingXs),
-              _hideInProgressOnly(
-                TextButton(
-                  style: _panelBtnStyle(context, speedOpen),
-                  onPressed: onPickSpeed,
-                  child: Text(
-                    rateLabel,
-                    style: TextStyle(
-                      fontSize: 13 * form.typeScale,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+              TextButton(
+                style: _panelBtnStyle(context, speedOpen),
+                onPressed: onPickSpeed,
+                child: Text(
+                  rateLabel,
+                  style: TextStyle(
+                    fontSize: 13 * form.typeScale,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ),
               if (onPickSubtitles != null)
-                _hideInProgressOnly(
-                  TextButton(
-                    style: _panelBtnStyle(context, subOpen),
-                    onPressed: onPickSubtitles,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.subtitles_rounded,
-                          size: 17 * form.typeScale,
+                TextButton(
+                  style: _panelBtnStyle(context, subOpen),
+                  onPressed: onPickSubtitles,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.subtitles_rounded,
+                        size: 17 * form.typeScale,
+                      ),
+                      const SizedBox(width: Dimens.spacingXs),
+                      Text(
+                        '字幕',
+                        style: TextStyle(
+                          fontSize: 13 * form.typeScale,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: Dimens.spacingXs),
-                        Text(
-                          '字幕',
-                          style: TextStyle(
-                            fontSize: 13 * form.typeScale,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               if (onPickEpisodes != null)
-                _hideInProgressOnly(
-                  TextButton(
-                    style: _panelBtnStyle(context, epOpen),
-                    onPressed: onPickEpisodes,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.format_list_bulleted_rounded,
-                          size: 17 * form.typeScale,
+                TextButton(
+                  style: _panelBtnStyle(context, epOpen),
+                  onPressed: onPickEpisodes,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.format_list_bulleted_rounded,
+                        size: 17 * form.typeScale,
+                      ),
+                      const SizedBox(width: Dimens.spacingXs),
+                      Text(
+                        '选集',
+                        style: TextStyle(
+                          fontSize: 13 * form.typeScale,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: Dimens.spacingXs),
-                        Text(
-                          '选集',
-                          style: TextStyle(
-                            fontSize: 13 * form.typeScale,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
             ],
