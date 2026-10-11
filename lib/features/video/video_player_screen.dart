@@ -1260,6 +1260,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
+    // 拖动前控制栏是隐藏的 → 拖动期间底部栏是「只留进度条」的临时态。
+    // 它不算真正的控制栏显示：锁定按钮不该跟着冒出来。
+    final progressOnlySeek = _seeking && !_chromeBeforeSeek;
 
     return PopScope(
       canPop: false,
@@ -1282,7 +1285,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
+            // ⚠️ 每个 Stack 子元素都要带稳定 key：HUD / 中央图标 / 锁定提示
+            // 是条件性子元素，一出现一消失就会让后面所有兄弟节点错位复用。
+            // 错位的后果是 _ChromeReveal / _LockReveal 的元素被串到别的
+            // 控件上——底部进度条拿到顶栏"已在屏外"的动画状态就直接消失，
+            // 左侧解锁钮继承右侧按钮的可见状态就凭空冒出来。
             GestureDetector(
+              key: const ValueKey('playerSurface'),
               behavior: HitTestBehavior.opaque,
               // 锁定后仅保留单击 = 临时唤出解锁钮；其余手势（双击/滑动/
               // 长按）处理器传 null 不注册识别器，全部被忽略。
@@ -1300,6 +1309,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // 长按倍速期间可能同时在加载（切集），同样避开与进度圈重叠。
             if ((_adjusting || _speedUp || _seeking) && !_exiting && !_loading)
               Positioned.fill(
+                key: const ValueKey('gestureHud'),
                 child: IgnorePointer(
                   child: Center(
                     child: _GestureHud(
@@ -1321,6 +1331,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // 「圈里套个图标」的糊状。加载时也没有可暂停的帧，提示无意义。
             if (_playFlash != null && !_exiting && !_loading)
               Positioned.fill(
+                key: const ValueKey('playFlash'),
                 child: IgnorePointer(
                   child: Center(child: _PlayFlash(playing: _playFlash!)),
                 ),
@@ -1328,6 +1339,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // 锁定中按返回键的提示：告知当前处于锁定态，去两侧解锁。
             if (_lockHint && !_exiting)
               Positioned.fill(
+                key: const ValueKey('lockHint'),
                 child: IgnorePointer(
                   child: Center(
                     child: Container(
@@ -1368,6 +1380,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             if (!_exiting) ...[
               if (_initialized || _loading || _error != null)
                 Positioned(
+                  key: const ValueKey('topChrome'),
                   left: 0,
                   right: 0,
                   top: 0,
@@ -1383,6 +1396,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               if (_initialized && _player != null)
                 Positioned(
+                  key: const ValueKey('bottomChrome'),
                   left: 0,
                   right: 0,
                   bottom: 0,
@@ -1397,7 +1411,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       // 按钮收起只发生在拖动前控制栏隐藏的场景（那时底部栏
                       // 是被拉出来当进度条用的，需要"只留进度条"极简态）；
                       // 拖动前本就显示时按钮原地不动，不做闪现闪灭。
-                      progressOnly: _seeking && !_chromeBeforeSeek,
+                      progressOnly: progressOnlySeek,
                       preview: _seeking ? _seekPreview : null,
                       duration: _duration,
                       rateLabel: _rateLabel,
@@ -1426,12 +1440,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // 盖在 chrome 之上、面板之下。
             if (_initialized && !_loading && _error == null && !_exiting) ...[
               Positioned(
+                key: const ValueKey('lockRight'),
                 top: 0,
                 bottom: 0,
                 right: Dimens.playerLockInset,
                 child: Center(
                   child: _LockReveal(
-                    visible: _locked ? _lockButtonsVisible : _chromeVisible,
+                    // 未锁定：跟随控制栏显隐，但要排除「只留进度条」的
+                    // 拖动临时态——那时并没有真的显示控制栏。
+                    visible: _locked
+                        ? _lockButtonsVisible
+                        : (_chromeVisible && !progressOnlySeek),
                     fromRight: true,
                     child: _LockButton(
                       locked: _locked,
@@ -1441,6 +1460,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ),
               Positioned(
+                key: const ValueKey('lockLeft'),
                 top: 0,
                 bottom: 0,
                 left: Dimens.playerLockInset,
@@ -1456,6 +1476,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             // ── 选集抽屉 / 倍速·字幕浮层 + 遮罩：盖住视频与控制栏 ──────
             if (!_exiting) ...[
               Positioned.fill(
+                key: const ValueKey('panelMask'),
                 child: IgnorePointer(
                   ignoring: !_epOpen && !_speedOpen && !_subOpen,
                   child: GestureDetector(
@@ -1475,6 +1496,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ),
               Positioned(
+                key: const ValueKey('episodeDrawer'),
                 top: 0,
                 right: 0,
                 bottom: 0,
@@ -1487,6 +1509,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ),
               Positioned(
+                key: const ValueKey('speedPanel'),
                 right: Dimens.spacingLg,
                 bottom: Dimens.playerSpeedPanelBottom,
                 child: SpeedPanel(
@@ -1496,6 +1519,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ),
               Positioned(
+                key: const ValueKey('subtitlePanel'),
                 right: Dimens.spacingLg,
                 bottom: Dimens.playerSpeedPanelBottom,
                 child: SubtitlePanel(
