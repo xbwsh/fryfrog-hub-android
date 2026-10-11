@@ -979,7 +979,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
-  /// 进入 seek 模式：控制栏收到只剩进度条，显示值改走预览。
+  /// 进入 seek 模式：显示值改走预览。
+  ///
+  /// 拖动前控制栏是隐藏的 → 进入"只留进度条"极简态（顶栏不出现、底部栏
+  /// 拉出来收起按钮，见 build 处 progressOnly / 顶栏条件）；拖动前本就
+  /// 显示 → 控件一律原地不动，避免显隐来回切造成的闪烁。
   /// [from] 非空表示滑杆自己被拖（绝对目标），空表示横滑（由位移换算）。
   bool _beginSeek({Duration? from}) {
     // 拖进度是面板关闭后才可能发生的路径，兜底关一下浮层。
@@ -1257,8 +1261,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   right: 0,
                   top: 0,
                   child: _ChromeReveal(
-                    // seek 中顶栏也一并收起（只剩底部进度条）。
-                    shown: _chromeVisible && !_seeking,
+                    // 拖动 seek 时顶栏收起（只剩底部进度条）——仅当拖动前
+                    // 控制栏本是隐藏的（收起是为了在无 UI 状态下露出进度条）。
+                    // 拖动前本就显示时顶栏原地不动：显隐来回切一遍，
+                    // 按钮闪灭再弹回，肉眼就是闪烁。
+                    shown: _chromeVisible && (!_seeking || _chromeBeforeSeek),
                     axis: _ChromeAxis.top,
                     child: _TopChrome(form: form, title: _title, onBack: _exit),
                   ),
@@ -1276,7 +1283,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       playing: _playing,
                       position: _position,
                       // 拖动中（横滑或滑杆）进度条跟预览走，松手才真正跳转。
-                      seeking: _seeking,
+                      // 按钮收起只发生在拖动前控制栏隐藏的场景（那时底部栏
+                      // 是被拉出来当进度条用的，需要"只留进度条"极简态）；
+                      // 拖动前本就显示时按钮原地不动，不做闪现闪灭。
+                      progressOnly: _seeking && !_chromeBeforeSeek,
                       preview: _seeking ? _seekPreview : null,
                       duration: _duration,
                       rateLabel: _rateLabel,
@@ -1809,7 +1819,7 @@ class _BottomChrome extends StatelessWidget {
     required this.position,
     required this.duration,
     required this.fmt,
-    required this.seeking,
+    required this.progressOnly,
     required this.rateLabel,
     required this.speedOpen,
     required this.epOpen,
@@ -1830,8 +1840,11 @@ class _BottomChrome extends StatelessWidget {
   final Duration duration;
   final String Function(Duration) fmt;
 
-  /// 拖动 seek 中（横滑或滑杆）：只留进度条 + 时间，其余控件全收起。
-  final bool seeking;
+  /// 进度条独占态：拖动 seek 且**拖动前控制栏是隐藏的**——那时底部栏刚
+  /// 被拉出来当进度条用，其余控件收起、只留进度条 + 时间。
+  /// 拖动前控制栏本就显示时为 false：控件原地不动，只让进度条走预览，
+  /// 否则按钮闪灭再弹回，观感就是闪烁。
+  final bool progressOnly;
   final ValueChanged<Duration> onChangeStart;
   final ValueChanged<Duration> onChanged;
   final ValueChanged<Duration> onChangeEnd;
@@ -1855,10 +1868,10 @@ class _BottomChrome extends StatelessWidget {
   /// seek 中的预览位置；非 null 时时间与滑杆都显示它而非真实进度。
   final Duration? preview;
 
-  /// seek 中把按钮藏起来但**保留占位**：滑杆轨道宽度不变，拇指不会因为
-  /// 布局重排而横跳（那看起来就是进度条在抖）。
-  Widget _hideWhileSeeking(Widget child) => Visibility(
-    visible: !seeking,
+  /// 进度条独占态把按钮藏起来但**保留占位**：滑杆轨道宽度不变，拇指不会
+  /// 因为布局重排而横跳（那看起来就是进度条在抖）。
+  Widget _hideInProgressOnly(Widget child) => Visibility(
+    visible: !progressOnly,
     maintainState: true,
     maintainAnimation: true,
     maintainSize: true,
@@ -1918,7 +1931,7 @@ class _BottomChrome extends StatelessWidget {
             children: [
               // seek 中只隐藏不占位地收起按钮 —— 直接从 Row 里删掉会改变
               // 滑杆轨道宽度，拇指瞬间横跳，反而像抖动。
-              _hideWhileSeeking(
+              _hideInProgressOnly(
                 IconButton(
                   tooltip: playing ? '暂停' : '播放',
                   iconSize: 32 * form.posterScale,
@@ -1957,7 +1970,7 @@ class _BottomChrome extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: Dimens.spacingXs),
-              _hideWhileSeeking(
+              _hideInProgressOnly(
                 TextButton(
                   style: _panelBtnStyle(context, speedOpen),
                   onPressed: onPickSpeed,
@@ -1972,7 +1985,7 @@ class _BottomChrome extends StatelessWidget {
                 ),
               ),
               if (onPickSubtitles != null)
-                _hideWhileSeeking(
+                _hideInProgressOnly(
                   TextButton(
                     style: _panelBtnStyle(context, subOpen),
                     onPressed: onPickSubtitles,
@@ -1996,7 +2009,7 @@ class _BottomChrome extends StatelessWidget {
                   ),
                 ),
               if (onPickEpisodes != null)
-                _hideWhileSeeking(
+                _hideInProgressOnly(
                   TextButton(
                     style: _panelBtnStyle(context, epOpen),
                     onPressed: onPickEpisodes,
