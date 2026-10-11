@@ -117,4 +117,14 @@ class Dimens {
 
   /// 字幕浮层单条轨道行高。
   static const double playerSubRowHeight = 40;
+
+  // ── 播放器屏幕锁定 ──────────────────────────────────────────────
+  /// 锁定/解锁按钮距屏幕左右边缘的距离（垂直居中悬浮）。
+  static const double playerLockInset = 12;
+
+  /// 锁定/解锁圆形按钮直径。
+  static const double playerLockButtonSize = 44;
+
+  /// 锁定/解锁按钮内图标尺寸。
+  static const double playerLockIconSize = 22;
 }

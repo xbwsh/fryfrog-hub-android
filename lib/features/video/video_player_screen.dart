@@ -137,6 +137,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _speedUp = false;
   double _rateBeforeSpeedUp = 1.0;
 
+  // ── 屏幕锁定：锁定后交互全部失效，右侧/左侧居中可解锁 ──────────────
+  bool _locked = false;
+
+  /// 锁定中按返回键时的「屏幕已锁定」提示，短显后自动消失。
+  bool _lockHint = false;
+  Timer? _lockHintTimer;
+
   VideoItem get _video => _current;
   String get _title => _titleText;
 
@@ -483,6 +490,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _autoHideTimer = null;
     _playFlashTimer?.cancel();
     _playFlashTimer = null;
+    _lockHintTimer?.cancel();
+    _lockHintTimer = null;
     unawaited(_posSub?.cancel());
     unawaited(_durSub?.cancel());
     unawaited(_playSub?.cancel());
@@ -511,6 +520,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     } else {
       _autoHideTimer?.cancel();
     }
+  }
+
+  // ── 屏幕锁定 ────────────────────────────────────────────────────────
+  //
+  /// 锁定后手势/控制栏/返回键全部失效，是防口袋误触、防误拖进度的总开关。
+  /// 上锁入口只有右侧居中按钮；解锁右侧、左侧居中都可以（左右手都够得着）。
+  /// 解锁时控制栏回到屏上，操作入口立即可见。
+  void _lock() {
+    if (_locked || _exiting) return;
+    _closePanels();
+    _autoHideTimer?.cancel();
+    setState(() {
+      _locked = true;
+      _chromeVisible = false;
+    });
+  }
+
+  void _unlock() {
+    if (!_locked || _exiting) return;
+    setState(() {
+      _locked = false;
+      _chromeVisible = true;
+    });
+    _scheduleAutoHide();
+  }
+
+  /// 锁定中按返回键时的居中提示，短显后自动消失。
+  void _flashLockHint() {
+    _lockHintTimer?.cancel();
+    setState(() => _lockHint = true);
+    _lockHintTimer = Timer(const Duration(milliseconds: 1500), () {
+      _lockHintTimer = null;
+      if (mounted) setState(() => _lockHint = false);
+    });
   }
 
   // ── 控制栏自动隐藏 ─────────────────────────────────────────────────
@@ -1199,6 +1242,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || _exiting) return;
+        // 锁定中返回键不退出：锁就是要挡住误触，边缘返回手势同理；
+        // 只给一个短提示告诉用户现在处于锁定态。
+        if (_locked) {
+          _flashLockHint();
+          return;
+        }
         // = 原型的 Esc：面板开着时返回键先关面板，再谈退出播放器。
         if (_epOpen || _speedOpen || _subOpen) {
           _closePanels();
@@ -1212,14 +1261,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           children: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: _toggleChrome,
-              onDoubleTap: _togglePlay,
-              onPanStart: _onPanStart,
-              onPanUpdate: _onPanUpdate,
-              onPanEnd: _onPanEnd,
-              onPanCancel: _onPanCancel,
-              onLongPress: _onLongPressStart,
-              onLongPressEnd: _onLongPressEnd,
+              // 锁定后所有手势失效：处理器传 null 即不注册识别器，
+              // 点按/滑动/长按全被忽略（解锁按钮是独立的浮层，不受影响）。
+              onTap: _locked ? null : _toggleChrome,
+              onDoubleTap: _locked ? null : _togglePlay,
+              onPanStart: _locked ? null : _onPanStart,
+              onPanUpdate: _locked ? null : _onPanUpdate,
+              onPanEnd: _locked ? null : _onPanEnd,
+              onPanCancel: _locked ? null : _onPanCancel,
+              onLongPress: _locked ? null : _onLongPressStart,
+              onLongPressEnd: _locked ? null : _onLongPressEnd,
               child: Center(child: _body(form)),
             ),
             // 亮度/音量/倍速/拖动进度 的即时反馈，居中悬浮，不参与命中测试。
@@ -1249,6 +1300,43 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               Positioned.fill(
                 child: IgnorePointer(
                   child: Center(child: _PlayFlash(playing: _playFlash!)),
+                ),
+              ),
+            // 锁定中按返回键的提示：告知当前处于锁定态，去两侧解锁。
+            if (_lockHint && !_exiting)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Dimens.spacingLg,
+                        vertical: Dimens.spacingMd,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(Dimens.radiusLg),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.lock_rounded,
+                            color: Colors.white,
+                            size: 20 * form.typeScale,
+                          ),
+                          const SizedBox(width: Dimens.spacingSm),
+                          Text(
+                            '屏幕已锁定',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14 * form.typeScale,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             // 控制栏常驻树内，只靠滑入/滑出动画进出（见 _ChromeReveal）：
@@ -1306,6 +1394,31 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       onChangeEnd: _onScrubEnd,
                       onTogglePlay: _togglePlay,
                     ),
+                  ),
+                ),
+            ],
+            // ── 屏幕锁定/解锁：右侧居中随时可锁；锁定后两侧居中可解锁 ──
+            // 按钮不随控制栏显隐（锁定功能要随时可用）；锁定态下它是
+            // 唯一的交互入口，所以盖在 chrome 之上、面板遮罩之下。
+            if (_initialized && !_loading && _error == null && !_exiting) ...[
+              Positioned(
+                top: 0,
+                bottom: 0,
+                right: Dimens.playerLockInset,
+                child: Center(
+                  child: _LockButton(
+                    locked: _locked,
+                    onTap: _locked ? _unlock : _lock,
+                  ),
+                ),
+              ),
+              if (_locked)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: Dimens.playerLockInset,
+                  child: Center(
+                    child: _LockButton(locked: true, onTap: _unlock),
                   ),
                 ),
             ],
@@ -2033,6 +2146,39 @@ class _BottomChrome extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 屏幕锁定的锁定/解锁圆钮（右侧居中常驻；解锁时左侧居中多一枚）。
+///
+/// 半透明圆底 + 白色挂锁：未锁显示 `lock_open`（点它上锁），已锁显示
+/// `lock`（点它解锁）。不随控制栏显隐——锁定要随时可及，也不该藏在
+/// 需要先唤出控制栏的路径后面。
+class _LockButton extends StatelessWidget {
+  const _LockButton({required this.locked, required this.onTap});
+
+  final bool locked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.35),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: Dimens.playerLockButtonSize,
+          height: Dimens.playerLockButtonSize,
+          child: Icon(
+            locked ? Icons.lock_rounded : Icons.lock_open_rounded,
+            size: Dimens.playerLockIconSize,
+            color: Colors.white,
           ),
         ),
       ),
