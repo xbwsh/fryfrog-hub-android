@@ -1397,30 +1397,37 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                 ),
             ],
-            // ── 屏幕锁定/解锁：右侧居中随时可锁；锁定后两侧居中可解锁 ──
-            // 按钮不随控制栏显隐（锁定功能要随时可用）；锁定态下它是
-            // 唯一的交互入口，所以盖在 chrome 之上、面板遮罩之下。
+            // ── 屏幕锁定/解锁：右侧居中，随控制栏一同显隐 ──────────────
+            // 未锁时跟随 chrome 进出场（全屏观影不挂浮钮）；锁定态下两侧
+            // 按钮是唯一的交互入口，常驻不藏。盖在 chrome 之上、面板之下。
             if (_initialized && !_loading && _error == null && !_exiting) ...[
               Positioned(
                 top: 0,
                 bottom: 0,
                 right: Dimens.playerLockInset,
                 child: Center(
-                  child: _LockButton(
-                    locked: _locked,
-                    onTap: _locked ? _unlock : _lock,
+                  child: _LockReveal(
+                    visible: _locked || _chromeVisible,
+                    fromRight: true,
+                    child: _LockButton(
+                      locked: _locked,
+                      onTap: _locked ? _unlock : _lock,
+                    ),
                   ),
                 ),
               ),
-              if (_locked)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: Dimens.playerLockInset,
-                  child: Center(
+              Positioned(
+                top: 0,
+                bottom: 0,
+                left: Dimens.playerLockInset,
+                child: Center(
+                  child: _LockReveal(
+                    visible: _locked,
+                    fromRight: false,
                     child: _LockButton(locked: true, onTap: _unlock),
                   ),
                 ),
+              ),
             ],
             // ── 选集抽屉 / 倍速·字幕浮层 + 遮罩：盖住视频与控制栏 ──────
             if (!_exiting) ...[
@@ -2153,11 +2160,47 @@ class _BottomChrome extends StatelessWidget {
   }
 }
 
-/// 屏幕锁定的锁定/解锁圆钮（右侧居中常驻；解锁时左侧居中多一枚）。
+/// 锁定按钮的显隐包装：与 [_ChromeReveal] 同曲线同时长，跟随控制栏
+/// 进出场（侧滑 + 淡入淡出，方向与所在侧一致），隐藏态忽略指针。
+class _LockReveal extends StatelessWidget {
+  const _LockReveal({
+    required this.visible,
+    required this.fromRight,
+    required this.child,
+  });
+
+  final bool visible;
+  final bool fromRight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dur = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : Dimens.playerChromeAnimDuration;
+
+    return AnimatedSlide(
+      // 隐藏时向本侧屏外滑出（滑出自身宽度即完全离开视口）。
+      offset: visible
+          ? Offset.zero
+          : (fromRight ? const Offset(1, 0) : const Offset(-1, 0)),
+      duration: dur,
+      curve: Curves.easeInOutCubic,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: dur,
+        curve: Curves.easeInOutCubic,
+        child: IgnorePointer(ignoring: !visible, child: child),
+      ),
+    );
+  }
+}
+
+/// 屏幕锁定的锁定/解锁圆钮（右侧居中随控制栏显隐；解锁时左侧居中多一枚）。
 ///
 /// 半透明圆底 + 白色挂锁：未锁显示 `lock_open`（点它上锁），已锁显示
-/// `lock`（点它解锁）。不随控制栏显隐——锁定要随时可及，也不该藏在
-/// 需要先唤出控制栏的路径后面。
+/// `lock`（点它解锁）。显隐跟随控制栏（见 [_LockReveal]）；锁定态下
+/// 按钮是唯一交互入口，因此锁定期间常驻不藏。
 class _LockButton extends StatelessWidget {
   const _LockButton({required this.locked, required this.onTap});
 
