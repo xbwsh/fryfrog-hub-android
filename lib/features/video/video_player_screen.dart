@@ -140,6 +140,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // ── 屏幕锁定：锁定后交互全部失效，右侧/左侧居中可解锁 ──────────────
   bool _locked = false;
 
+  /// 锁定态两侧解锁钮的可见性：默认隐藏（与控件同节奏自动隐藏），
+  /// 点按屏幕临时唤出，超时再隐藏。
+  bool _lockButtonsVisible = false;
+  Timer? _lockShowTimer;
+
   /// 锁定中按返回键时的「屏幕已锁定」提示，短显后自动消失。
   bool _lockHint = false;
   Timer? _lockHintTimer;
@@ -492,6 +497,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _playFlashTimer = null;
     _lockHintTimer?.cancel();
     _lockHintTimer = null;
+    _lockShowTimer?.cancel();
+    _lockShowTimer = null;
     unawaited(_posSub?.cancel());
     unawaited(_durSub?.cancel());
     unawaited(_playSub?.cancel());
@@ -526,7 +533,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   //
   /// 锁定后手势/控制栏/返回键全部失效，是防口袋误触、防误拖进度的总开关。
   /// 上锁入口只有右侧居中按钮；解锁右侧、左侧居中都可以（左右手都够得着）。
-  /// 解锁时控制栏回到屏上，操作入口立即可见。
+  /// 锁定后先亮出两侧解锁钮（告诉用户去哪解锁），随后和控件一样自动隐藏，
+  /// 之后点按屏幕可临时唤出。
   void _lock() {
     if (_locked || _exiting) return;
     _closePanels();
@@ -535,15 +543,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _locked = true;
       _chromeVisible = false;
     });
+    _showLockButtons();
   }
 
   void _unlock() {
     if (!_locked || _exiting) return;
+    _lockShowTimer?.cancel();
+    _lockShowTimer = null;
     setState(() {
       _locked = false;
+      _lockButtonsVisible = false;
       _chromeVisible = true;
     });
     _scheduleAutoHide();
+  }
+
+  /// 锁定态下点按屏幕：临时唤出两侧解锁钮，超时自动隐藏（与控件同节奏）。
+  void _showLockButtons() {
+    if (!_locked || _exiting) return;
+    _lockShowTimer?.cancel();
+    setState(() => _lockButtonsVisible = true);
+    _lockShowTimer = Timer(_chromeAutoHideDelay, () {
+      _lockShowTimer = null;
+      if (mounted) setState(() => _lockButtonsVisible = false);
+    });
   }
 
   /// 锁定中按返回键时的居中提示，短显后自动消失。
@@ -1261,9 +1284,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           children: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              // 锁定后所有手势失效：处理器传 null 即不注册识别器，
-              // 点按/滑动/长按全被忽略（解锁按钮是独立的浮层，不受影响）。
-              onTap: _locked ? null : _toggleChrome,
+              // 锁定后仅保留单击 = 临时唤出解锁钮；其余手势（双击/滑动/
+              // 长按）处理器传 null 不注册识别器，全部被忽略。
+              onTap: _locked ? _showLockButtons : _toggleChrome,
               onDoubleTap: _locked ? null : _togglePlay,
               onPanStart: _locked ? null : _onPanStart,
               onPanUpdate: _locked ? null : _onPanUpdate,
@@ -1398,8 +1421,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
             ],
             // ── 屏幕锁定/解锁：右侧居中，随控制栏一同显隐 ──────────────
-            // 未锁时跟随 chrome 进出场（全屏观影不挂浮钮）；锁定态下两侧
-            // 按钮是唯一的交互入口，常驻不藏。盖在 chrome 之上、面板之下。
+            // 未锁定时跟随 chrome 进出场；锁定态下两侧按钮默认同样隐藏，
+            // 点按屏幕临时唤出、超时自动隐藏（见 _showLockButtons）。
+            // 盖在 chrome 之上、面板之下。
             if (_initialized && !_loading && _error == null && !_exiting) ...[
               Positioned(
                 top: 0,
@@ -1407,7 +1431,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 right: Dimens.playerLockInset,
                 child: Center(
                   child: _LockReveal(
-                    visible: _locked || _chromeVisible,
+                    visible: _locked ? _lockButtonsVisible : _chromeVisible,
                     fromRight: true,
                     child: _LockButton(
                       locked: _locked,
@@ -1422,7 +1446,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 left: Dimens.playerLockInset,
                 child: Center(
                   child: _LockReveal(
-                    visible: _locked,
+                    visible: _locked && _lockButtonsVisible,
                     fromRight: false,
                     child: _LockButton(locked: true, onTap: _unlock),
                   ),
@@ -2199,8 +2223,8 @@ class _LockReveal extends StatelessWidget {
 /// 屏幕锁定的锁定/解锁圆钮（右侧居中随控制栏显隐；解锁时左侧居中多一枚）。
 ///
 /// 半透明圆底 + 白色挂锁：未锁显示 `lock_open`（点它上锁），已锁显示
-/// `lock`（点它解锁）。显隐跟随控制栏（见 [_LockReveal]）；锁定态下
-/// 按钮是唯一交互入口，因此锁定期间常驻不藏。
+/// `lock`（点它解锁）。未锁定时显隐跟随控制栏；锁定态下按钮默认同样
+/// 隐藏，点按屏幕临时唤出并自动隐藏（见 [_showLockButtons]）。
 class _LockButton extends StatelessWidget {
   const _LockButton({required this.locked, required this.onTap});
 
