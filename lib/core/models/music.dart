@@ -95,6 +95,25 @@ class MusicArtist {
   );
 }
 
+class MusicArtistDetail {
+  const MusicArtistDetail({required this.artist, required this.albums});
+
+  final MusicArtist artist;
+  final List<MusicAlbum> albums;
+
+  factory MusicArtistDetail.fromJson(Map<String, dynamic> json) {
+    final artistJson = json['artist'];
+    final artist = artistJson is Map<String, dynamic>
+        ? MusicArtist.fromJson(artistJson)
+        : MusicArtist.fromJson(json);
+    final albums = (json['albums'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(MusicAlbum.fromJson)
+        .toList(growable: false);
+    return MusicArtistDetail(artist: artist, albums: albums);
+  }
+}
+
 class MusicSong {
   const MusicSong({
     required this.id,
@@ -106,6 +125,7 @@ class MusicSong {
     this.durationSeconds,
     this.coverUrl,
     this.streamUrl,
+    this.lyricsUrl,
   });
 
   final int id;
@@ -117,6 +137,7 @@ class MusicSong {
   final double? durationSeconds;
   final String? coverUrl;
   final String? streamUrl;
+  final String? lyricsUrl;
 
   String get coverPath => (coverUrl != null && coverUrl!.isNotEmpty)
       ? coverUrl!
@@ -132,5 +153,6 @@ class MusicSong {
     durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),
     coverUrl: readCoverJson(json),
     streamUrl: (json['streamUrl'] ?? json['stream']) as String?,
+    lyricsUrl: json['lyricsUrl'] as String?,
   );
 }

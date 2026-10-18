@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/adaptive/device_form.dart';
@@ -41,10 +40,14 @@ class ComicReaderScreen extends StatefulWidget {
 class _ComicReaderScreenState extends State<ComicReaderScreen>
     with WidgetsBindingObserver {
   late final ComicReaderController _c;
-  final ScrollController _scrollCtrl = ScrollController();
+  final ScrollController _scrollCtrl = ScrollController(
+    keepScrollOffset: false,
+  );
   final PageController _pageCtrl = PageController();
   final List<GlobalKey> _pageKeys = [];
-  double? _knownExtent;
+  int _verticalAnchor = 0;
+  bool _positioning = false;
+  final GlobalKey _anchorKey = GlobalKey();
   Timer? _reHideTimer;
   bool _exiting = false;
 
@@ -81,7 +84,6 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
               }
             });
           }
-          unawaited(_prefetchNeighbors());
         }),
       );
     }
@@ -118,6 +120,7 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
   }
 
   void _syncKeys() {
+    if (_c.loading) _verticalAnchor = 0;
     final n = _c.pageUrls.length;
     while (_pageKeys.length > n) {
       _pageKeys.removeLast();
@@ -141,60 +144,14 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
   }
 
   void _restoreVerticalOffset() {
-    final pageIndex = _c.pageIndex;
-    if (pageIndex <= 0 || _pageKeys.isEmpty || !_scrollCtrl.hasClients) {
-      return;
-    }
-    if (pageIndex >= _pageKeys.length) return;
-    final ctx = _pageKeys[pageIndex].currentContext;
-    final box = ctx?.findRenderObject();
-    final media = MediaQuery.of(context);
-    final topInset = media.padding.top + kToolbarHeight;
-    if (box is RenderBox && box.attached && box.size.height > 0) {
-      final topInViewport = box.localToGlobal(Offset.zero).dy;
-      final target = _scrollCtrl.offset + (topInViewport - topInset);
-      if (target.isFinite) {
-        _scrollCtrl.jumpTo(
-          target.clamp(0.0, _scrollCtrl.position.maxScrollExtent),
-        );
-      }
-      return;
-    }
-    final avg = _knownExtent;
-    if (avg != null && avg > 0) {
-      final unit = avg + Dimens.readerPageGap;
-      final target = unit * pageIndex;
-      _scrollCtrl.jumpTo(
-        target.clamp(0.0, _scrollCtrl.position.maxScrollExtent),
-      );
-    }
-  }
-
-  Future<void> _prefetchNeighbors() async {
-    final urls = _c.pageUrls;
-    if (urls.isEmpty || !mounted) return;
-    final start = (_c.pageIndex - 1).clamp(0, urls.length - 1);
-    final end = (_c.pageIndex + 2).clamp(0, urls.length - 1);
-    for (var i = start; i <= end && i < urls.length; i++) {
+    if (_c.pageUrls.isEmpty) return;
+    _positioning = true;
+    setState(() => _verticalAnchor = _c.pageIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final url = _resolve(urls[i]);
-      if (url.isEmpty) continue;
-      try {
-        // Same provider as the rendered page — precacheImage with a plain
-        // NetworkImage would warm a different cache and download twice.
-        await precacheImage(
-          CachedNetworkImageProvider(
-            url,
-            headers: _headers,
-            cacheKey: _stablePageCacheKey(url),
-          ),
-          context,
-          onError: (_, _) {},
-        );
-      } catch (_) {
-        // Best-effort warm cache.
-      }
-    }
+      if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(0);
+      _positioning = false;
+    });
   }
 
   String _resolve(String path) {
@@ -209,33 +166,24 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
     };
   }
 
-  Future<void> _goToPage(int index) async {
-    final prevMode = _c.mode;
+  void _goToPage(int index) {
+    if (_c.pageUrls.isEmpty) return;
     _c.goToPage(index);
-    unawaited(_prefetchNeighbors());
-    if (prevMode == ComicReaderController.readerModePage) {
-      if (_pageCtrl.hasClients) {
-        await _pageCtrl.animateToPage(
-          _c.pageIndex,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        );
-      }
+    if (_c.mode == ComicReaderController.readerModePage) {
+      if (_pageCtrl.hasClients) _pageCtrl.jumpToPage(_c.pageIndex);
     } else {
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      if (mounted) _restoreVerticalOffset();
+      _restoreVerticalOffset();
     }
   }
 
   void _onHorizontalPage(int index) {
     if (index == _c.pageIndex) return;
     _c.goToPage(index);
-    unawaited(_prefetchNeighbors());
   }
 
   void _onVerticalScroll() {
     final urls = _c.pageUrls;
-    if (_pageKeys.isEmpty || _c.loading || urls.isEmpty) return;
+    if (_positioning || _pageKeys.isEmpty || _c.loading || urls.isEmpty) return;
     int best = -1;
     double bestScore = double.negativeInfinity;
     final size = MediaQuery.sizeOf(context);
@@ -254,16 +202,9 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
         best = i;
       }
     }
-    if (best < 0) {
-      final avg = _knownExtent;
-      if (avg == null || avg <= 0 || !_scrollCtrl.hasClients) return;
-      final unit = avg + Dimens.readerPageGap;
-      best = ((_scrollCtrl.offset + focusY) / unit).floor();
-      best = best.clamp(0, urls.length - 1);
-    }
+    if (best < 0) return;
     if (best != _c.pageIndex) {
       _c.onScrollPageCandidate(best);
-      unawaited(_prefetchNeighbors());
     }
   }
 
@@ -340,11 +281,10 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
     );
     if (selected != null) {
       _pageKeys.clear();
-      _knownExtent = null;
+      _verticalAnchor = 0;
       await _c.switchChapter(selected);
       if (mounted) {
         _syncKeys();
-        unawaited(_prefetchNeighbors());
       }
     }
   }
@@ -560,28 +500,40 @@ class _ComicReaderScreenState extends State<ComicReaderScreen>
         _onVerticalScroll();
         return false;
       },
-      child: ListView.builder(
+      child: CustomScrollView(
+        key: ValueKey((_c.chapter.id, _verticalAnchor)),
         controller: _scrollCtrl,
-        padding: EdgeInsets.only(top: topPad, bottom: bottomPad),
-        itemCount: _c.pageCount,
-        itemBuilder: (context, i) {
-          return Padding(
-            key: _pageKeys[i],
-            padding: const EdgeInsets.only(bottom: Dimens.readerPageGap),
-            child: _ReaderPage(
-              url: _resolve(_c.pageUrls[i]),
-              headers: _headers,
-              fit: BoxFit.fitWidth,
-              padding: EdgeInsets.zero,
-              onMeasured: (h) {
-                if (h > 0) _knownExtent = h;
-              },
+        center: _anchorKey,
+        slivers: [
+          SliverList.builder(
+            itemCount: _verticalAnchor,
+            itemBuilder: (context, i) =>
+                _buildScrollPage(_verticalAnchor - i - 1),
+          ),
+          SliverPadding(
+            key: _anchorKey,
+            padding: EdgeInsets.only(top: topPad, bottom: bottomPad),
+            sliver: SliverList.builder(
+              itemCount: _c.pageCount - _verticalAnchor,
+              itemBuilder: (context, i) =>
+                  _buildScrollPage(_verticalAnchor + i),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildScrollPage(int index) => Padding(
+    key: _pageKeys[index],
+    padding: const EdgeInsets.only(bottom: Dimens.readerPageGap),
+    child: _ReaderPage(
+      url: _resolve(_c.pageUrls[index]),
+      headers: _headers,
+      fit: BoxFit.fitWidth,
+      padding: EdgeInsets.zero,
+    ),
+  );
 }
 
 /// Signed page URLs rotate their query string (token/expiry), which would
@@ -612,14 +564,12 @@ class _ReaderPage extends StatelessWidget {
     required this.headers,
     required this.fit,
     required this.padding,
-    this.onMeasured,
   });
 
   final String url;
   final Map<String, String> headers;
   final BoxFit fit;
   final EdgeInsets padding;
-  final void Function(double height)? onMeasured;
 
   @override
   Widget build(BuildContext context) {
@@ -628,53 +578,14 @@ class _ReaderPage extends StatelessWidget {
       httpHeaders: headers,
       fit: fit,
       width: double.infinity,
-      memCacheWidth: fit == BoxFit.fitWidth ? 1600 : null,
+      memCacheWidth: 1600,
       cacheKey: _stablePageCacheKey(url),
       placeholder: (_, _) => const _PagePlaceholder(),
       errorWidget: (_, _, _) => const _PageError(),
     );
 
-    final body = onMeasured == null
-        ? image
-        : _MeasurePage(onMeasured: onMeasured!, child: image);
-
-    if (padding == EdgeInsets.zero) return body;
-    return Padding(padding: padding, child: body);
-  }
-}
-
-class _MeasurePage extends SingleChildRenderObjectWidget {
-  const _MeasurePage({required this.onMeasured, required super.child});
-
-  final void Function(double height) onMeasured;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _MeasureRenderBox(onMeasured);
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    covariant _MeasureRenderBox renderObject,
-  ) {
-    renderObject.onMeasured = onMeasured;
-  }
-}
-
-class _MeasureRenderBox extends RenderProxyBox {
-  _MeasureRenderBox(this.onMeasured);
-
-  void Function(double height) onMeasured;
-  double? _last;
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    final h = size.height;
-    if (h > 0 && _last != h) {
-      _last = h;
-      onMeasured(h);
-    }
+    if (padding == EdgeInsets.zero) return image;
+    return Padding(padding: padding, child: image);
   }
 }
 
@@ -802,7 +713,7 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _BottomBar extends StatelessWidget {
+class _BottomBar extends StatefulWidget {
   const _BottomBar({
     required this.form,
     required this.pageIndex,
@@ -828,7 +739,26 @@ class _BottomBar extends StatelessWidget {
   final ValueChanged<double> onSlider;
 
   @override
+  State<_BottomBar> createState() => _BottomBarState();
+}
+
+class _BottomBarState extends State<_BottomBar> {
+  double? _dragPage;
+
+  @override
   Widget build(BuildContext context) {
+    final form = widget.form;
+    final pageCount = widget.pageCount;
+    final pageIndex = (_dragPage?.round() ?? widget.pageIndex).clamp(
+      0,
+      pageCount - 1,
+    );
+    final canPrevChapter = widget.canPrevChapter;
+    final canNextChapter = widget.canNextChapter;
+    final onPrevChapter = widget.onPrevChapter;
+    final onNextChapter = widget.onNextChapter;
+    final onPrevPage = widget.onPrevPage;
+    final onNextPage = widget.onNextPage;
     return Material(
       color: Colors.black54,
       child: SafeArea(
@@ -870,7 +800,15 @@ class _BottomBar extends StatelessWidget {
                       max: (pageCount - 1).clamp(0, double.infinity).toDouble(),
                       divisions: pageCount <= 1 ? 1 : pageCount - 1,
                       label: '${pageIndex + 1}',
-                      onChanged: pageCount <= 1 ? null : (v) => onSlider(v),
+                      onChanged: pageCount <= 1
+                          ? null
+                          : (v) => setState(() => _dragPage = v),
+                      onChangeEnd: pageCount <= 1
+                          ? null
+                          : (v) {
+                              setState(() => _dragPage = null);
+                              widget.onSlider(v);
+                            },
                     ),
                   ),
                   IconButton(

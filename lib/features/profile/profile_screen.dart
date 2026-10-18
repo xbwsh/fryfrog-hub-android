@@ -14,7 +14,7 @@ import 'media_library_screen.dart';
 import 'user_management_screen.dart';
 
 /// Profile mirrors apple ProfileView sections: account / admin / server /
-/// appearance / playback / cache / privacy / support / logout.
+/// appearance / playback / cache / support / logout.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.session, this.active = true});
 
@@ -72,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final form = AdaptiveScope.of(context);
 
     return ListenableBuilder(
-      // prefs notifies separately from session (theme/privacy toggles);
+      // prefs notifies separately from session (theme/playback settings);
       // connection notifies on latency / active-mode changes.
       listenable: Listenable.merge([
         widget.session,
@@ -284,27 +284,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ],
                           ),
                           _SectionCard(
-                            title: '隐私',
+                            title: '视频解码',
                             form: form,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Dimens.spacingLg,
-                                  vertical: Dimens.spacingMd,
-                                ),
-                                child: Row(
+                                padding: const EdgeInsets.all(Dimens.spacingLg),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        '隐私模式',
-                                        style: TextStyle(
-                                          fontSize: 15 * form.typeScale,
-                                        ),
+                                    SegmentedButton<VideoDecodeMode>(
+                                      showSelectedIcon: false,
+                                      segments: [
+                                        for (final mode in VideoDecodeMode.values)
+                                          ButtonSegment(
+                                            value: mode,
+                                            label: Text(mode.title),
+                                          ),
+                                      ],
+                                      selected: {session.prefs.videoDecodeMode},
+                                      onSelectionChanged: (selected) {
+                                        unawaited(
+                                          session.prefs.setVideoDecodeMode(
+                                            selected.first,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: Dimens.spacingSm),
+                                    Text(
+                                      switch (session.prefs.videoDecodeMode) {
+                                        VideoDecodeMode.automatic =>
+                                          '优先硬件解码；视频解码失败时改用软件重试一次。',
+                                        VideoDecodeMode.software =>
+                                          '始终使用软件解码。',
+                                        VideoDecodeMode.hardware =>
+                                          '只使用硬件解码；失败时显示错误。',
+                                      },
+                                      style: TextStyle(
+                                        fontSize: 12 * form.typeScale,
+                                        color: Theme.of(context).hintColor,
                                       ),
                                     ),
-                                    GlassSwitch(
-                                      value: session.prefs.privacyEnabled,
-                                      onChanged: session.prefs.setPrivacy,
+                                    const SizedBox(height: Dimens.spacingXs),
+                                    Text(
+                                      '设置将在下次打开视频时生效。',
+                                      style: TextStyle(
+                                        fontSize: 12 * form.typeScale,
+                                        color: Theme.of(context).hintColor,
+                                      ),
                                     ),
                                   ],
                                 ),

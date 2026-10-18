@@ -6,6 +6,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import '../../widgets/mini_player.dart';
 import 'comic_reader_screen.dart';
 import 'ebook_reader_screen.dart';
 
@@ -34,11 +35,81 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   /// 电子书目录已加载的章数（详情页只加载第一页，其余按"加载更多"追加）。
   int _loadedChapters = 0;
   bool _loadingMore = false;
+  AudiobookDetail? _audioDetail;
+  String? _audioError;
+  bool _audioLoading = false;
+  bool _audioStarting = false;
+  int _audioRequestVersion = 0;
 
   @override
   void initState() {
     super.initState();
     _load();
+    if (widget.kind == BookShelfKind.audiobook) _loadAudioDetail();
+  }
+
+  Future<void> _loadAudioDetail() async {
+    final api = widget.session.api;
+    if (api == null) {
+      if (mounted) setState(() => _audioError = '未登录');
+      return;
+    }
+    setState(() {
+      _audioLoading = true;
+      _audioError = null;
+    });
+    try {
+      final detail = await api.fetchAudiobookDetail(widget.bookId);
+      if (!mounted) return;
+      setState(() {
+        _audioDetail = detail;
+        _audioLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _audioError = '$e';
+        _audioLoading = false;
+      });
+    }
+  }
+
+  Future<void> _playAudiobook({int? chapterIndex}) async {
+    final api = widget.session.api;
+    if (api == null || _audioStarting) return;
+    final audio = widget.session.audioController;
+    if (chapterIndex == null &&
+        _audioDetail?.progress?.completed != true &&
+        audio?.activeAudiobookId == widget.bookId &&
+        (audio?.canResumeAudiobook ?? false)) {
+      await audio!.resumeAudiobook();
+      return;
+    }
+    final requestVersion = ++_audioRequestVersion;
+    setState(() => _audioStarting = true);
+    try {
+      // Fetch a fresh signed stream URL on each user selection.
+      final detail = await api.fetchAudiobookDetail(widget.bookId);
+      if (!mounted || requestVersion != _audioRequestVersion) return;
+      setState(() => _audioDetail = detail);
+      await widget.session.playAudiobook(detail, chapterIndex: chapterIndex);
+      if (!mounted || requestVersion != _audioRequestVersion) return;
+      final error = widget.session.audioController?.error;
+      if (error != null) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text('播放失败：$error')));
+      }
+    } catch (e) {
+      if (!mounted || requestVersion != _audioRequestVersion) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('开始收听失败：$e')));
+    } finally {
+      if (mounted && requestVersion == _audioRequestVersion) {
+        setState(() => _audioStarting = false);
+      }
+    }
   }
 
   Future<void> _load() async {
@@ -258,57 +329,99 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           ],
         ],
       ),
-      body: _loading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: AppColors.accentOf(context),
-                strokeWidth: 2.5,
-              ),
-            )
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(Dimens.spacingXl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14 * form.typeScale,
-                        color: Theme.of(context).hintColor,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: _loading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.accentOf(context),
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : _error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Dimens.spacingXl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14 * form.typeScale,
+                              color: Theme.of(context).hintColor,
+                            ),
+                          ),
+                          const SizedBox(height: Dimens.spacingLg),
+                          FilledButton(
+                            onPressed: _load,
+                            child: const Text('重试'),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: Dimens.spacingLg),
-                    FilledButton(onPressed: _load, child: const Text('重试')),
-                  ],
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: Dimens.audioRouteScrollClearance,
+                    ),
+                    child: _DetailView(
+                      detail: _detail!,
+                      form: form,
+                      kind: widget.kind,
+                      onRead:
+                          widget.kind == BookShelfKind.comic ||
+                              widget.kind == BookShelfKind.ebook
+                          ? _openReader
+                          : null,
+                      onReadChapter:
+                          widget.kind == BookShelfKind.comic ||
+                              widget.kind == BookShelfKind.ebook
+                          ? (chapterIndex) => _openReader(
+                              chapterIndex: chapterIndex,
+                              pageIndex: 0,
+                            )
+                          : null,
+                      onLoadMore:
+                          widget.kind == BookShelfKind.ebook &&
+                              (_detail!.totalChapters == null ||
+                                  _detail!.totalChapters! >
+                                      _detail!.chapters.length)
+                          ? _loadMoreChapters
+                          : null,
+                      loadingMore: _loadingMore,
+                      audioDetail: _audioDetail,
+                      audioLoading: _audioLoading,
+                      audioError: _audioError,
+                      audioStarting: _audioStarting,
+                      onPlayAudio: widget.kind == BookShelfKind.audiobook
+                          ? () => _playAudiobook()
+                          : null,
+                      onPlayAudioChapter: widget.kind == BookShelfKind.audiobook
+                          ? (index) => _playAudiobook(chapterIndex: index)
+                          : null,
+                      onRetryAudio: _loadAudioDetail,
+                    ),
+                  ),
+          ),
+          Positioned(
+            left: Dimens.audioRoutePlayerInset,
+            right: Dimens.audioRoutePlayerInset,
+            bottom: Dimens.audioRoutePlayerInset,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: Dimens.audioRoutePlayerMaxWidth,
                 ),
+                child: MiniPlayerBar(session: widget.session),
               ),
-            )
-          : _DetailView(
-              detail: _detail!,
-              form: form,
-              kind: widget.kind,
-              onRead:
-                  widget.kind == BookShelfKind.comic ||
-                      widget.kind == BookShelfKind.ebook
-                  ? _openReader
-                  : null,
-              onReadChapter:
-                  widget.kind == BookShelfKind.comic ||
-                      widget.kind == BookShelfKind.ebook
-                  ? (chapterIndex) =>
-                        _openReader(chapterIndex: chapterIndex, pageIndex: 0)
-                  : null,
-              onLoadMore:
-                  widget.kind == BookShelfKind.ebook &&
-                      (_detail!.totalChapters == null ||
-                          _detail!.totalChapters! > _detail!.chapters.length)
-                  ? _loadMoreChapters
-                  : null,
-              loadingMore: _loadingMore,
             ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -322,6 +435,13 @@ class _DetailView extends StatelessWidget {
     this.onReadChapter,
     this.onLoadMore,
     this.loadingMore = false,
+    this.audioDetail,
+    this.audioLoading = false,
+    this.audioError,
+    this.audioStarting = false,
+    this.onPlayAudio,
+    this.onPlayAudioChapter,
+    this.onRetryAudio,
   });
 
   final BookDetail detail;
@@ -331,6 +451,13 @@ class _DetailView extends StatelessWidget {
   final Future<void> Function(int chapterIndex)? onReadChapter;
   final Future<void> Function()? onLoadMore;
   final bool loadingMore;
+  final AudiobookDetail? audioDetail;
+  final bool audioLoading;
+  final String? audioError;
+  final bool audioStarting;
+  final VoidCallback? onPlayAudio;
+  final ValueChanged<int>? onPlayAudioChapter;
+  final VoidCallback? onRetryAudio;
 
   @override
   Widget build(BuildContext context) {
@@ -469,7 +596,18 @@ class _DetailView extends StatelessWidget {
             ),
           ),
         ],
-        if (detail.chapters.isNotEmpty) ...[
+        if (kind == BookShelfKind.audiobook)
+          AudiobookListenSection(
+            detail: audioDetail,
+            loading: audioLoading,
+            error: audioError,
+            starting: audioStarting,
+            onPlay: onPlayAudio,
+            onPlayChapter: onPlayAudioChapter,
+            onRetry: onRetryAudio,
+            typeScale: form.typeScale,
+          ),
+        if (kind != BookShelfKind.audiobook && detail.chapters.isNotEmpty) ...[
           const SizedBox(height: Dimens.spacingXl),
           Row(
             children: [
@@ -637,6 +775,195 @@ class _MetaChip extends StatelessWidget {
               color: theme.colorScheme.primary,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class AudiobookListenSection extends StatelessWidget {
+  const AudiobookListenSection({
+    super.key,
+    required this.detail,
+    required this.loading,
+    required this.error,
+    required this.starting,
+    required this.onPlay,
+    required this.onPlayChapter,
+    required this.onRetry,
+    required this.typeScale,
+  });
+
+  final AudiobookDetail? detail;
+  final bool loading;
+  final String? error;
+  final bool starting;
+  final VoidCallback? onPlay;
+  final ValueChanged<int>? onPlayChapter;
+  final VoidCallback? onRetry;
+  final double typeScale;
+
+  String _playLabel(AudiobookDetail value) {
+    final progress = value.progress;
+    if (progress == null ||
+        progress.completed ||
+        progress.positionSeconds <= 0) {
+      return '开始收听';
+    }
+    final chapter = value.chapters
+        .where(
+          (item) =>
+              item.trackIndex == progress.trackIndex &&
+              item.startInTrack <= progress.positionSeconds,
+        )
+        .fold<AudiobookChapter?>(null, (best, item) {
+          if (best == null || item.startInTrack > best.startInTrack) {
+            return item;
+          }
+          return best;
+        });
+    return chapter == null ? '继续收听' : '继续收听 · ${chapter.label}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: Dimens.spacingXl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                '收听',
+                style: TextStyle(
+                  fontSize: 16 * typeScale,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (detail != null) ...[
+                const SizedBox(width: Dimens.spacingSm),
+                Text(
+                  '${detail!.tracks.length} 条音轨 · ${detail!.chapters.length} 章',
+                  style: TextStyle(
+                    fontSize: 12 * typeScale,
+                    color: theme.hintColor,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: Dimens.spacingSm),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.all(Dimens.spacingLg),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (error != null)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '音频信息加载失败：$error',
+                    style: TextStyle(
+                      fontSize: 13 * typeScale,
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+                TextButton(onPressed: onRetry, child: const Text('重试')),
+              ],
+            )
+          else if (detail == null || detail!.tracks.isEmpty)
+            Text(
+              '暂无可播放音轨',
+              style: TextStyle(
+                fontSize: 13 * typeScale,
+                color: theme.hintColor,
+              ),
+            )
+          else ...[
+            Container(
+              padding: const EdgeInsets.all(Dimens.spacingMd),
+              decoration: BoxDecoration(
+                color: AppColors.surface(context),
+                borderRadius: BorderRadius.circular(Dimens.radiusLg),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: FilledButton.icon(
+                      onPressed: starting ? null : onPlay,
+                      icon: starting
+                          ? const SizedBox.square(
+                              dimension: Dimens.audioInlineProgressSize,
+                              child: CircularProgressIndicator(
+                                strokeWidth: Dimens.audioInlineProgressStroke,
+                              ),
+                            )
+                          : const Icon(Icons.headphones_rounded),
+                      label: Text(
+                        detail!.progress?.completed == true
+                            ? '从头开始收听'
+                            : _playLabel(detail!),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (detail!.chapters.isNotEmpty) ...[
+              const SizedBox(height: Dimens.spacingMd),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface(context),
+                  borderRadius: BorderRadius.circular(Dimens.radiusLg),
+                ),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    children: [
+                      for (final chapter in detail!.chapters)
+                        ListTile(
+                          dense: true,
+                          leading: Text(
+                            '${chapter.chapterIndex + 1}',
+                            style: TextStyle(
+                              fontSize: 13 * typeScale,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          title: Text(
+                            chapter.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14 * typeScale),
+                          ),
+                          subtitle: Text(
+                            '音轨 ${chapter.trackIndex + 1}',
+                            style: TextStyle(
+                              fontSize: 11 * typeScale,
+                              color: theme.hintColor,
+                            ),
+                          ),
+                          trailing: const Icon(
+                            Icons.play_circle_outline_rounded,
+                          ),
+                          onTap: starting
+                              ? null
+                              : () => onPlayChapter?.call(chapter.chapterIndex),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );

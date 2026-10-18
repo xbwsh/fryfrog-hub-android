@@ -97,6 +97,8 @@ class _FakeApiClient extends ApiClient {
   Future<PageResponse<MusicSong>> fetchMusicSongs({
     int page = 0,
     int size = 50,
+    int? albumId,
+    int? artistId,
   }) async => _emptyPage(page, size);
 
   @override

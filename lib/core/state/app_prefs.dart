@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_colors.dart';
 
-/// UI preferences (theme, accent, privacy) split out of [Session].
+/// UI preferences split out of [Session].
 ///
 /// Session notifies on every catalog/auth update; if MaterialApp listened to
 /// it, each of those would rebuild the entire app tree. Listening to this
@@ -14,13 +14,14 @@ class AppPrefs extends ChangeNotifier {
   static const _kTheme = 'prefs.themeMode';
   static const _kAccent = 'prefs.accent';
   static const _kSubScale = 'prefs.subScale';
+  static const _kVideoDecodeMode = 'prefs.videoDecodeMode';
 
   ThemeModePref themeMode = ThemeModePref.system;
 
   /// 主题色。改动会经 [notifyListeners] 驱动 MaterialApp 重建，全局即时生效。
   AppAccent accent = AppAccent.blue;
 
-  bool privacyEnabled = false;
+  VideoDecodeMode videoDecodeMode = VideoDecodeMode.automatic;
 
   /// 播放器字幕字号倍率：1.0 默认，四档 0.85 / 1.0 / 1.2 / 1.45
   /// （与 SubtitlePanel.scaleOptions 对应）。播放页打开时读取；
@@ -32,39 +33,40 @@ class AppPrefs extends ChangeNotifier {
   /// `Theme.of(context).colorScheme.primary`），不要直接写 `AppColors.accent`。
   Color get accentColor => accent.color;
 
-  /// Restores the persisted theme/accent. Safe to fire-and-forget at startup.
+  /// Restores persisted preferences. Safe to fire-and-forget at startup.
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final savedAccent = prefs.getString(_kAccent);
     subScale = prefs.getDouble(_kSubScale) ?? 1.0;
+    final savedDecodeMode = prefs.getString(_kVideoDecodeMode);
+    final restoredDecodeMode = VideoDecodeMode.values.firstWhere(
+      (mode) => mode.name == savedDecodeMode,
+      orElse: () => VideoDecodeMode.automatic,
+    );
+    var changed = videoDecodeMode != restoredDecodeMode;
+    videoDecodeMode = restoredDecodeMode;
     if (savedAccent != null) {
-      accent = AppAccent.values.firstWhere(
+      final restoredAccent = AppAccent.values.firstWhere(
         (a) => a.name == savedAccent,
         // 持久化里存了已下线的色值（以后删枚举项会出现）→ 回退默认，别崩。
         orElse: () => AppAccent.blue,
       );
+      changed |= accent != restoredAccent;
+      accent = restoredAccent;
       // 启动时也要刷新玻璃控件用的全局 scheme（否则重启后 tabbar 还是旧色）。
       notifyGlobalAccent(accent.color);
     }
     final saved = prefs.getString(_kTheme);
-    if (saved == null) return;
-    final restored = ThemeModePref.values.firstWhere(
-      (m) => m.name == saved,
-      orElse: () => ThemeModePref.system,
-    );
-    if (restored != themeMode) {
+    if (saved != null) {
+      final restored = ThemeModePref.values.firstWhere(
+        (m) => m.name == saved,
+        orElse: () => ThemeModePref.system,
+      );
+      changed |= themeMode != restored;
       themeMode = restored;
-      notifyListeners();
-    } else if (savedAccent != null) {
-      // 主题色变了但明暗模式没变，也要通知一次让 UI 重建。
-      notifyListeners();
     }
-  }
-
-  void setPrivacy(bool value) {
-    if (privacyEnabled == value) return;
-    privacyEnabled = value;
-    notifyListeners();
+    // Decoder mode must load even for installations that have never saved a theme.
+    if (changed || savedAccent != null) notifyListeners();
   }
 
   Future<void> setThemeMode(ThemeModePref mode) async {
@@ -95,6 +97,15 @@ class AppPrefs extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kSubScale, value);
   }
+
+  Future<void> setVideoDecodeMode(VideoDecodeMode mode) async {
+    if (videoDecodeMode != mode) {
+      videoDecodeMode = mode;
+      notifyListeners();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kVideoDecodeMode, mode.name);
+  }
 }
 
 enum ThemeModePref {
@@ -103,5 +114,14 @@ enum ThemeModePref {
   dark('深色');
 
   const ThemeModePref(this.title);
+  final String title;
+}
+
+enum VideoDecodeMode {
+  automatic('自动'),
+  software('软解'),
+  hardware('硬解');
+
+  const VideoDecodeMode(this.title);
   final String title;
 }

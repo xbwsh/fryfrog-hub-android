@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../core/adaptive/device_form.dart';
+import '../core/audio/audio_playback_controller.dart';
 import '../core/state/session.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/dimens.dart';
@@ -123,11 +124,13 @@ class _MainShellState extends State<MainShell> {
         index: _index,
         onIndexChanged: _setIndex,
         body: body,
+        session: widget.session,
       ),
       DeviceForm.tabletPortrait => _TabletPortraitShell(
         index: _index,
         onIndexChanged: _setIndex,
         body: body,
+        session: widget.session,
       ),
       DeviceForm.tabletLandscape => _SideRailShell(
         form: form,
@@ -158,66 +161,41 @@ class _PhoneShell extends StatelessWidget {
     required this.index,
     required this.onIndexChanged,
     required this.body,
+    required this.session,
   });
 
   final DeviceForm form;
   final int index;
   final ValueChanged<int> onIndexChanged;
   final Widget body;
+  final Session session;
 
   @override
   Widget build(BuildContext context) {
+    return _buildPortraitShellWithAudio(
+      session,
+      (showPlayer) => _buildScaffold(context, showPlayer),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, bool showPlayer) {
+    final tabs = _buildBottomTabs(index: index, onIndexChanged: onIndexChanged);
     return GlassScaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
-      // none: avoid SystemUiOverlayStyle.light/dark presets that force an
-      // opaque navigation bar behind the gesture pill. Overlay is set in app.dart.
       statusBarStyle: GlassStatusBarStyle.none,
-      extendBody: true,
-      // 去掉滚动时屏幕底部的那层玻璃模糊遮罩（用户要求），tabbar 保持玻璃透明。
+      // The bottom bar owns its full measured height, so the body ends above
+      // both tabs and the mini player instead of drawing beneath either one.
+      extendBody: false,
       bottomEdgeFade: false,
-      // blur = live ProgressiveBlur, follows theme changes; the default
-      // soft style paints a static background capture that goes stale.
       edgeStyle: GlassScrollEdgeStyle.blur,
-      body: Stack(
-        children: [
-          Positioned.fill(child: body),
-          const Positioned(
-            left: Dimens.spacingMd,
-            right: Dimens.spacingMd,
-            bottom: Dimens.dockHeight + Dimens.spacingMd,
-            child: MiniPlayerBar(),
-          ),
-        ],
-      ),
-      bottomBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Dimens.spacingLg,
-            0,
-            Dimens.spacingLg,
-            Dimens.spacingSm,
-          ),
-          child: GlassTabBar.bottom(
-            selectedIndex: index,
-            onTabSelected: onIndexChanged,
-            settings: _kTabBarGlass,
-            indicatorSettings: _kTabPillGlass,
-            innerBlur: 5,
-            magnification: 1.2,
-            glowBlurRadius: 40,
-            glowSpreadRadius: 10,
-            glowOpacity: 0.65,
-            indicatorColor: kAppScheme.primary.withValues(
-              alpha: _kTabIndicatorAlpha,
-            ),
-            selectedIconColor: kAppScheme.primary,
-            selectedLabelColor: kAppScheme.primary,
-            interactionGlowColor: kAppScheme.primary,
-            tabs: _kGlassTabs,
-          ),
-        ),
+      body: body,
+      bottomBar: _PortraitShellBottomBar(
+        session: session,
+        showPlayer: showPlayer,
+        horizontalInset: Dimens.spacingLg,
+        tabBar: tabs,
+        tabBarHeight: (tabs as PreferredSizeWidget).preferredSize.height,
       ),
     );
   }
@@ -228,63 +206,181 @@ class _TabletPortraitShell extends StatelessWidget {
     required this.index,
     required this.onIndexChanged,
     required this.body,
+    required this.session,
   });
 
   final int index;
   final ValueChanged<int> onIndexChanged;
   final Widget body;
+  final Session session;
 
   @override
   Widget build(BuildContext context) {
+    return _buildPortraitShellWithAudio(
+      session,
+      (showPlayer) => _buildScaffold(context, showPlayer),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, bool showPlayer) {
+    final tabs = _buildBottomTabs(index: index, onIndexChanged: onIndexChanged);
     return GlassScaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
-      extendBody: true,
+      extendBody: false,
       bottomEdgeFade: false,
       edgeStyle: GlassScrollEdgeStyle.blur,
-      body: Stack(
-        children: [
-          Positioned.fill(child: body),
-          const Positioned(
-            left: Dimens.spacingLg,
-            right: Dimens.spacingLg,
-            bottom: Dimens.spacingLg,
-            child: MiniPlayerBar(),
-          ),
-        ],
-      ),
-      bottomBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Dimens.spacingXxl,
-            0,
-            Dimens.spacingXxl,
-            Dimens.spacingSm,
-          ),
-          child: GlassTabBar.bottom(
-            selectedIndex: index,
-            onTabSelected: onIndexChanged,
-            settings: _kTabBarGlass,
-            indicatorSettings: _kTabPillGlass,
-            innerBlur: 5,
-            magnification: 1.2,
-            glowBlurRadius: 40,
-            glowSpreadRadius: 10,
-            glowOpacity: 0.65,
-            indicatorColor: kAppScheme.primary.withValues(
-              alpha: _kTabIndicatorAlpha,
-            ),
-            selectedIconColor: kAppScheme.primary,
-            selectedLabelColor: kAppScheme.primary,
-            interactionGlowColor: kAppScheme.primary,
-            tabs: _kGlassTabs,
-          ),
-        ),
+      body: body,
+      bottomBar: _PortraitShellBottomBar(
+        session: session,
+        showPlayer: showPlayer,
+        horizontalInset: Dimens.spacingXxl,
+        tabBar: tabs,
+        tabBarHeight: (tabs as PreferredSizeWidget).preferredSize.height,
       ),
     );
   }
+}
+
+Widget _buildPortraitShellWithAudio(
+  Session session,
+  Widget Function(bool showPlayer) builder,
+) => _PortraitAudioVisibility(session: session, builder: builder);
+
+class _PortraitAudioVisibility extends StatefulWidget {
+  const _PortraitAudioVisibility({
+    required this.session,
+    required this.builder,
+  });
+
+  final Session session;
+  final Widget Function(bool showPlayer) builder;
+
+  @override
+  State<_PortraitAudioVisibility> createState() =>
+      _PortraitAudioVisibilityState();
+}
+
+class _PortraitAudioVisibilityState extends State<_PortraitAudioVisibility> {
+  AudioPlaybackController? _audio;
+  bool _showPlayer = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_syncAudio);
+    _syncAudio();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PortraitAudioVisibility oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) {
+      oldWidget.session.removeListener(_syncAudio);
+      _audio?.removeListener(_syncAudio);
+      _audio = null;
+      widget.session.addListener(_syncAudio);
+      _syncAudio();
+    }
+  }
+
+  void _syncAudio() {
+    final audio = widget.session.audioController;
+    if (audio != _audio) {
+      _audio?.removeListener(_syncAudio);
+      _audio = audio;
+      _audio?.addListener(_syncAudio);
+    }
+    final showPlayer = audio?.nowPlaying != null;
+    if (showPlayer == _showPlayer || !mounted) return;
+    setState(() => _showPlayer = showPlayer);
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_syncAudio);
+    _audio?.removeListener(_syncAudio);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_showPlayer);
+}
+
+GlassTabBar _buildBottomTabs({
+  required int index,
+  required ValueChanged<int> onIndexChanged,
+}) => GlassTabBar.bottom(
+  selectedIndex: index,
+  onTabSelected: onIndexChanged,
+  settings: _kTabBarGlass,
+  indicatorSettings: _kTabPillGlass,
+  innerBlur: 5,
+  magnification: 1.2,
+  glowBlurRadius: 40,
+  glowSpreadRadius: 10,
+  glowOpacity: 0.65,
+  indicatorColor: kAppScheme.primary.withValues(alpha: _kTabIndicatorAlpha),
+  selectedIconColor: kAppScheme.primary,
+  selectedLabelColor: kAppScheme.primary,
+  interactionGlowColor: kAppScheme.primary,
+  tabs: _kGlassTabs,
+);
+
+class _PortraitShellBottomBar extends StatelessWidget
+    implements PreferredSizeWidget {
+  const _PortraitShellBottomBar({
+    required this.session,
+    required this.showPlayer,
+    required this.horizontalInset,
+    required this.tabBar,
+    required this.tabBarHeight,
+  });
+
+  final Session session;
+  final bool showPlayer;
+  final double horizontalInset;
+  final Widget tabBar;
+  final double tabBarHeight;
+
+  @override
+  Size get preferredSize => Size.fromHeight(
+    tabBarHeight +
+        Dimens.spacingSm +
+        (showPlayer ? Dimens.audioMiniHeight + Dimens.spacingSm * 2 : 0),
+  );
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showPlayer)
+          Padding(
+            padding: EdgeInsets.only(
+              left: horizontalInset,
+              right: horizontalInset,
+              top: Dimens.spacingSm,
+            ),
+            child: MiniPlayerBar(
+              key: const ValueKey('portrait-mini-player'),
+              session: session,
+            ),
+          ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalInset,
+            showPlayer ? Dimens.spacingSm : 0,
+            horizontalInset,
+            Dimens.spacingSm,
+          ),
+          child: tabBar,
+        ),
+      ],
+    ),
+  );
 }
 
 class _SideRailShell extends StatefulWidget {
@@ -550,11 +646,11 @@ class _SideRailShellState extends State<_SideRailShell> {
               children: [
                 Positioned.fill(child: widget.body),
                 // Mini player floats over content; no SafeArea strip when empty.
-                const Positioned(
+                Positioned(
                   left: Dimens.spacingLg,
                   right: Dimens.spacingLg,
                   bottom: Dimens.spacingLg,
-                  child: MiniPlayerBar(),
+                  child: MiniPlayerBar(session: widget.session),
                 ),
               ],
             ),

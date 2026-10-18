@@ -39,6 +39,25 @@ class Dimens {
   static const double carouselHeightLandscapeMax = 520;
 
   static const double dockHeight = 64;
+  static const double audioMiniHeight = 64;
+  static const double audioMiniCoverSize = 44;
+  static const double audioMiniProgressSize = 18;
+  static const double audioMiniProgressStroke = 2;
+  static const double audioInlineProgressSize = 18;
+  static const double audioInlineProgressStroke = 2;
+  static const double audioMiniIconSize = 22;
+  static const double audioPanelCoverMin = 180;
+  static const double audioPanelCoverMax = 280;
+  static const double audioPanelCoverWidthFraction = 0.56;
+  static const double audioPanelSkipIconSize = 34;
+  static const double audioPanelPlayIconSize = 38;
+  static const double audioPanelPlayButtonSize = 64;
+  static const double audioLyricRowExtent = 60;
+  static const double audioCollectionCoverSize = 44;
+  static const double audioCollectionSeparatorIndent = 70;
+  static const double audioRoutePlayerInset = 12;
+  static const double audioRoutePlayerMaxWidth = 720;
+  static const double audioRouteScrollClearance = 92;
   static const double railWidthCompact = 72;
   static const double railWidthExpanded = 220;
   static const double tvNavWidth = 260;
@@ -108,6 +127,9 @@ class Dimens {
   ///
   /// 系统栏恒定沉浸，控件动画无需再迁就系统栏，取200ms —— 跟手且不拖沓。
   static const Duration playerChromeAnimDuration = Duration(milliseconds: 200);
+
+  /// LRC highlight follow animation between lines.
+  static const Duration audioLyricScrollDuration = Duration(milliseconds: 260);
 
   /// 播放器顶栏距屏幕顶部的留白。
   ///

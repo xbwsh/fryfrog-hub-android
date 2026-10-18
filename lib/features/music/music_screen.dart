@@ -7,6 +7,7 @@ import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
 import '../../widgets/server_image.dart';
+import 'music_collection_screen.dart';
 
 /// Music tab mirrors apple MusicView browse modes.
 class MusicScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class MusicScreen extends StatefulWidget {
 
 class _MusicScreenState extends State<MusicScreen> {
   int _mode = 0;
+  int _queueRequestVersion = 0;
   static const _modes = ['歌曲', '专辑', '歌手', '歌单'];
 
   @override
@@ -79,22 +81,82 @@ class _MusicScreenState extends State<MusicScreen> {
   Widget _browseBody(Session session, DeviceForm form) {
     switch (_mode) {
       case 1:
-        return _AlbumGrid(albums: session.albums, form: form);
+        return _AlbumGrid(
+          albums: session.albums,
+          form: form,
+          onTap: (album) => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  MusicCollectionScreen.album(session: session, album: album),
+            ),
+          ),
+        );
       case 2:
-        return _ArtistGrid(artists: session.artists, form: form);
+        return _ArtistGrid(
+          artists: session.artists,
+          form: form,
+          onTap: (artist) => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => MusicCollectionScreen.artist(
+                session: session,
+                artist: artist,
+              ),
+            ),
+          ),
+        );
       case 3:
         return _EmptyMusic(message: '暂无歌单', form: form);
       default:
-        return _SongList(songs: session.songs, form: form);
+        return _SongList(
+          songs: session.songs,
+          form: form,
+          onTap: (index) =>
+              _playAllSongs(context, session, session.songs[index]),
+        );
+    }
+  }
+
+  Future<void> _playAllSongs(
+    BuildContext context,
+    Session session,
+    MusicSong selected,
+  ) async {
+    final requestVersion = ++_queueRequestVersion;
+    final api = session.api;
+    if (api == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('未登录')));
+      return;
+    }
+    try {
+      final songs = await api.fetchAllMusicSongs();
+      if (!mounted || requestVersion != _queueRequestVersion) return;
+      final index = songs.indexWhere((song) => song.id == selected.id);
+      if (!context.mounted) return;
+      if (index < 0) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('歌曲已不在当前曲库中，请刷新后重试')));
+        return;
+      }
+      await session.playMusicQueue(songs, index);
+    } catch (e) {
+      if (!context.mounted || requestVersion != _queueRequestVersion) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('加载歌曲队列失败：$e')));
     }
   }
 }
 
 class _SongList extends StatelessWidget {
-  const _SongList({required this.songs, required this.form});
+  const _SongList({
+    required this.songs,
+    required this.form,
+    required this.onTap,
+  });
 
   final List<MusicSong> songs;
   final DeviceForm form;
+  final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +205,7 @@ class _SongList extends StatelessWidget {
               style: TextStyle(fontSize: 12 * form.typeScale),
             ),
             trailing: const Icon(Icons.play_arrow_rounded),
+            onTap: () => onTap(i),
           );
         },
       ),
@@ -151,10 +214,15 @@ class _SongList extends StatelessWidget {
 }
 
 class _AlbumGrid extends StatelessWidget {
-  const _AlbumGrid({required this.albums, required this.form});
+  const _AlbumGrid({
+    required this.albums,
+    required this.form,
+    required this.onTap,
+  });
 
   final List<MusicAlbum> albums;
   final DeviceForm form;
+  final ValueChanged<MusicAlbum> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -180,36 +248,43 @@ class _AlbumGrid extends StatelessWidget {
       itemCount: albums.length,
       itemBuilder: (context, i) {
         final a = albums[i];
-        return Column(
+        return InkWell(
           key: ValueKey(a.id),
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ServerImage(
-                url: a.coverPath,
-                borderRadius: BorderRadius.circular(Dimens.radiusMd),
-              ),
+          borderRadius: BorderRadius.circular(Dimens.radiusMd),
+          onTap: () => onTap(a),
+          child: Padding(
+            padding: const EdgeInsets.all(Dimens.spacingXs),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ServerImage(
+                    url: a.coverPath,
+                    borderRadius: BorderRadius.circular(Dimens.radiusMd),
+                  ),
+                ),
+                const SizedBox(height: Dimens.spacingXs),
+                Text(
+                  a.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13 * form.typeScale,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  a.artistName ?? '未知歌手',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12 * form.typeScale,
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: Dimens.spacingXs),
-            Text(
-              a.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13 * form.typeScale,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              a.artistName ?? '未知歌手',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12 * form.typeScale,
-                color: Theme.of(context).hintColor,
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
@@ -217,10 +292,15 @@ class _AlbumGrid extends StatelessWidget {
 }
 
 class _ArtistGrid extends StatelessWidget {
-  const _ArtistGrid({required this.artists, required this.form});
+  const _ArtistGrid({
+    required this.artists,
+    required this.form,
+    required this.onTap,
+  });
 
   final List<MusicArtist> artists;
   final DeviceForm form;
+  final ValueChanged<MusicArtist> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -244,25 +324,32 @@ class _ArtistGrid extends StatelessWidget {
       itemCount: artists.length,
       itemBuilder: (context, i) {
         final a = artists[i];
-        return Column(
+        return InkWell(
           key: ValueKey(a.id),
-          children: [
-            Expanded(
-              child: ServerImage(
-                url: a.coverPath,
-                borderRadius: BorderRadius.circular(999),
-              ),
+          borderRadius: BorderRadius.circular(999),
+          onTap: () => onTap(a),
+          child: Padding(
+            padding: const EdgeInsets.all(Dimens.spacingXs),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ServerImage(
+                    url: a.coverPath,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: Dimens.spacingSm),
+                Text(
+                  a.name,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 13 * form.typeScale,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: Dimens.spacingSm),
-            Text(
-              a.name,
-              maxLines: 1,
-              style: TextStyle(
-                fontSize: 13 * form.typeScale,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+          ),
         );
       },
     );

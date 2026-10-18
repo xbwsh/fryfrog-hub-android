@@ -13,7 +13,9 @@ import '../../core/adaptive/device_form.dart';
 import '../../core/models/media_models.dart';
 import '../../core/models/video.dart';
 import '../../core/rules/seek_rules.dart';
+import '../../core/rules/video_decode_rules.dart';
 import '../../core/rules/watch_rules.dart';
+import '../../core/state/app_prefs.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/dimens.dart';
@@ -63,6 +65,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   // 字幕诊断：mpv error 级日志（PlayerConfiguration.logLevel 默认 error 即有）。
   StreamSubscription<PlayerLog>? _mpvLogSub;
   StreamSubscription<Track>? _trackSub;
+  Timer? _decodeErrorTimer;
 
   // ── 内封字幕（libmpv 上报的 sid；外挂字幕待后端接口）────────────────
   /// 本片可选的内封字幕轨，已滤掉 mpv 的 `auto`/`no` 占位项；
@@ -102,6 +105,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   bool _playing = false;
+  int _playerGeneration = 0;
+  int? _initializingGeneration;
+  int? _fallbackRequestedFor;
+  VideoDecodeMode _decodeMode = VideoDecodeMode.automatic;
+  late VideoDecodeRecovery _decodeRecovery = VideoDecodeRecovery(_decodeMode);
+  bool _softwareFallbackActive = false;
+  bool _hasRenderedFrame = false;
 
   // ── 上下滑手势：左屏亮度 / 右屏系统音量 ────────────────────────────
   bool _adjusting = false;
@@ -223,8 +233,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  Future<void> _init() async {
+  Future<void> _init({bool softwareFallback = false, double? resumeAt}) async {
     if (_exiting) return;
+    final generation = ++_playerGeneration;
+    final replacingPlayer = _player != null;
+    _initializingGeneration = generation;
+    if (!softwareFallback) {
+      _decodeMode = widget.session.prefs.videoDecodeMode;
+      _decodeRecovery = VideoDecodeRecovery(_decodeMode);
+      _softwareFallbackActive = false;
+      _fallbackRequestedFor = null;
+    }
+    if (resumeAt != null) _startAt = resumeAt;
+    _hasRenderedFrame = false;
+    _decodeErrorTimer?.cancel();
+    _decodeErrorTimer = null;
     setState(() {
       _loading = true;
       _error = null;
@@ -242,15 +265,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _subSelectedId = null;
       _externalSubs = const [];
     });
+    // Let Flutter remove the old Video widget before disposing its Android
+    // controller. Otherwise a queued videoParams callback can write to the
+    // controller's already-disposed Rect notifier during decode fallback.
+    if (replacingPlayer) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!_isCurrentGeneration(generation)) return;
+    }
     // 拉外挂字幕（与视频同目录的 .srt/.ass，mpv 不会自动识别）。
     unawaited(_loadExternalSubs(_current.id));
     try {
+      await widget.session.pauseAudioForVideo();
+      if (!_isCurrentGeneration(generation)) return;
       final api = widget.session.api;
       if (api == null) throw Exception('未登录');
       final url = api.videoStreamUrl(_current);
 
       await _teardownPlayer();
-      if (_exiting || !mounted) return;
+      if (!_isCurrentGeneration(generation)) return;
 
       // ★ 决定性修复：media_kit 的 PlayerConfiguration.libass **默认 false**，
       //   会下发 sub-ass=no —— ASS 样式和全部 tag（\p1 矢量绘图、\k 卡拉OK、
@@ -259,12 +291,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       //   所以一直正常。libass=true → sub-ass=yes 才是完整特效渲染。
       //   （media_kit 配套的 libassAndroidFont 资产字体方案是给官方残废
       //     libmpv 用的，我们有 fontconfig+/system/fonts，不需要。）
-      final player = Player(
-        configuration: PlayerConfiguration(libass: true),
+      final effectiveMode = softwareFallback
+          ? VideoDecodeMode.software
+          : _decodeMode;
+      _logSub('[VIDEO_DECODE] opening ${effectiveMode.name}');
+      if (kIsWeb && effectiveMode != VideoDecodeMode.automatic) {
+        throw StateError('当前平台不支持指定视频解码模式');
+      }
+      final player = Player(configuration: PlayerConfiguration(libass: true));
+      final controller = VideoController(
+        player,
+        configuration: VideoControllerConfiguration(
+          hwdec: videoHwdecForMode(effectiveMode),
+        ),
       );
-      final controller = VideoController(player);
       _player = player;
       _controller = controller;
+      unawaited(
+        controller.waitUntilFirstFrameRendered.then<void>((_) {
+          if (_isCurrentPlayer(generation, player)) _hasRenderedFrame = true;
+        }, onError: (Object _) {}),
+      );
       // 倍数是跨集保留的：换集后新 player 要重新套上。
       unawaited(player.setRate(_rate));
       // VideoController 的创建是异步的，media_kit 的 Android 实现会在
@@ -273,20 +320,52 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       // fontconfig，关掉就白编了）。不等它设完就改会被覆盖回去 → libass
       // 找不到系统字体 → ASS 特效字幕竖排堆叠。platform 是 VideoController
       // 暴露的 Completer，await 它就能拿到「create 已全部写完」的时机。
+      var videoControllerReady = false;
       try {
         await controller.platform.future.timeout(const Duration(seconds: 5));
+        videoControllerReady = true;
       } catch (_) {
-        // 创建超时/异常不该阻塞播放；后面的字幕参数照常下发，
-        // open 后还有一次兜底重设（该选项 UPDATE_SUB_HARD，可热更）。
+        // 解码模式必须在 open 前成功设置；失败时不带着未知模式继续播放。
+      }
+      if (!_isCurrentGeneration(generation)) return;
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        if (!videoControllerReady) {
+          throw StateError('Android 视频渲染器初始化失败');
+        }
+      }
+      if (!kIsWeb && effectiveMode == VideoDecodeMode.hardware) {
+        if (!videoControllerReady) {
+          throw StateError('视频渲染器初始化失败，无法配置解码模式');
+        }
+        final nativePlayer = player.platform;
+        if (nativePlayer is! NativePlayer) {
+          throw StateError('无法配置视频解码器');
+        }
+        // This bundled mpv revision names the option vd-lavc-software-fallback.
+        // Disable its internal SW fallback only in strict HW mode; for auto,
+        // mpv's native fallback must stay available when no HW decoder exists.
+        const fallbackOption = 'options/vd-lavc-software-fallback';
+        await nativePlayer.setProperty(
+          fallbackOption,
+          'no',
+          waitForInitialization: false,
+        );
+        final applied = await nativePlayer.getProperty(
+          fallbackOption,
+          waitForInitialization: false,
+        );
+        if (applied != 'no') {
+          throw StateError('无法应用硬件解码模式（mpv 返回：$applied）');
+        }
       }
       // 字幕参数（字体/编码等）**必须在 open 之前**设好：libass 在打开媒体的
       // 时刻就解析字体，失了之后再设就不生效了。所以这里 await，不能
       // unawaited（那会与下面的 open 竞态，谁先到不定）。
       await _applySubtitleDefaults(player);
-      if (_exiting || !mounted) return;
+      if (!_isCurrentGeneration(generation)) return;
 
       _posSub = player.stream.position.listen((pos) {
-        if (!mounted || _exiting) return;
+        if (!_isCurrentPlayer(generation, player)) return;
         // 拖动中显示全走预览：这期间 mpv 回吐的还是拖动前的旧位置，
         // 拿它更新 _position 会把下一段手势的起算点拽回去 → 进度条抖动。
         if (_seeking) return;
@@ -309,11 +388,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         _maybeSaveProgress();
       });
       _durSub = player.stream.duration.listen((dur) {
-        if (!mounted || _exiting) return;
+        if (!_isCurrentPlayer(generation, player)) return;
         setState(() => _duration = dur);
       });
       _playSub = player.stream.playing.listen((playing) {
-        if (!mounted || _exiting) return;
+        if (!_isCurrentPlayer(generation, player)) return;
         setState(() => _playing = playing);
         if (!playing) {
           unawaited(_saveProgress(force: true));
@@ -327,33 +406,57 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         }
       });
       _errSub = player.stream.error.listen((err) {
-        if (!mounted || _exiting || err.isEmpty) return;
-        _logSub('[SUBDBG|player-error] $err');
-        setState(() => _error = err);
-      });
-      // mpv 日志订阅只在 debug 构建建立：release 下 error 文本可能带
-      // 签名流 URL，不进正式包 logcat。
-      if (kDebugMode) {
-        _mpvLogSub = player.stream.log.listen((l) {
-          if (!mounted || _exiting) return;
-          _logSub('[MPV-${l.level}] ${l.prefix}: ${l.text}');
+        if (!_isCurrentPlayer(generation, player) || err.isEmpty) return;
+        if (_fallbackRequestedFor == generation) return;
+        // MPV reports audio and video decoder errors through the same stream.
+        // Only its prefixed video log can trigger recovery; defer codec-shaped
+        // stream errors briefly so a matching `vd` log can arrive first.
+        if (_decodeMode == VideoDecodeMode.automatic &&
+            _looksLikeDecodeError(err)) {
+          _decodeErrorTimer?.cancel();
+          _decodeErrorTimer = Timer(const Duration(milliseconds: 350), () {
+            if (!_isCurrentPlayer(generation, player) ||
+                _fallbackRequestedFor == generation) {
+              return;
+            }
+            setState(() {
+              _error = err;
+              _loading = false;
+              _initialized = false;
+            });
+            unawaited(_stopFailedPlayer(generation, player));
+          });
+          return;
+        }
+        setState(() {
+          _error = err;
+          _loading = false;
+          _initialized = false;
         });
-      }
+        unawaited(_stopFailedPlayer(generation, player));
+      });
+      // Always listen for prefixed decoder errors, but never log raw log text
+      // (it may contain signed media URLs).
+      _mpvLogSub = player.stream.log.listen(
+        (log) => _handleMpvLog(generation, player, log),
+      );
       _tracksSub = player.stream.tracks.listen((tracks) {
-        if (!mounted || _exiting) return;
+        if (!_isCurrentPlayer(generation, player)) return;
         final real = tracks.subtitle
             .where((t) => t.id != 'auto' && t.id != 'no')
             .toList(growable: false);
         setState(() => _subTracks = real);
-        _logSub('[SUBDBG|tracks-event] ${real.map((t) => 'id=${t.id}/'
-            '${t.title ?? t.language ?? '?'}').join(', ')}');
+        _logSub(
+          '[SUBDBG|tracks-event] ${real.map((t) => 'id=${t.id}/'
+              '${t.title ?? t.language ?? '?'}').join(', ')}',
+        );
         // 轨道表刚就绪时同步一次选中态（自动选轨的解析见方法注释）。
         unawaited(_syncSubSelectionFromMpv());
         // 换片后轨道表被清空 → 兜底收起字幕面板，别让按钮悬空。
         if (real.isEmpty && _subOpen) _closePanels();
       });
       _trackSub = player.stream.track.listen((track) {
-        if (!mounted || _exiting) return;
+        if (!_isCurrentPlayer(generation, player)) return;
         final id = track.subtitle.id;
         // mpv 自动选轨时 media_kit 上报占位 id 'auto'——画面已有字幕但
         // 面板对不上任何一行。等 tracks 里拿到具体 id，或直接查 mpv。
@@ -365,7 +468,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       });
 
       await player.open(Media(url), play: true);
-      if (_exiting || !mounted) return;
+      if (!_isCurrentPlayer(generation, player)) return;
+      if (_fallbackRequestedFor == generation) {
+        await _startSoftwareFallback(generation);
+        return;
+      }
       // 兜底重设：上面 await 控制器创建若超时，media_kit 的 none 可能晚于
       // 我们那次写入；sub-font-provider 带 UPDATE_SUB_HARD，此刻再写一次
       // 会重建字幕轨并生效，确保最终值是 fontconfig。
@@ -383,7 +490,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (start > 1) {
         for (var i = 0; i < 30; i++) {
           await Future<void>.delayed(const Duration(milliseconds: 100));
-          if (_exiting || !mounted) return;
+          if (!_isCurrentPlayer(generation, player)) return;
           if (_duration.inSeconds > 0) {
             if (start < _duration.inSeconds - 5) {
               await player.seek(Duration(seconds: start.toInt()));
@@ -393,35 +500,163 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         }
       }
 
-      if (_exiting || !mounted) return;
+      if (!_isCurrentPlayer(generation, player)) return;
+      if (_fallbackRequestedFor == generation) {
+        await _startSoftwareFallback(generation);
+        return;
+      }
+      if (_error != null) return;
+      if (effectiveMode == VideoDecodeMode.hardware) {
+        try {
+          await controller.waitUntilFirstFrameRendered.timeout(
+            const Duration(seconds: 12),
+          );
+        } on TimeoutException {
+          throw StateError('硬件解码未能输出视频帧');
+        }
+        if (!_isCurrentPlayer(generation, player)) return;
+        final nativePlayer = player.platform;
+        if (nativePlayer is! NativePlayer) {
+          throw StateError('无法确认硬件解码状态');
+        }
+        final activeHwdec = await nativePlayer.getProperty('hwdec-current');
+        _logSub('[VIDEO_DECODE] hardware active=$activeHwdec');
+        if (activeHwdec.isEmpty || activeHwdec == 'no') {
+          throw StateError('硬件解码未生效');
+        }
+      }
       setState(() {
         _initialized = true;
         _loading = false;
         _chromeVisible = true;
       });
     } catch (e) {
-      if (!mounted || _exiting) return;
+      if (!_isCurrentGeneration(generation)) return;
+      if (_fallbackRequestedFor == generation) {
+        await _startSoftwareFallback(generation);
+        return;
+      }
+      final failedPlayer = _player;
+      if (failedPlayer != null) {
+        await _stopFailedPlayer(generation, failedPlayer);
+      }
+      if (!_isCurrentGeneration(generation)) return;
       setState(() {
         _error = '$e';
         _loading = false;
       });
+      _logSub('[VIDEO_DECODE] open failed: ${redactMpvLogText('$e')}');
+    } finally {
+      if (_initializingGeneration == generation) {
+        _initializingGeneration = null;
+      }
     }
   }
 
+  bool _isCurrentGeneration(int generation) =>
+      mounted && !_exiting && generation == _playerGeneration;
+
+  bool _isCurrentPlayer(int generation, Player player) =>
+      _isCurrentGeneration(generation) && identical(_player, player);
+
+  Future<void> _stopFailedPlayer(int generation, Player player) async {
+    if (!_isCurrentPlayer(generation, player)) return;
+    try {
+      await player.pause();
+    } catch (_) {}
+    if (!_isCurrentPlayer(generation, player)) return;
+    try {
+      await player.stop();
+      _logSub('[VIDEO_DECODE] failed player stopped');
+    } catch (_) {}
+  }
+
+  bool _looksLikeDecodeError(String text) {
+    final message = text.toLowerCase();
+    return const [
+      'codec',
+      'decoder',
+      'decode',
+      'mediacodec',
+      'surface',
+    ].any(message.contains);
+  }
+
+  void _handleMpvLog(int generation, Player player, PlayerLog log) {
+    if (!_isCurrentPlayer(generation, player)) return;
+    if (kDebugMode) {
+      _logSub(
+        '[MPV-${log.level}] ${log.prefix}: ${redactMpvLogText(log.text)}',
+      );
+    }
+    final shouldFallback = _decodeRecovery.acceptVideoLog(
+      prefix: log.prefix,
+      level: log.level,
+      text: log.text,
+    );
+    if (!shouldFallback) return;
+    _decodeErrorTimer?.cancel();
+    _decodeErrorTimer = null;
+    _fallbackRequestedFor = generation;
+    _logSub('[VIDEO_DECODE] video decoder error; retrying software once');
+    if (_initializingGeneration != generation) {
+      unawaited(_startSoftwareFallback(generation));
+    } else if (_error != null) {
+      setState(() {
+        _error = null;
+        _loading = true;
+      });
+    }
+  }
+
+  Future<void> _startSoftwareFallback(int generation) async {
+    if (!_isCurrentGeneration(generation) ||
+        _fallbackRequestedFor != generation ||
+        _softwareFallbackActive) {
+      return;
+    }
+    final resumeAt = videoFallbackResumeAt(
+      requestedStartSeconds: _startAt,
+      currentPositionSeconds: _position.inMilliseconds / 1000.0,
+      hasRenderedFrame: _hasRenderedFrame,
+    );
+    _fallbackRequestedFor = null;
+    _softwareFallbackActive = true;
+    setState(() {
+      _loading = true;
+      _initialized = false;
+      _error = null;
+      _chromeVisible = true;
+    });
+    await _init(softwareFallback: true, resumeAt: resumeAt);
+  }
+
   Future<void> _teardownPlayer() async {
-    await _posSub?.cancel();
-    await _durSub?.cancel();
-    await _playSub?.cancel();
-    await _errSub?.cancel();
-    await _mpvLogSub?.cancel();
-    await _tracksSub?.cancel();
-    await _trackSub?.cancel();
+    _decodeErrorTimer?.cancel();
+    _decodeErrorTimer = null;
+    final posSub = _posSub;
+    final durSub = _durSub;
+    final playSub = _playSub;
+    final errSub = _errSub;
+    final mpvLogSub = _mpvLogSub;
+    final tracksSub = _tracksSub;
+    final trackSub = _trackSub;
+    final player = _player;
     _posSub = _durSub = _playSub = _errSub = null;
     _mpvLogSub = null;
     _tracksSub = _trackSub = null;
-    final player = _player;
     _player = null;
     _controller = null;
+    final cancels = <Future<void>>[
+      if (posSub != null) posSub.cancel(),
+      if (durSub != null) durSub.cancel(),
+      if (playSub != null) playSub.cancel(),
+      if (errSub != null) errSub.cancel(),
+      if (mpvLogSub != null) mpvLogSub.cancel(),
+      if (tracksSub != null) tracksSub.cancel(),
+      if (trackSub != null) trackSub.cancel(),
+    ];
+    await Future.wait(cancels);
     if (player != null) {
       try {
         await player.dispose().timeout(const Duration(seconds: 2));
@@ -432,6 +667,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _maybeSaveProgress() {
+    if (!_hasRenderedFrame || _loading) return;
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
     if (dur <= 0) return;
@@ -444,6 +680,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _saveProgress({bool force = false}) async {
+    if (!_hasRenderedFrame || _loading) return;
     if (_saving) return;
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
@@ -480,9 +717,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void dispose() {
     _exiting = true;
+    _playerGeneration++;
+    _initializingGeneration = null;
+    _fallbackRequestedFor = null;
+    _decodeErrorTimer?.cancel();
+    _decodeErrorTimer = null;
     final pos = _position.inSeconds.toDouble();
     final dur = _duration.inSeconds.toDouble();
-    if (dur > 0) {
+    if (_hasRenderedFrame && !_loading && dur > 0) {
       widget.session.api
           ?.saveWatchProgress(_video.id, position: pos, duration: dur)
           .timeout(const Duration(seconds: 2))
@@ -501,6 +743,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     unawaited(_durSub?.cancel());
     unawaited(_playSub?.cancel());
     unawaited(_errSub?.cancel());
+    unawaited(_mpvLogSub?.cancel());
     unawaited(_tracksSub?.cancel());
     unawaited(_trackSub?.cancel());
     _tracksSub = _trackSub = null;
@@ -651,6 +894,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _exit() {
     if (_exiting) return;
     _exiting = true;
+    _playerGeneration++;
+    _initializingGeneration = null;
+    _fallbackRequestedFor = null;
+    _decodeErrorTimer?.cancel();
+    _decodeErrorTimer = null;
     if (!mounted) return;
     // canPop stays false for the route; pop explicitly (maybePop would no-op).
     final navigator = Navigator.of(context);
@@ -2123,10 +2371,7 @@ class _BottomChrome extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.subtitles_rounded,
-                        size: 17 * form.typeScale,
-                      ),
+                      Icon(Icons.subtitles_rounded, size: 17 * form.typeScale),
                       const SizedBox(width: Dimens.spacingXs),
                       Text(
                         '字幕',
@@ -2300,15 +2545,15 @@ class _GestureHud extends StatelessWidget {
             ],
           )
         : speedUp
-            ? Text(formatSpeed(2.0), style: textStyle)
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(_icon, color: Colors.white, size: 20 * form.typeScale),
-                  const SizedBox(width: Dimens.spacingSm),
-                  Text('${(value * 100).round()}%', style: textStyle),
-                ],
-              );
+        ? Text(formatSpeed(2.0), style: textStyle)
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_icon, color: Colors.white, size: 20 * form.typeScale),
+              const SizedBox(width: Dimens.spacingSm),
+              Text('${(value * 100).round()}%', style: textStyle),
+            ],
+          );
 
     return Container(
       padding: const EdgeInsets.symmetric(

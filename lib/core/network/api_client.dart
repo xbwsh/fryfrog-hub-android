@@ -382,10 +382,17 @@ class ApiClient {
   Future<PageResponse<MusicSong>> fetchMusicSongs({
     int page = 0,
     int size = 50,
+    int? albumId,
+    int? artistId,
   }) async {
     final json = await _send(
       '/api/v1/music/songs',
-      query: {'page': '$page', 'size': '$size'},
+      query: {
+        'page': '$page',
+        'size': '$size',
+        if (albumId != null) 'albumId': '$albumId',
+        if (artistId != null) 'artistId': '$artistId',
+      },
     );
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
@@ -393,6 +400,112 @@ class ApiClient {
           ? null
           : PageResponse.fromJson(map, MusicSong.fromJson);
     });
+  }
+
+  Future<List<MusicSong>> fetchAllMusicSongs({
+    int? albumId,
+    int? artistId,
+  }) async {
+    const size = 200;
+    final first = await fetchMusicSongs(
+      page: 0,
+      size: size,
+      albumId: albumId,
+      artistId: artistId,
+    );
+    final songs = <MusicSong>[...first.content];
+    var page = 1;
+    while (first.totalPages > page ||
+        (first.totalPages <= 1 && songs.length >= size)) {
+      final next = await fetchMusicSongs(
+        page: page,
+        size: size,
+        albumId: albumId,
+        artistId: artistId,
+      );
+      if (next.content.isEmpty) break;
+      songs.addAll(next.content);
+      if (next.totalPages <= page && next.content.length < size) break;
+      page++;
+    }
+    return songs;
+  }
+
+  Future<MusicSong> fetchMusicSong(int songId) async {
+    final json = await _send('/api/v1/music/songs/$songId');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : MusicSong.fromJson(map);
+    });
+  }
+
+  /// Fetches lyrics as UTF-8 plain text using the fresh signed URL returned by
+  /// the song detail endpoint. Bearer credentials are sent only to this
+  /// client's origin; an absolute signed URL on another host gets no token.
+  Future<String> fetchMusicLyrics(int songId) async {
+    final song = await fetchMusicSong(songId);
+    final signedPath = song.lyricsUrl;
+    if (signedPath == null || signedPath.isEmpty) return '';
+
+    final uri = Uri.parse(resolveUrl(signedPath));
+    final base = Uri.parse(baseUrl);
+    final sameOrigin = uri.scheme == base.scheme &&
+        uri.host == base.host &&
+        uri.port == base.port;
+    final headers = <String, String>{
+      'Accept': 'text/plain',
+      if (sameOrigin && token != null && token!.isNotEmpty)
+        'Authorization': 'Bearer $token',
+    };
+    final response = await http
+        .get(uri, headers: headers)
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 404) return '';
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, '歌词加载失败 (${response.statusCode})');
+    }
+    return utf8.decode(response.bodyBytes, allowMalformed: true);
+  }
+
+  Future<List<MusicSong>> fetchMusicAlbumSongs(int albumId) async {
+    final json = await _send('/api/v1/music/albums/$albumId/songs');
+    return _unwrap(json, (raw) {
+      final list = raw is Map<String, dynamic>
+          ? raw['content'] as List? ?? const []
+          : raw as List? ?? const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(MusicSong.fromJson)
+          .toList(growable: false);
+    });
+  }
+
+  Future<MusicArtistDetail> fetchMusicArtist(int artistId) async {
+    final json = await _send('/api/v1/music/artists/$artistId');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : MusicArtistDetail.fromJson(map);
+    });
+  }
+
+  Future<AudiobookDetail> fetchAudiobookDetail(int audiobookId) async {
+    final json = await _send('/api/v1/audiobooks/$audiobookId');
+    return _unwrap(json, (raw) {
+      final map = raw as Map<String, dynamic>?;
+      return map == null ? null : AudiobookDetail.fromJson(map);
+    });
+  }
+
+  Future<void> saveAudiobookProgress(
+    int audiobookId, {
+    required int trackIndex,
+    required double positionSeconds,
+  }) async {
+    await _sendChecked(
+      '/api/v1/audiobooks/$audiobookId/progress',
+      method: 'PUT',
+      body: {'trackIndex': trackIndex, 'positionSeconds': positionSeconds},
+    );
   }
 
   /// List ebooks / comics / audiobooks. Backend: `GET /api/v1/{ebooks|comics|audiobooks}`.

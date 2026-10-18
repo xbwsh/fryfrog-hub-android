@@ -5,6 +5,7 @@
 library;
 
 export 'books.dart';
+export 'audiobook.dart';
 export 'common.dart';
 export 'library.dart';
 export 'music.dart';

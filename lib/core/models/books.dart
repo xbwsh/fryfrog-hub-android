@@ -292,7 +292,9 @@ class BookDetail {
     progress: json['progress'] is Map<String, dynamic>
         ? ReadingProgress.fromJson(json['progress'] as Map<String, dynamic>)
         : null,
-    chapters: ((json['chapters'] ?? json['tracks']) as List? ?? const [])
+    // Audio tracks are not reading chapters. Audiobooks use AudiobookDetail,
+    // which preserves trackIndex and each chapter's in-track start position.
+    chapters: (json['chapters'] as List? ?? const [])
         .whereType<Map<String, dynamic>>()
         .map(BookChapter.fromJson)
         .toList(growable: false),

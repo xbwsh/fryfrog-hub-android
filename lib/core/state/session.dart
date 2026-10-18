@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../audio/audio_playback_controller.dart';
 import '../models/media_models.dart';
 import '../models/server_profile.dart';
 import '../network/api_client.dart';
@@ -13,10 +16,17 @@ import 'app_prefs.dart';
 /// notify [AppPrefs] only — never this notifier — so catalog updates don't
 /// rebuild MaterialApp and vice versa.
 class Session extends ChangeNotifier {
-  Session(this.connection, this.prefs);
+  Session(
+    this.connection,
+    this.prefs, {
+    @visibleForTesting this.audioPlayerFactory,
+  });
 
   final ServerConnection connection;
   final AppPrefs prefs;
+  @visibleForTesting
+  final AudioPlayerPort Function()? audioPlayerFactory;
+  AudioPlaybackController? _audioController;
 
   bool isLoading = false;
   bool isAuthenticated = false;
@@ -40,6 +50,77 @@ class Session extends ChangeNotifier {
   /// Bumped whenever catalog data is replaced; lets widgets memoize
   /// derived stats without recomputing on every unrelated notify.
   int catalogVersion = 0;
+
+  /// Does not create a native player; shell UI can observe it lazily.
+  AudioPlaybackController? get audioController => _audioController;
+
+  AudioPlaybackController _ensureAudioController() {
+    return _audioController ??= AudioPlaybackController(
+      player: (audioPlayerFactory ?? MediaKitAudioPlayerPort.new)(),
+      loadMusicSong: (id) {
+        final client = api;
+        if (client == null) throw StateError('未登录');
+        return client.fetchMusicSong(id);
+      },
+      loadAudiobook: (id) {
+        final client = api;
+        if (client == null) throw StateError('未登录');
+        return client.fetchAudiobookDetail(id);
+      },
+      resolveUrl: (path) => api?.resolveUrl(path) ?? '',
+      headersForUrl: _audioHeadersForUrl,
+      saveAudiobookProgress: (id, trackIndex, positionSeconds) {
+        final client = api;
+        if (client == null) throw StateError('未登录');
+        return client.saveAudiobookProgress(
+          id,
+          trackIndex: trackIndex,
+          positionSeconds: positionSeconds,
+        );
+      },
+    );
+  }
+
+  Map<String, String> _audioHeadersForUrl(String url) {
+    final client = api;
+    final authToken = client?.token;
+    if (client == null || authToken == null || authToken.isEmpty) {
+      return const {};
+    }
+    try {
+      final target = Uri.parse(url);
+      final base = Uri.parse(client.baseUrl);
+      if (target.origin == base.origin) {
+        return {'Authorization': 'Bearer $authToken'};
+      }
+    } catch (_) {}
+    return const {};
+  }
+
+  Future<void> playMusicQueue(List<MusicSong> queue, int index) async {
+    final audio = _ensureAudioController();
+    notifyListeners();
+    await audio.playSongs(queue, index);
+  }
+
+  Future<void> playAudiobook(
+    AudiobookDetail audiobook, {
+    int? chapterIndex,
+  }) async {
+    final audio = _ensureAudioController();
+    notifyListeners();
+    await audio.playAudiobook(audiobook, chapterIndex: chapterIndex);
+  }
+
+  Future<void> pauseAudioForVideo() async {
+    await _audioController?.pauseForVideo();
+  }
+
+  Future<void> _releaseAudio() async {
+    final audio = _audioController;
+    _audioController = null;
+    await audio?.shutdown();
+  }
 
   List<BookItem> booksOf(BookShelfKind kind) => books[kind] ?? const [];
 
@@ -196,6 +277,10 @@ class Session extends ChangeNotifier {
     isLoading = true;
     error = null;
     notifyListeners();
+
+    // Any active playback must finish saving against the old server before
+    // connection and token state are replaced.
+    await _releaseAudio();
 
     connection.apply(
       scheme: scheme,
@@ -357,6 +442,8 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Save the final in-track position while the existing token is still live.
+    await _releaseAudio();
     try {
       await api?.logout();
     } catch (_) {}
@@ -388,5 +475,11 @@ class Session extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) debugPrint('refreshUser failed: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_releaseAudio());
+    super.dispose();
   }
 }
