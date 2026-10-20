@@ -2,6 +2,41 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fryfrog_hub/core/models/media_models.dart';
 
 void main() {
+  test('有声书刮削结果保留来源、原始 ID 和演播者', () {
+    final result = ScrapeResult.fromJson({
+      'source': 'ximalaya',
+      'sourceId': '123',
+      'title': '三体',
+      'author': '作者甲',
+      'narrator': '演员乙',
+      'year': 2020,
+    });
+    expect(result.source, 'ximalaya');
+    expect(result.sourceId, '123');
+    expect(result.narrator, '演员乙');
+    expect(result.pubYear, 2020);
+  });
+
+  test('刮削状态兼容旧标记和带来源的新标记', () {
+    for (final source in ['scrape', 'scrape:ximalaya', 'scrape:bangumi']) {
+      final detail = BookDetail.fromJson({
+        'id': 1,
+        'title': '三体',
+        'metadataSource': source,
+      });
+      expect(detail.metadataSourceText, '已刮削');
+    }
+    expect(
+      const BookDetail(
+        id: 1,
+        title: '三体',
+        metadataSource: 'manual',
+      ).metadataSourceText,
+      '手动',
+    );
+    expect(const BookDetail(id: 1, title: '三体').metadataSourceText, '扫描');
+  });
+
   group('VideoItem.fromJson', () {
     test('parses progress and episode label', () {
       final v = VideoItem.fromJson({

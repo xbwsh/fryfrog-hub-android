@@ -996,6 +996,14 @@ class _ScrapeDialogState extends State<ScrapeDialog> {
   bool _binding = false;
   String? _error;
 
+  void _selectSource(String? source) {
+    setState(() {
+      _selectedSource = source;
+      _results = const [];
+      _error = null;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1075,6 +1083,8 @@ class _ScrapeDialogState extends State<ScrapeDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isAudiobook = widget.kind == BookShelfKind.audiobook;
+    final isXimalaya = isAudiobook && _selectedSource == 'ximalaya';
     return Dialog(
       backgroundColor: AppColors.surface(context),
       child: ConstrainedBox(
@@ -1110,14 +1120,17 @@ class _ScrapeDialogState extends State<ScrapeDialog> {
                     ChoiceChip(
                       label: const Text('全部'),
                       selected: _selectedSource == null,
-                      onSelected: (_) => setState(() => _selectedSource = null),
+                      onSelected: _searching || _binding
+                          ? null
+                          : (_) => _selectSource(null),
                     ),
                     for (final p in _providers)
                       ChoiceChip(
                         label: Text(p.displayName),
                         selected: _selectedSource == p.source,
-                        onSelected: (_) =>
-                            setState(() => _selectedSource = p.source),
+                        onSelected: _searching || _binding
+                            ? null
+                            : (_) => _selectSource(p.source),
                       ),
                   ],
                 ),
@@ -1128,8 +1141,12 @@ class _ScrapeDialogState extends State<ScrapeDialog> {
                     child: TextField(
                       controller: _keywordCtrl,
                       onSubmitted: (_) => _search(),
-                      decoration: const InputDecoration(
-                        hintText: '标题 / 作者 / 车号',
+                      decoration: InputDecoration(
+                        hintText: isXimalaya
+                            ? '关键词 / 专辑链接 / ID'
+                            : isAudiobook && _selectedSource == null
+                            ? '标题 / 作者 / 喜马拉雅专辑链接'
+                            : '标题 / 作者 / 车号',
                         isDense: true,
                         border: OutlineInputBorder(),
                       ),
@@ -1150,6 +1167,14 @@ class _ScrapeDialogState extends State<ScrapeDialog> {
                 ],
               ),
               const SizedBox(height: Dimens.spacingSm),
+              if (isXimalaya)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Dimens.spacingSm),
+                  child: Text(
+                    '搜索受限时，请粘贴喜马拉雅专辑链接或 ID',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: Dimens.spacingSm),
@@ -1198,10 +1223,13 @@ class _ScrapeDialogState extends State<ScrapeDialog> {
                               [
                                 if (r.author != null && r.author!.isNotEmpty)
                                   r.author!,
+                                if (r.narrator != null &&
+                                    r.narrator!.isNotEmpty)
+                                  '演播：${r.narrator!}',
                                 if (r.pubYear != null) '${r.pubYear}',
                                 if (r.rating != null && r.rating! > 0)
                                   '★ ${r.rating!.toStringAsFixed(1)}',
-                                r.source,
+                                r.source == 'ximalaya' ? '喜马拉雅' : r.source,
                               ].join(' · '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

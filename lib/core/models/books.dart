@@ -100,6 +100,7 @@ class ScrapeResult {
     required this.sourceId,
     required this.title,
     this.author,
+    this.narrator,
     this.overview,
     this.coverUrl,
     this.pubYear,
@@ -110,6 +111,7 @@ class ScrapeResult {
   final String sourceId;
   final String title;
   final String? author;
+  final String? narrator;
   final String? overview;
   final String? coverUrl;
   final int? pubYear;
@@ -120,9 +122,10 @@ class ScrapeResult {
     sourceId: json['sourceId'] as String? ?? '',
     title: (json['title'] ?? json['name']) as String? ?? '(未命名)',
     author: json['author'] as String?,
+    narrator: json['narrator'] as String?,
     overview: json['overview'] as String?,
     coverUrl: readCoverJson(json),
-    pubYear: (json['pubYear'] as num?)?.toInt(),
+    pubYear: ((json['pubYear'] ?? json['year']) as num?)?.toInt(),
     rating: (json['rating'] as num?)?.toDouble(),
   );
 }
@@ -238,7 +241,8 @@ class BookDetail {
       (coverUrl != null && coverUrl!.isNotEmpty) ? coverUrl : null;
 
   String get metadataSourceText => switch (metadataSource) {
-    'scrape' => '已刮削',
+    String source when source == 'scrape' || source.startsWith('scrape:') =>
+      '已刮削',
     'manual' => '手动',
     _ => '扫描',
   };
