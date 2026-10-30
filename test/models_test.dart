@@ -2,6 +2,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fryfrog_hub/core/models/media_models.dart';
 
 void main() {
+  test('TMDB 搜索海报通过服务端代理并编码路径', () {
+    final item = TmdbSearchItem.fromJson({
+      'id': 1,
+      'mediaType': 'tv',
+      'posterPath': '/example.jpg',
+    });
+    final uri = Uri.parse(item.posterUrl!);
+    expect(uri.path, '/api/v1/video/tmdb-image-proxy');
+    expect(uri.queryParameters, {'path': '/example.jpg', 'size': 'w185'});
+    expect(const TmdbSearchItem(id: 1, mediaType: 'tv').posterUrl, isNull);
+  });
+
   test('有声书刮削结果保留来源、原始 ID 和演播者', () {
     final result = ScrapeResult.fromJson({
       'source': 'ximalaya',

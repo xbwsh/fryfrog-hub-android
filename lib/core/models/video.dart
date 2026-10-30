@@ -452,11 +452,14 @@ class TmdbSearchItem {
       (title != null && title!.isNotEmpty) ? title! : (originalTitle ?? '');
   bool get isTv => mediaType.toLowerCase() == 'tv';
 
-  /// TMDB CDN path — [posterPath] is a bare `/xyz.jpg` file name.
+  /// Load search posters through the server's TMDB proxy.
   String? get posterUrl {
     final p = posterPath;
     if (p == null || p.isEmpty) return null;
-    return 'https://image.tmdb.org/t/p/w200${p.startsWith('/') ? '' : '/'}$p';
+    return Uri(
+      path: '/api/v1/video/tmdb-image-proxy',
+      queryParameters: {'path': p.startsWith('/') ? p : '/$p', 'size': 'w185'},
+    ).toString();
   }
 
   factory TmdbSearchItem.fromJson(Map<String, dynamic> json) => TmdbSearchItem(

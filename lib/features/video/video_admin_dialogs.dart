@@ -270,8 +270,7 @@ class _TmdbBindDialogState extends State<TmdbBindDialog> {
   }
 }
 
-/// TMDB CDN thumbnail (no auth headers — must not send the Bearer token
-/// to a third-party host, so plain [Image.network] instead of ServerImage).
+/// TMDB search thumbnail loaded through the configured server.
 class _TmdbPoster extends StatelessWidget {
   const _TmdbPoster({this.posterUrl});
 
@@ -291,14 +290,10 @@ class _TmdbPoster extends StatelessWidget {
                 alignment: Alignment.center,
                 child: const Icon(Icons.movie_rounded, size: 22),
               )
-            : Image.network(
-                url,
+            : ServerImage(
+                url: url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.surface(context),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image_rounded, size: 20),
-                ),
+                borderRadius: BorderRadius.circular(Dimens.radiusSm),
               ),
       ),
     );
