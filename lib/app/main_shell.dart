@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../core/adaptive/device_form.dart';
+import '../core/adaptive/floating_dock_insets.dart';
 import '../core/audio/audio_playback_controller.dart';
 import '../core/state/session.dart';
 import '../core/theme/app_colors.dart';
@@ -48,6 +49,24 @@ final _kTabPillGlass = AnimatedGlassIndicator.baseIndicatorSettings.copyWith(
   chromaticAberration: 0.15,
 );
 
+// The portrait tablet dock has real content behind it, so use a clearer
+// material with a more pronounced refracting rim.
+final _kTabletDockGlass = _kTabBarGlass.copyWith(
+  glassColor: const Color(0x1FFFFFFF),
+  blur: 2,
+  thickness: 38,
+  refractiveIndex: 1.65,
+  chromaticAberration: 0.45,
+  ambientStrength: 0.95,
+  ambientRim: 0.65,
+  lightIntensity: 0.85,
+);
+final _kTabletDockPillGlass = _kTabPillGlass.copyWith(
+  glassColor: const Color(0x18FFFFFF),
+  thickness: 32,
+  refractiveIndex: 1.32,
+);
+
 /// 选中态统一用 `kAppScheme.primary`（与轮播图/详情页播放按钮同一个蓝）。
 ///
 /// `GlassTabBar` 是三方玻璃控件，**不读** Material 的 `NavigationBarTheme`，
@@ -55,7 +74,7 @@ final _kTabPillGlass = AnimatedGlassIndicator.baseIndicatorSettings.copyWith(
 const _kTabIndicatorAlpha = 0.22;
 
 /// Adaptive chrome matching apple MainTabView:
-/// phone = glass bottom dock · tablet portrait = glass top tabs ·
+/// phone = glass bottom dock · tablet portrait = floating glass bottom dock ·
 /// tablet landscape / TV = expanded side rail with focus.
 class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.session});
@@ -223,22 +242,31 @@ class _TabletPortraitShell extends StatelessWidget {
   }
 
   Widget _buildScaffold(BuildContext context, bool showPlayer) {
-    final tabs = _buildBottomTabs(index: index, onIndexChanged: onIndexChanged);
+    final tabs = _buildBottomTabs(
+      index: index,
+      onIndexChanged: onIndexChanged,
+      clearGlass: Theme.of(context).platform == TargetPlatform.android,
+    );
+    final dock = _PortraitShellBottomBar(
+      session: session,
+      showPlayer: showPlayer,
+      horizontalInset: Dimens.spacingXxl,
+      tabBar: tabs,
+      tabBarHeight: tabs.preferredSize.height,
+    );
     return GlassScaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       edgeToEdge: true,
       statusBarStyle: GlassStatusBarStyle.none,
-      extendBody: false,
+      extendBody: true,
       bottomEdgeFade: false,
       edgeStyle: GlassScrollEdgeStyle.blur,
-      body: body,
-      bottomBar: _PortraitShellBottomBar(
-        session: session,
-        showPlayer: showPlayer,
-        horizontalInset: Dimens.spacingXxl,
-        tabBar: tabs,
-        tabBarHeight: (tabs as PreferredSizeWidget).preferredSize.height,
+      body: FloatingDockInsets(
+        bottom:
+            dock.preferredSize.height + MediaQuery.paddingOf(context).bottom,
+        child: body,
       ),
+      bottomBar: dock,
     );
   }
 }
@@ -311,17 +339,20 @@ class _PortraitAudioVisibilityState extends State<_PortraitAudioVisibility> {
 GlassTabBar _buildBottomTabs({
   required int index,
   required ValueChanged<int> onIndexChanged,
+  bool clearGlass = false,
 }) => GlassTabBar.bottom(
   selectedIndex: index,
   onTabSelected: onIndexChanged,
-  settings: _kTabBarGlass,
-  indicatorSettings: _kTabPillGlass,
-  innerBlur: 5,
+  settings: clearGlass ? _kTabletDockGlass : _kTabBarGlass,
+  indicatorSettings: clearGlass ? _kTabletDockPillGlass : _kTabPillGlass,
+  innerBlur: clearGlass ? 1 : 5,
   magnification: 1.2,
   glowBlurRadius: 40,
   glowSpreadRadius: 10,
   glowOpacity: 0.65,
-  indicatorColor: kAppScheme.primary.withValues(alpha: _kTabIndicatorAlpha),
+  indicatorColor: kAppScheme.primary.withValues(
+    alpha: clearGlass ? 0.14 : _kTabIndicatorAlpha,
+  ),
   selectedIconColor: kAppScheme.primary,
   selectedLabelColor: kAppScheme.primary,
   interactionGlowColor: kAppScheme.primary,

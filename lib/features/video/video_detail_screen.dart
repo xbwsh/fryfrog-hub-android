@@ -23,10 +23,12 @@ class VideoDetailScreen extends StatefulWidget {
     super.key,
     required this.session,
     required this.item,
+    this.initialVideoId,
   });
 
   final Session session;
   final SeriesListDto item;
+  final int? initialVideoId;
 
   @override
   State<VideoDetailScreen> createState() => _VideoDetailScreenState();
@@ -45,6 +47,7 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
     _c = VideoDetailController(
       gateway: api == null ? _NullVideoGateway() : ApiVideoGateway(api),
       item: widget.item,
+      initialVideoId: widget.initialVideoId,
     );
     _c.addListener(_onChanged);
     if (api == null) {

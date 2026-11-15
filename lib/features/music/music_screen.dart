@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../core/adaptive/device_form.dart';
+import '../../core/adaptive/floating_dock_insets.dart';
 import '../../core/models/media_models.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
@@ -27,6 +28,7 @@ class _MusicScreenState extends State<MusicScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
+    final floatingDock = FloatingDockInsets.maybeBottomOf(context);
     final session = widget.session;
 
     return ListenableBuilder(
@@ -34,7 +36,7 @@ class _MusicScreenState extends State<MusicScreen> {
       builder: (context, _) {
         final pad = form.isTv ? Dimens.spacingXxl : Dimens.spacingLg;
         // Keep the last row of grids/lists clear of the bottom dock.
-        final dockClearance = form.isPhone || form.isTabletPortrait
+        final dockClearance = form.isPhone
             ? Dimens.dockHeight + MediaQuery.paddingOf(context).bottom
             : 0.0;
 
@@ -42,7 +44,12 @@ class _MusicScreenState extends State<MusicScreen> {
         return SafeArea(
           bottom: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, pad, pad, pad + dockClearance),
+            padding: EdgeInsets.fromLTRB(
+              pad,
+              pad,
+              pad,
+              floatingDock == null ? pad + dockClearance : 0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -164,13 +171,15 @@ class _SongList extends StatelessWidget {
       return _EmptyMusic(message: '暂无歌曲', form: form);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface(context),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      ),
+    final floatingDock = FloatingDockInsets.maybeBottomOf(context) ?? 0;
+    return Material(
+      color: AppColors.surface(context),
+      borderRadius: BorderRadius.circular(Dimens.radiusLg),
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(vertical: Dimens.spacingSm),
+        padding: EdgeInsets.only(
+          top: Dimens.spacingSm,
+          bottom: Dimens.spacingSm + floatingDock,
+        ),
         itemCount: songs.length,
         separatorBuilder: (_, _) => Divider(
           height: 1,
@@ -239,6 +248,7 @@ class _AlbumGrid extends StatelessWidget {
         : 3;
 
     return GridView.builder(
+      padding: _floatingGridPadding(context),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
         mainAxisSpacing: Dimens.spacingLg,
@@ -315,6 +325,7 @@ class _ArtistGrid extends StatelessWidget {
         : 3;
 
     return GridView.builder(
+      padding: _floatingGridPadding(context),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
         mainAxisSpacing: Dimens.spacingLg,
@@ -354,6 +365,13 @@ class _ArtistGrid extends StatelessWidget {
       },
     );
   }
+}
+
+EdgeInsets? _floatingGridPadding(BuildContext context) {
+  final floatingDock = FloatingDockInsets.maybeBottomOf(context);
+  return floatingDock == null
+      ? null
+      : EdgeInsets.only(bottom: floatingDock + Dimens.spacingLg);
 }
 
 class _EmptyMusic extends StatelessWidget {

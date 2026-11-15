@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/adaptive/device_form.dart';
+import '../../core/adaptive/floating_dock_insets.dart';
 import '../../core/models/media_models.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
@@ -26,6 +27,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
+    final bottomInset =
+        FloatingDockInsets.maybeBottomOf(context) ??
+        (Dimens.dockHeight + MediaQuery.paddingOf(context).bottom);
     final session = widget.session;
 
     return ListenableBuilder(
@@ -133,12 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           session: session,
                         ),
                       ),
-                    SizedBox(
-                      height:
-                          Dimens.dockHeight +
-                          Dimens.spacingXxl +
-                          MediaQuery.paddingOf(context).bottom,
-                    ),
+                    SizedBox(height: bottomInset + Dimens.spacingXxl),
                   ],
                 ),
         );

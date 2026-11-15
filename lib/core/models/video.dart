@@ -211,6 +211,7 @@ class VideoItem {
   const VideoItem({
     required this.id,
     required this.title,
+    this.fileName,
     this.coverUrl,
     this.fanartUrl,
     this.streamUrl,
@@ -239,6 +240,7 @@ class VideoItem {
 
   final int id;
   final String title;
+  final String? fileName;
   final String? coverUrl;
   final String? fanartUrl;
   final String? streamUrl;
@@ -284,6 +286,7 @@ class VideoItem {
   factory VideoItem.fromJson(Map<String, dynamic> json) => VideoItem(
     id: (json['id'] as num?)?.toInt() ?? 0,
     title: json['title'] as String? ?? '',
+    fileName: json['fileName'] as String?,
     coverUrl: readCoverJson(json),
     fanartUrl: json['fanartUrl'] as String?,
     streamUrl: json['streamUrl'] as String?,

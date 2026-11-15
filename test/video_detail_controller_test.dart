@@ -371,6 +371,28 @@ void main() {
     c.dispose();
   });
 
+  test(
+    'a backlog link selects its own episode instead of the resume episode',
+    () async {
+      final gateway = _FakeVideoGateway(
+        detail: _detail(
+          eps: const [
+            VideoItem(id: 10, title: 'A', watchProgressPercent: 40),
+            VideoItem(id: 11, title: 'B'),
+          ],
+        ),
+      );
+      final controller = VideoDetailController(
+        gateway: gateway,
+        item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+        initialVideoId: 11,
+      );
+      await controller.load();
+      expect(controller.selected?.id, 11);
+      controller.dispose();
+    },
+  );
+
   test('load error surfaces message', () async {
     final gw = _FakeVideoGateway(detail: null);
     final c = VideoDetailController(

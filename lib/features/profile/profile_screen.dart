@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../core/adaptive/device_form.dart';
+import '../../core/adaptive/floating_dock_insets.dart';
 import '../../core/network/server_connection.dart';
 import '../../core/state/app_prefs.dart';
 import '../../core/state/session.dart';
@@ -70,6 +71,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
+    final bottomInset =
+        FloatingDockInsets.maybeBottomOf(context) ??
+        (Dimens.dockHeight + MediaQuery.paddingOf(context).bottom);
 
     return ListenableBuilder(
       // prefs notifies separately from session (theme/playback settings);
@@ -367,14 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(
-                        // Dock + gesture-bar inset: with only dockHeight the
-                        // logout button slid under the tab bar.
-                        height:
-                            Dimens.dockHeight +
-                            Dimens.spacingXl +
-                            MediaQuery.paddingOf(context).bottom,
-                      ),
+                      SizedBox(height: bottomInset + Dimens.spacingXl),
                     ] else
                       const SizedBox(height: Dimens.spacingXl),
                   ],

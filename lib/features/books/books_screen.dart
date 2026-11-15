@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../core/adaptive/device_form.dart';
+import '../../core/adaptive/floating_dock_insets.dart';
 import '../../core/models/media_models.dart';
 import '../../core/state/session.dart';
 import '../../core/theme/app_colors.dart';
@@ -32,6 +33,7 @@ class _BooksScreenState extends State<BooksScreen> {
   @override
   Widget build(BuildContext context) {
     final form = AdaptiveScope.of(context);
+    final floatingDock = FloatingDockInsets.maybeBottomOf(context);
     final session = widget.session;
 
     return ListenableBuilder(
@@ -42,7 +44,7 @@ class _BooksScreenState extends State<BooksScreen> {
         final pad = form.isTv ? Dimens.spacingXxl : Dimens.spacingLg;
         // Reserve room for the bottom dock so the last grid row is not
         // hidden behind the tab bar.
-        final dockClearance = form.isPhone || form.isTabletPortrait
+        final dockClearance = form.isPhone
             ? Dimens.dockHeight + MediaQuery.paddingOf(context).bottom
             : 0.0;
 
@@ -50,7 +52,12 @@ class _BooksScreenState extends State<BooksScreen> {
         return SafeArea(
           bottom: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, pad, pad, pad + dockClearance),
+            padding: EdgeInsets.fromLTRB(
+              pad,
+              pad,
+              pad,
+              floatingDock == null ? pad + dockClearance : 0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -83,6 +90,9 @@ class _BooksScreenState extends State<BooksScreen> {
                     books: books,
                     form: form,
                     session: session,
+                    bottomPadding: floatingDock == null
+                        ? null
+                        : pad + floatingDock,
                     emptyLabel: '暂无${_labels[_section]}',
                     isLoading: session.isLoadingCatalog && books.isEmpty,
                     error: books.isEmpty ? session.catalogError : null,
@@ -105,6 +115,7 @@ class _BookShelfGrid extends StatelessWidget {
     required this.session,
     required this.emptyLabel,
     required this.isLoading,
+    this.bottomPadding,
     this.error,
   });
 
@@ -114,6 +125,7 @@ class _BookShelfGrid extends StatelessWidget {
   final Session session;
   final String emptyLabel;
   final bool isLoading;
+  final double? bottomPadding;
   final String? error;
 
   @override
@@ -171,6 +183,9 @@ class _BookShelfGrid extends StatelessWidget {
         final cellAspect = cellW / (coverH + Dimens.bookMetaExtent);
 
         return GridView.builder(
+          padding: bottomPadding == null
+              ? null
+              : EdgeInsets.only(bottom: bottomPadding!),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cols,
             mainAxisSpacing: Dimens.spacingLg,

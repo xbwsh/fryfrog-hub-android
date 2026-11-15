@@ -97,6 +97,7 @@ class _FakeApiClient extends ApiClient {
     int page = 0,
     int size = 20,
     int? libraryId,
+    String query = '',
   }) async => _emptyPage(page, size);
 
   @override

@@ -28,6 +28,11 @@ class Dimens {
   /// Title + year strip under a video poster in the library grid.
   static const double videoMetaExtent = 44;
 
+  static const double unscrapedColumnMinWidth = 288;
+  static const double unscrapedRowHeight = 108;
+  static const double unscrapedCoverHeight = 80;
+  static const double unscrapedLoadMoreThreshold = 300;
+
   static const double carouselHeightPhone = 250;
   static const double carouselHeightTablet = 340;
   static const double carouselHeightTv = 380;

@@ -10,10 +10,15 @@ import '../../core/rules/watch_rules.dart';
 /// Owns load / pick-episode / favorite / watched orchestration so the
 /// screen only renders state and forwards taps.
 class VideoDetailController extends ChangeNotifier {
-  VideoDetailController({required this.gateway, required this.item});
+  VideoDetailController({
+    required this.gateway,
+    required this.item,
+    this.initialVideoId,
+  });
 
   final VideoGateway gateway;
   final SeriesListDto item;
+  final int? initialVideoId;
 
   SeriesDetail? detail;
   List<VideoActorDto> actors = const [];
@@ -41,11 +46,13 @@ class VideoDetailController extends ChangeNotifier {
     try {
       final d = await gateway.fetchSeriesDetail(item.id, type: _type);
       final episodes = d.allEpisodes;
-      selected = WatchRules.pickResumeEpisode<VideoItem>(
-        episodes,
-        hasProgress: (e) => e.hasProgress,
-        isWatched: (e) => e.isWatched,
-      );
+      selected =
+          episodes.where((e) => e.id == initialVideoId).firstOrNull ??
+          WatchRules.pickResumeEpisode<VideoItem>(
+            episodes,
+            hasProgress: (e) => e.hasProgress,
+            isWatched: (e) => e.isWatched,
+          );
       actors = const [];
       if (selected != null) {
         try {

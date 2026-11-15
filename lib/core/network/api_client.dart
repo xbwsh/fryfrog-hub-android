@@ -1080,6 +1080,7 @@ class ApiClient {
     int page = 0,
     int size = 20,
     int? libraryId,
+    String query = '',
   }) async {
     final json = await _send(
       '/api/v1/video/unscraped',
@@ -1087,10 +1088,14 @@ class ApiClient {
         'page': '$page',
         'size': '$size',
         if (libraryId != null) 'libraryId': '$libraryId',
+        if (query.isNotEmpty) 'q': query,
       },
     );
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
+      if (query.isNotEmpty && map?['searchSupported'] != true) {
+        throw ApiException(400, '当前后端版本不支持搜索未刮削视频');
+      }
       return map == null
           ? null
           : PageResponse.fromJson(map, VideoItem.fromJson);
