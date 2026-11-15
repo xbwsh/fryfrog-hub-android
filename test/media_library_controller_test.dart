@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fryfrog_hub/core/models/media_models.dart';
 import 'package:fryfrog_hub/core/network/gateways.dart';
@@ -8,6 +10,16 @@ class _FakeGateway implements MediaLibraryGateway {
 
   List<MediaLibrary> libs;
   int scanAllCount;
+  List<int>? scanIds;
+  Future<void> Function()? onScanOne;
+  List<LibraryScanProgress> scanProgress = const [];
+  LibraryPipelineProgress pipeline = const LibraryPipelineProgress(
+    running: false,
+    stage: 'done',
+    percent: 100,
+  );
+  ScrapeProgress metadataProgress = const ScrapeProgress(stage: 'idle');
+  final taskModules = <String>[];
 
   @override
   Future<List<MediaLibrary>> fetchLibraries() async => libs;
@@ -91,21 +103,24 @@ class _FakeGateway implements MediaLibraryGateway {
   }
 
   @override
-  Future<int> scanAll() async => scanAllCount;
+  Future<LibraryScanSubmission> scanAll() async =>
+      LibraryScanSubmission(count: scanAllCount, libraryIds: scanIds);
 
   @override
-  Future<void> scanOne(int id) async {}
+  Future<void> scanOne(int id) async => await onScanOne?.call();
 
   @override
-  Future<List<LibraryScanProgress>> fetchScanProgress() async => const [];
+  Future<List<LibraryScanProgress>> fetchScanProgress() async => scanProgress;
 
   @override
   Future<LibraryPipelineProgress> fetchPipelineProgress(int id) async =>
-      const LibraryPipelineProgress(
-        running: false,
-        stage: 'done',
-        percent: 100,
-      );
+      pipeline;
+
+  @override
+  Future<ScrapeProgress> fetchTaskProgress(String module) async {
+    taskModules.add(module);
+    return metadataProgress;
+  }
 
   @override
   Future<StaleRecords> fetchStaleRecords(int libraryId) async =>
@@ -227,6 +242,116 @@ void main() {
     final msg = await c.startScanAll();
 
     expect(msg, '没有启用的资源库');
-    expect(c.scanning, isFalse);
+    expect(c.taskRunning, isFalse);
+  });
+  testWidgets('scan submission is guarded and a failed scan shows its reason', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    var submissions = 0;
+    final gateway = _FakeGateway([_lib(1, 'anime')])
+      ..onScanOne = (() {
+        submissions++;
+        return pending.future;
+      })
+      ..pipeline = const LibraryPipelineProgress(
+        running: false,
+        stage: 'error',
+        percent: 25,
+        message: '路径不可访问',
+      );
+    final c = MediaLibraryController(gateway: gateway);
+    final first = c.startScanOne(1);
+    expect(c.taskRunning, isTrue);
+    expect(await c.startScanOne(1), isNotNull);
+    expect(submissions, 1);
+    pending.complete();
+    await first;
+    await tester.pump();
+    expect(c.taskRunning, isFalse);
+    expect(c.taskStage, '扫描失败');
+    expect(c.taskDetail, '路径不可访问');
+    expect(c.taskPercent, 25);
+    c.dispose();
+  });
+
+  testWidgets(
+    'scan all ignores unrelated jobs and waits for requested libraries',
+    (tester) async {
+      const unrelated = LibraryScanProgress(
+        module: 'rescrape:2',
+        libraryId: 2,
+        running: true,
+        total: 500,
+        completed: 0,
+        failed: 0,
+        skipped: 0,
+      );
+      const first = LibraryScanProgress(
+        module: 'pipeline:1',
+        libraryId: 1,
+        stage: 'done',
+        running: false,
+        total: 1,
+        completed: 1,
+        failed: 0,
+        skipped: 0,
+      );
+      final gateway =
+          _FakeGateway([_lib(1, 'a'), _lib(2, 'b')], scanAllCount: 2)
+            ..scanIds = [1, 2]
+            ..scanProgress = [unrelated, first];
+      final c = MediaLibraryController(gateway: gateway);
+      await c.startScanAll();
+      await tester.pump();
+      expect(c.taskRunning, isTrue);
+      gateway.scanProgress = [
+        unrelated,
+        first,
+        const LibraryScanProgress(
+          module: 'pipeline:2',
+          libraryId: 2,
+          stage: 'error',
+          running: false,
+          total: 1,
+          completed: 0,
+          failed: 1,
+          skipped: 0,
+          message: '路径不可访问',
+        ),
+      ];
+      await tester.pump(const Duration(seconds: 1));
+      expect(c.taskRunning, isFalse);
+      expect(c.taskStage, '扫描结束 · 1 项失败');
+      expect(c.taskDetail, '路径不可访问');
+      c.dispose();
+    },
+  );
+
+  testWidgets('NFO tracks its own module and reports partial failure', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway([_lib(2, 'b')])
+      ..metadataProgress = const ScrapeProgress(
+        stage: 'nfo',
+        running: true,
+        total: 3,
+      );
+    final c = MediaLibraryController(gateway: gateway);
+    await c.regenerateNfo(libraryId: 2);
+    await tester.pump();
+    expect(c.taskRunning, isTrue);
+    gateway.metadataProgress = const ScrapeProgress(
+      stage: 'done',
+      completed: 2,
+      total: 3,
+      failed: 1,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(gateway.taskModules, ['nfo:2', 'nfo:2']);
+    expect(c.taskRunning, isFalse);
+    expect(c.taskStage, '重写 NFO结束 · 1 项失败');
+    expect(c.taskDetail, '成功 2，失败 1，跳过 0');
+    c.dispose();
   });
 }

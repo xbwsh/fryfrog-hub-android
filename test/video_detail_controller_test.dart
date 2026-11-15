@@ -30,6 +30,7 @@ class _FakeVideoGateway implements VideoGateway {
   int? lastUnbindVideoId;
   final List<String> progressModules = [];
   bool progressRunning = false;
+  String bindStage = 'done';
   List<LogoOption> logoOptions = const [];
   int seriesLogoOptionsCalls = 0;
   int? lastSeriesLogoOptionsId;
@@ -145,7 +146,7 @@ class _FakeVideoGateway implements VideoGateway {
   @override
   Future<ScrapeProgress> fetchScrapeProgress(String module) async {
     progressModules.add(module);
-    return ScrapeProgress(stage: 'bind', running: progressRunning);
+    return ScrapeProgress(stage: bindStage, running: progressRunning);
   }
 
   @override
@@ -418,6 +419,23 @@ void main() {
     expect(gw.lastBindMediaType, 'tv');
     expect(gw.progressModules, ['bind:10']);
     expect(gw.fetchCalls, 2); // load + post-bind refreshQuiet
+    expect(c.busy, isFalse);
+    c.dispose();
+  });
+
+  test('failed binding is not reported as a completed edit', () async {
+    final gw = _FakeVideoGateway(detail: _detail(tmdbId: null))
+      ..bindStage = 'error';
+    final c = VideoDetailController(
+      gateway: gw,
+      item: const SeriesListDto(id: 1, type: 'series', title: 'Show'),
+    );
+    await c.load();
+    await expectLater(
+      c.bindTmdbWithPoll(tmdbId: 500, mediaType: 'tv'),
+      throwsStateError,
+    );
+    expect(c.mutated, isFalse);
     expect(c.busy, isFalse);
     c.dispose();
   });

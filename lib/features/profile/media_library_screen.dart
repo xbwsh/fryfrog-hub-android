@@ -22,7 +22,7 @@ class MediaLibraryScreen extends StatefulWidget {
 
 class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
   late final MediaLibraryController _c;
-  bool _wasScanning = false;
+  int _catalogRevision = 0;
 
   /// 库集合快照（`id:enabled`）：目录缓存是按服务端 enabled 过滤拉取的，
   /// 所以集合或开关任一变化都必须让 Session 重新拉首页目录。
@@ -43,11 +43,10 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
 
   void _onChanged() {
     if (!mounted) return;
-    // A finished scan added/updated items — refresh the home catalog.
-    if (_wasScanning && !_c.scanning) {
+    if (_catalogRevision != _c.catalogRevision) {
+      _catalogRevision = _c.catalogRevision;
       widget.session.loadCatalog();
     }
-    _wasScanning = _c.scanning;
     // Toggle / save / delete changed the library set or its enabled flags.
     // The server filters the grouped catalog by `enabled`, so the cached
     // video/music rails are stale — re-fetch them (covers every mutation
@@ -96,22 +95,16 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
     }
   }
 
-  /// 批量刷新该库已绑定视频的元数据。
-  ///
-  /// 关键语义：**只处理已绑定的**（用已有 TMDB ID 拉取，不搜索、不清绑定）。
-  /// 未刮削的视频是用户刻意留着不绑的——那些在 TMDB 上不存在，强搜只会写入
-  /// 错误内容，所以必须排除。因此这里不需要"会改坏数据"的警告。
   Future<void> _refreshMetadata(MediaLibrary lib) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('刷新「${lib.name}」已绑定元数据'),
         content: const Text(
-          '对已绑定 TMDB 的视频重新拉取资料（简介/评分/年份/封面/NFO）。\n\n'
-          '· 只处理已绑定的，未刮削的视频会被跳过（它们本来就不在 TMDB 上）\n'
-          '· 用已有绑定 ID 拉取，不会改绑定，也不会把对的搜成错的\n'
-          '· NFO 会统一成当前格式（剧根 tvshow.nfo + 季级 season.nfo）\n\n'
-          '后台执行，大库需要一些时间。绑错的条目请到详情页逐个重绑。',
+          '用已有 TMDB 绑定刷新本库的视频资料、封面和 NFO。'
+          '本库未绑定的视频会跳过。同一剧在其他库的分集文件不会被处理，'
+          '但共享的剧集简介等字段会一并更新。\n\n'
+          '刷新可能覆盖手工修改的元数据和 NFO。绑错的条目请在详情页重新绑定。',
         ),
         actions: [
           TextButton(
@@ -127,7 +120,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      _snack(await _c.refreshLibraryMetadata(lib.id));
+      final message = await _c.refreshLibraryMetadata(lib.id);
+      if (message != null) _snack(message);
     } catch (e) {
       _snack('刷新失败：$e');
     }
@@ -144,9 +138,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
         content: const Text(
           '为该库每部剧重写剧根 tvshow.nfo（剧名/简介/评分/绑定 ID）'
           '与各季目录 season.nfo（季名/季简介）。\n\n'
-          '已有文件会被覆盖，磁盘上的视频与图片不受影响。\n'
-          '分集 NFO 不在这里处理（由扫描/刮削按集生成）。\n\n'
-          '后台执行，大库需要一些时间。',
+          '有完整资料的剧级和季级 NFO 会被覆盖。缺少季资料时保留已有季 NFO。\n'
+          '视频、图片、单片和分集 NFO 保持原样。',
         ),
         actions: [
           TextButton(
@@ -163,7 +156,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
     if (confirmed != true || !mounted) return;
     try {
       final msg = await _c.regenerateNfo(libraryId: lib.id);
-      _snack(msg);
+      if (msg != null) _snack(msg);
     } catch (e) {
       _snack('重写 NFO 失败：$e');
     }
@@ -242,7 +235,7 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
           IconButton(
             tooltip: '扫描全部',
             icon: const Icon(Icons.sync_rounded),
-            onPressed: _c.scanning ? null : _scanAll,
+            onPressed: _c.taskRunning ? null : _scanAll,
           ),
           IconButton(
             tooltip: '添加资源库',
@@ -289,8 +282,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
           return ListView(
             padding: const EdgeInsets.all(Dimens.spacingLg),
             children: [
-              if (_c.scanning) ...[
-                _ScanProgressCard(controller: _c, form: form),
+              if (_c.taskStage.isNotEmpty) ...[
+                _LibraryTaskCard(controller: _c, form: form),
                 const SizedBox(height: Dimens.spacingLg),
               ],
               if (_c.libraries.isEmpty)
@@ -328,8 +321,8 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
                   _LibraryCard(
                     lib: lib,
                     form: form,
-                    busy: _c.busy,
-                    scanning: _c.scanning,
+                    busy: _c.busy || _c.taskRunning,
+                    scanning: _c.taskRunning,
                     onToggle: () => _toggle(lib),
                     onScan: () => _scanOne(lib),
                     onEdit: () => _showForm(edit: lib),
@@ -348,15 +341,15 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
   }
 }
 
-class _ScanProgressCard extends StatelessWidget {
-  const _ScanProgressCard({required this.controller, required this.form});
+class _LibraryTaskCard extends StatelessWidget {
+  const _LibraryTaskCard({required this.controller, required this.form});
 
   final MediaLibraryController controller;
   final DeviceForm form;
 
   @override
   Widget build(BuildContext context) {
-    final percent = controller.scanPercent.clamp(0.0, 100.0);
+    final percent = controller.taskPercent.clamp(0.0, 100.0);
     return Container(
       padding: const EdgeInsets.all(Dimens.spacingLg),
       decoration: BoxDecoration(
@@ -371,7 +364,7 @@ class _ScanProgressCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  controller.scanStage,
+                  controller.taskStage,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -391,11 +384,11 @@ class _ScanProgressCard extends StatelessWidget {
               ),
             ],
           ),
-          if (controller.scanCurrentItem != null) ...[
+          if (controller.taskDetail != null) ...[
             const SizedBox(height: Dimens.spacingXs),
             Text(
-              '当前：${controller.scanCurrentItem}',
-              maxLines: 1,
+              controller.taskDetail!,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12 * form.typeScale,
@@ -518,7 +511,7 @@ class _LibraryCard extends StatelessWidget {
           itemBuilder: (context) => [
             PopupMenuItem(
               value: 'scan',
-              enabled: !scanning,
+              enabled: !busy && !scanning && lib.enabled,
               child: Row(
                 children: [
                   const Icon(Icons.sync_rounded, size: 18),
@@ -528,35 +521,37 @@ class _LibraryCard extends StatelessWidget {
               ),
             ),
             // 刷新已绑定元数据：用已有 TMDB ID 拉取，跳过未刮削的
-            PopupMenuItem(
-              value: 'refresh',
-              enabled: !busy,
-              child: Row(
-                children: [
-                  const Icon(Icons.cloud_sync_outlined, size: 18),
-                  const SizedBox(width: Dimens.spacingMd),
-                  Text(
-                    '刷新元数据',
-                    style: TextStyle(fontSize: 14 * form.typeScale),
-                  ),
-                ],
+            if (lib.type == 'VIDEO')
+              PopupMenuItem(
+                value: 'refresh',
+                enabled: !busy && !scanning,
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_sync_outlined, size: 18),
+                    const SizedBox(width: Dimens.spacingMd),
+                    Text(
+                      '刷新元数据',
+                      style: TextStyle(fontSize: 14 * form.typeScale),
+                    ),
+                  ],
+                ),
               ),
-            ),
             // 批量重写剧级/季级 NFO：重新刮削刷不到（已绑定的剧会被 scrape 跳过）
-            PopupMenuItem(
-              value: 'nfo',
-              enabled: !busy,
-              child: Row(
-                children: [
-                  const Icon(Icons.description_outlined, size: 18),
-                  const SizedBox(width: Dimens.spacingMd),
-                  Text(
-                    '重写 NFO',
-                    style: TextStyle(fontSize: 14 * form.typeScale),
-                  ),
-                ],
+            if (lib.type == 'VIDEO')
+              PopupMenuItem(
+                value: 'nfo',
+                enabled: !busy && !scanning,
+                child: Row(
+                  children: [
+                    const Icon(Icons.description_outlined, size: 18),
+                    const SizedBox(width: Dimens.spacingMd),
+                    Text(
+                      '重写 NFO',
+                      style: TextStyle(fontSize: 14 * form.typeScale),
+                    ),
+                  ],
+                ),
               ),
-            ),
             PopupMenuItem(
               value: 'edit',
               child: Row(
@@ -1067,7 +1062,7 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
   Future<MediaLibrary> toggleLibrary(int id) => throw UnsupportedError('未登录');
 
   @override
-  Future<int> scanAll() => throw UnsupportedError('未登录');
+  Future<LibraryScanSubmission> scanAll() => throw UnsupportedError('未登录');
 
   @override
   Future<void> scanOne(int id) => throw UnsupportedError('未登录');
@@ -1078,6 +1073,10 @@ class _NullMediaLibraryGateway implements MediaLibraryGateway {
 
   @override
   Future<LibraryPipelineProgress> fetchPipelineProgress(int id) =>
+      throw UnsupportedError('未登录');
+
+  @override
+  Future<ScrapeProgress> fetchTaskProgress(String module) =>
       throw UnsupportedError('未登录');
 
   @override

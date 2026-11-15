@@ -622,6 +622,10 @@ class ScrapeProgress {
     this.percent,
     this.completed,
     this.total,
+    this.failed = 0,
+    this.skipped = 0,
+    this.currentItem,
+    this.message,
   });
 
   final String? stage;
@@ -629,6 +633,10 @@ class ScrapeProgress {
   final double? percent;
   final int? completed;
   final int? total;
+  final int failed;
+  final int skipped;
+  final String? currentItem;
+  final String? message;
 
   factory ScrapeProgress.fromJson(Map<String, dynamic> json) => ScrapeProgress(
     stage: json['stage'] as String?,
@@ -636,6 +644,10 @@ class ScrapeProgress {
     percent: (json['percent'] as num?)?.toDouble(),
     completed: (json['completed'] as num?)?.toInt(),
     total: (json['total'] as num?)?.toInt(),
+    failed: (json['failed'] as num?)?.toInt() ?? 0,
+    skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+    currentItem: json['currentItem'] as String?,
+    message: json['message'] as String?,
   );
 }
 

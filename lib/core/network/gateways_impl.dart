@@ -263,7 +263,7 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
   Future<MediaLibrary> toggleLibrary(int id) => _api.toggleMediaLibrary(id);
 
   @override
-  Future<int> scanAll() => _api.scanAllMediaLibraries();
+  Future<LibraryScanSubmission> scanAll() => _api.scanAllMediaLibraries();
 
   @override
   Future<void> scanOne(int id) => _api.scanMediaLibrary(id);
@@ -275,6 +275,10 @@ class ApiMediaLibraryGateway implements MediaLibraryGateway {
   @override
   Future<LibraryPipelineProgress> fetchPipelineProgress(int id) =>
       _api.fetchLibraryPipelineProgress(id);
+
+  @override
+  Future<ScrapeProgress> fetchTaskProgress(String module) =>
+      _api.fetchScrapeProgress(module);
 
   @override
   Future<StaleRecords> fetchStaleRecords(int libraryId) =>

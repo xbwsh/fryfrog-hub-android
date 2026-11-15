@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import '../../core/models/media_models.dart';
 import '../../core/network/gateways.dart';
 
+typedef _JobPoll = Future<bool?> Function();
+
 /// Orchestration for the media library admin screen:
 /// list CRUD, directory browsing and scan progress polling.
 class MediaLibraryController extends ChangeNotifier {
@@ -17,21 +19,15 @@ class MediaLibraryController extends ChangeNotifier {
   String? error;
   bool busy = false;
 
-  // ── Scan progress state ─────────────────────────────────────────────
-  bool scanning = false;
-
-  /// null = scanning all libraries; otherwise the single library id.
-  int? scanningId;
-  String scanStage = '';
-  String? scanCurrentItem;
-  double scanPercent = 0;
+  bool taskRunning = false;
+  String taskStage = '';
+  String? taskDetail;
+  double taskPercent = 0;
+  int catalogRevision = 0;
 
   Timer? _poll;
   Timer? _hideDone;
-
-  /// Consecutive 1-empty responses in scan-all mode; guards against the
-  /// server never registering the scan (otherwise we poll 1 req/s forever).
-  int _emptyTicks = 0;
+  int _missingTicks = 0;
   bool _disposed = false;
 
   /// No-op after dispose: async ticks/CRUD can resume post-dispose and
@@ -56,7 +52,7 @@ class MediaLibraryController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final list = await gateway.fetchLibraries();
+      final list = [...await gateway.fetchLibraries()];
       list.sort((a, b) => (a.sortOrder ?? 0).compareTo(b.sortOrder ?? 0));
       libraries = list;
     } catch (e) {
@@ -137,112 +133,199 @@ class MediaLibraryController extends ChangeNotifier {
 
   // ── Scanning ────────────────────────────────────────────────────────
 
-  /// Starts a scan of all enabled libraries.
-  /// Returns an error/status message for the UI (null = polling started).
-  Future<String?> startScanAll() async {
-    if (_poll != null) return null;
-    final count = await gateway.scanAll();
-    if (count == 0) return '没有启用的资源库';
-    _beginScan(null, '准备扫描…');
-    return null;
-  }
+  Future<String?> startScanAll() => _startJob('准备扫描…', () async {
+    final submission = await gateway.scanAll();
+    if (submission.count == 0) return (null, '没有启用的资源库');
+    final ids = submission.libraryIds?.toSet();
+    final pipelines = <int, LibraryScanProgress>{};
+    return (() => _pollScanAll(ids, submission.count, pipelines), null);
+  });
 
-  /// Starts a scan of one library. Returns error message or null.
-  Future<String?> startScanOne(int id) async {
-    if (_poll != null) return null;
+  Future<String?> startScanOne(int id) => _startJob('准备扫描…', () async {
     await gateway.scanOne(id);
-    final lib = libraries.where((l) => l.id == id).firstOrNull;
-    _beginScan(id, '「${lib?.name ?? ''}」准备中…');
-    return null;
-  }
+    final name = libraries.where((l) => l.id == id).firstOrNull?.name;
+    return (() => _pollScanOne(id, name), null);
+  });
 
-  /// 批量刷新该库已绑定视频的元数据（后台任务，立即返回提示语）。
-  ///
-  /// 后端只处理已绑定的记录，未刮削的会被跳过——那些是用户刻意留在未绑定
-  /// 状态的（TMDB 上没有），强搜只会写入错误内容。
-  Future<String> refreshLibraryMetadata(int libraryId) async {
-    return gateway.refreshLibraryMetadata(libraryId);
-  }
+  Future<String?> refreshLibraryMetadata(int id) => _startMetadata(
+    '刷新元数据',
+    'rescrape:$id',
+    () => gateway.refreshLibraryMetadata(id),
+    refreshCatalog: true,
+  );
 
-  /// 批量重写该库的剧级/季级 NFO（后台任务，立即返回提示语）。
-  ///
-  /// 不复用扫描进度：这是独立任务，进度键是 `nfo:{libraryId}`，
-  /// 混进扫描进度会让「扫描中」的显示错乱。
-  Future<String> regenerateNfo({int? libraryId}) async {
-    return gateway.regenerateNfo(libraryId: libraryId);
-  }
+  Future<String?> regenerateNfo({required int libraryId}) => _startMetadata(
+    '重写 NFO',
+    'nfo:$libraryId',
+    () => gateway.regenerateNfo(libraryId: libraryId),
+  );
 
-  void _beginScan(int? id, String stage) {
+  Future<String?> _startMetadata(
+    String label,
+    String module,
+    Future<String> Function() submit, {
+    bool refreshCatalog = false,
+  }) => _startJob('$label · 提交中…', () async {
+    final message = await submit();
+    return (() => _pollMetadata(label, module), message);
+  }, refreshCatalog: refreshCatalog);
+
+  Future<String?> _startJob(
+    String stage,
+    Future<(_JobPoll?, String?)> Function() submit, {
+    bool refreshCatalog = true,
+  }) async {
+    if (taskRunning || _disposed) return '已有媒体库任务正在处理';
     _hideDone?.cancel();
-    scanning = true;
-    scanningId = id;
-    scanStage = stage;
-    scanCurrentItem = null;
-    scanPercent = 0;
-    _emptyTicks = 0;
+    taskRunning = true;
+    taskStage = stage;
+    taskDetail = null;
+    taskPercent = 0;
+    _missingTicks = 0;
     notifyListeners();
-    _poll = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
-    _tick();
-  }
-
-  Future<void> _tick() async {
-    if (!scanning) return;
     try {
-      final id = scanningId;
-      if (id == null) {
-        final list = await gateway.fetchScanProgress();
-        if (list.isEmpty) {
-          // Progress not registered yet is normal for a few seconds;
-          // give up after 15 so a lost scan cannot poll forever.
-          if (++_emptyTicks >= 15) {
-            scanStage = '扫描状态获取超时';
-            _finishScan();
-            notifyListeners();
-          }
-          return;
-        }
-        _emptyTicks = 0;
-        var total = 0;
-        var done = 0;
-        final items = <String>{};
-        for (final p in list) {
-          total += p.total;
-          done += p.done;
-          final current = p.currentItem;
-          if (current != null && current.isNotEmpty) items.add(current);
-        }
-        final allDone = list.every((p) => !p.running);
-        scanPercent = total == 0 ? 0 : done / total * 100;
-        scanCurrentItem = items.isEmpty ? null : items.join('、');
-        scanStage = allDone ? '扫描完成' : '扫描 $done/$total';
-        if (allDone) _finishScan();
+      final (poll, message) = await submit();
+      if (_disposed) return null;
+      if (poll == null) {
+        taskRunning = false;
+        taskStage = '';
+        notifyListeners();
       } else {
-        final p = await gateway.fetchPipelineProgress(id);
-        final stageLabel = _stageLabels[p.stage] ?? p.stage;
-        final lib = libraries.where((l) => l.id == id).firstOrNull;
-        scanPercent = p.percent;
-        scanCurrentItem = p.currentItem;
-        scanStage = '「${lib?.name ?? ''}」$stageLabel';
-        final done = !p.running || p.stage == 'done' || p.percent >= 100;
-        if (done) _finishScan();
+        unawaited(_tick(poll, refreshCatalog));
       }
-      notifyListeners();
+      return message;
     } catch (_) {
-      // Polling failures are transient — keep trying on the next tick.
+      taskRunning = false;
+      taskStage = '';
+      notifyListeners();
+      rethrow;
     }
   }
 
-  void _finishScan() {
+  Future<bool?> _pollScanAll(
+    Set<int>? ids,
+    int expectedCount,
+    Map<int, LibraryScanProgress> pipelines,
+  ) async {
+    final records = await gateway.fetchScanProgress();
+    pipelines.addAll({
+      for (final record in records)
+        if (record.module == 'pipeline:${record.libraryId}' &&
+            record.libraryId != null &&
+            (ids == null || ids.contains(record.libraryId)))
+          record.libraryId!: record,
+    });
+    final legacy = records
+        .where((p) => p.module == 'scan:ALL' && p.total > 0)
+        .firstOrNull;
+    final scoped = pipelines.length == (ids?.length ?? expectedCount)
+        ? pipelines.values
+        : ids == null && legacy != null
+        ? [legacy]
+        : const <LibraryScanProgress>[];
+    if (scoped.isEmpty) return null;
+
+    final total = scoped.fold(0, (sum, p) => sum + p.total);
+    final done = scoped.fold(0, (sum, p) => sum + p.done);
+    final failed = scoped.fold(
+      0,
+      (sum, p) =>
+          sum +
+          (p.failed > 0
+              ? p.failed
+              : p.stage == 'error'
+              ? 1
+              : 0),
+    );
+    final active = scoped.any((p) => p.running);
+    taskPercent = total == 0 ? 0 : done / total * 100;
+    taskStage = active
+        ? '扫描中 · $done/$total'
+        : failed > 0
+        ? '扫描结束 · $failed 项失败'
+        : '扫描完成';
+    taskDetail = active
+        ? scoped
+              .where((p) => p.running)
+              .map((p) => p.currentItem)
+              .whereType<String>()
+              .firstOrNull
+        : scoped.map((p) => p.message).whereType<String>().firstOrNull;
+    return !active;
+  }
+
+  Future<bool?> _pollScanOne(int id, String? name) async {
+    final progress = await gateway.fetchPipelineProgress(id);
+    if (progress.stage == 'idle') return null;
+    final label = switch (progress.stage) {
+      'error' => '扫描失败',
+      'done' => '扫描完成',
+      _ => _stageLabels[progress.stage] ?? '扫描中',
+    };
+    taskStage = name == null ? label : '「$name」$label';
+    taskPercent = progress.percent;
+    taskDetail = progress.message ?? progress.currentItem;
+    return !progress.running &&
+        (progress.stage == 'done' || progress.stage == 'error');
+  }
+
+  Future<bool?> _pollMetadata(String label, String module) async {
+    final progress = await gateway.fetchTaskProgress(module);
+    if (progress.stage == 'idle' || progress.stage == null) return null;
+    final total = progress.total ?? 0;
+    final completed = progress.completed ?? 0;
+    final accounted = completed + progress.failed + progress.skipped;
+    taskPercent = total > 0 ? accounted / total * 100 : (progress.percent ?? 0);
+    if (progress.running) {
+      taskStage = total > 0 ? '$label · $accounted/$total' : '$label · 处理中';
+      taskDetail = progress.currentItem;
+      return false;
+    }
+    if (progress.stage != 'done' && progress.stage != 'error') return null;
+    taskStage = switch (progress.stage) {
+      'error' => '$label失败',
+      _ when progress.failed > 0 => '$label结束 · ${progress.failed} 项失败',
+      _ => '$label完成',
+    };
+    taskDetail =
+        progress.message ??
+        '成功 $completed，失败 ${progress.failed}，跳过 ${progress.skipped}';
+    return true;
+  }
+
+  Future<void> _tick(_JobPoll poll, bool refreshCatalog) async {
+    if (_disposed) return;
+    bool? done;
+    try {
+      done = await poll();
+    } catch (_) {
+      // A transient fetch failure is distinct from a server-side task failure.
+    }
+    if (_disposed) return;
+    _missingTicks = done == null ? _missingTicks + 1 : 0;
+    if (_missingTicks >= 15) {
+      taskStage = '暂时无法确认任务状态';
+      taskDetail = '任务可能还在后端运行。';
+      _finishJob();
+    } else if (done == true) {
+      if (refreshCatalog) catalogRevision++;
+      _finishJob();
+    } else {
+      _poll = Timer(
+        const Duration(seconds: 1),
+        () => unawaited(_tick(poll, refreshCatalog)),
+      );
+    }
+    notifyListeners();
+  }
+
+  void _finishJob() {
     _poll?.cancel();
     _poll = null;
-    scanPercent = 100;
-    // Hide the banner a few seconds after completion.
-    _hideDone = Timer(const Duration(seconds: 5), () {
-      if (!scanning) return;
-      scanning = false;
-      scanningId = null;
-      scanStage = '';
-      scanCurrentItem = null;
+    taskRunning = false;
+    _hideDone = Timer(const Duration(seconds: 8), () {
+      taskStage = '';
+      taskDetail = null;
       notifyListeners();
     });
   }

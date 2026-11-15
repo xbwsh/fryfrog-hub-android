@@ -157,6 +157,7 @@ class VideoDetailController extends ChangeNotifier {
     try {
       await gateway.bindTmdb(videoId, tmdbId: tmdbId, mediaType: mediaType);
       await _pollBindJob(videoId);
+      if (_disposed) return;
       mutated = true;
       await refreshQuiet();
     } finally {
@@ -165,19 +166,27 @@ class VideoDetailController extends ChangeNotifier {
     }
   }
 
-  /// Poll every 1.5s, at most 40 times. Polling is best-effort: a failed
-  /// progress fetch ends the wait instead of failing the whole operation.
+  /// Only a successful terminal response confirms the binding.
   Future<void> _pollBindJob(int videoId) async {
     for (var i = 0; i < 40; i++) {
-      ScrapeProgress progress;
+      if (_disposed) return;
+      ScrapeProgress? progress;
       try {
         progress = await gateway.fetchScrapeProgress('bind:$videoId');
       } catch (_) {
-        return;
+        // Retry a transient read failure without submitting the binding again.
       }
-      if (!progress.running) return;
-      await Future<void>.delayed(const Duration(milliseconds: 1500));
+      if (progress != null && !progress.running) {
+        if (progress.stage == 'error' || progress.failed > 0) {
+          throw StateError(progress.message ?? '后端绑定失败');
+        }
+        if (progress.stage == 'done') return;
+      }
+      if (i < 39) {
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+      }
     }
+    throw StateError('未能确认绑定结果，任务可能还在后端执行');
   }
 
   /// Returns how many bindings were removed.

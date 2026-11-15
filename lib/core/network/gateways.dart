@@ -172,13 +172,15 @@ abstract class MediaLibraryGateway {
   Future<MediaLibrary> toggleLibrary(int id);
 
   /// Starts a scan of every enabled library; returns enabled library count.
-  Future<int> scanAll();
+  Future<LibraryScanSubmission> scanAll();
 
   Future<void> scanOne(int id);
 
   Future<List<LibraryScanProgress>> fetchScanProgress();
 
   Future<LibraryPipelineProgress> fetchPipelineProgress(int id);
+
+  Future<ScrapeProgress> fetchTaskProgress(String module);
 
   /// 残留体检：总数 + 样本（含文件名/路径，供清理前确认）。
   Future<StaleRecords> fetchStaleRecords(int libraryId);

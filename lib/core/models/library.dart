@@ -79,7 +79,14 @@ class LibraryDirItem {
   );
 }
 
-/// Aggregated progress across all libraries during `POST /scan`.
+class LibraryScanSubmission {
+  const LibraryScanSubmission({required this.count, this.libraryIds});
+
+  final int count;
+  final List<int>? libraryIds;
+}
+
+/// Progress record from `GET /media-libraries/scan/progress`.
 class LibraryScanProgress {
   const LibraryScanProgress({
     required this.running,
@@ -87,6 +94,10 @@ class LibraryScanProgress {
     required this.completed,
     required this.failed,
     required this.skipped,
+    this.module,
+    this.libraryId,
+    this.stage,
+    this.message,
     this.currentItem,
   });
 
@@ -95,6 +106,10 @@ class LibraryScanProgress {
   final int completed;
   final int failed;
   final int skipped;
+  final String? module;
+  final int? libraryId;
+  final String? stage;
+  final String? message;
   final String? currentItem;
 
   int get done => completed + failed + skipped;
@@ -107,6 +122,10 @@ class LibraryScanProgress {
         completed: (json['completed'] as num?)?.toInt() ?? 0,
         failed: (json['failed'] as num?)?.toInt() ?? 0,
         skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+        module: json['module'] as String?,
+        libraryId: (json['libraryId'] as num?)?.toInt(),
+        stage: json['stage'] as String?,
+        message: json['message'] as String?,
         currentItem: json['currentItem'] as String?,
       );
 }
@@ -118,18 +137,22 @@ class LibraryPipelineProgress {
     required this.stage,
     required this.percent,
     this.currentItem,
+    this.message,
   });
 
   final bool running;
   final String stage;
   final double percent;
   final String? currentItem;
+  final String? message;
 
   factory LibraryPipelineProgress.fromJson(Map<String, dynamic> json) =>
       LibraryPipelineProgress(
         running: json['running'] as bool? ?? false,
         stage: json['stage'] as String? ?? 'idle',
-        percent: (json['percent'] as num?)?.toDouble() ?? 0,
+        percent:
+            ((json['scanPercent'] ?? json['percent']) as num?)?.toDouble() ?? 0,
         currentItem: json['currentItem'] as String?,
+        message: json['message'] as String?,
       );
 }

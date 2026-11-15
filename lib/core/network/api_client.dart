@@ -449,7 +449,8 @@ class ApiClient {
 
     final uri = Uri.parse(resolveUrl(signedPath));
     final base = Uri.parse(baseUrl);
-    final sameOrigin = uri.scheme == base.scheme &&
+    final sameOrigin =
+        uri.scheme == base.scheme &&
         uri.host == base.host &&
         uri.port == base.port;
     final headers = <String, String>{
@@ -462,7 +463,10 @@ class ApiClient {
         .timeout(const Duration(seconds: 15));
     if (response.statusCode == 404) return '';
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(response.statusCode, '歌词加载失败 (${response.statusCode})');
+      throw ApiException(
+        response.statusCode,
+        '歌词加载失败 (${response.statusCode})',
+      );
     }
     return utf8.decode(response.bodyBytes, allowMalformed: true);
   }
@@ -963,11 +967,17 @@ class ApiClient {
   }
 
   /// Backend: `POST /api/v1/media-libraries/scan`. Returns enabled count.
-  Future<int> scanAllMediaLibraries() async {
+  Future<LibraryScanSubmission> scanAllMediaLibraries() async {
     final json = await _send('/api/v1/media-libraries/scan', method: 'POST');
     return _unwrap(json, (raw) {
       final map = raw as Map<String, dynamic>?;
-      return (map?['libraryCount'] as num?)?.toInt() ?? 0;
+      return LibraryScanSubmission(
+        count: (map?['libraryCount'] as num?)?.toInt() ?? 0,
+        libraryIds: (map?['libraryIds'] as List?)
+            ?.whereType<num>()
+            .map((id) => id.toInt())
+            .toList(),
+      );
     });
   }
 
@@ -1035,7 +1045,7 @@ class ApiClient {
   }
 
   /// Backend: `POST /api/v1/video/nfo/regenerate-all?libraryId=`.
-  /// 后台任务，立即返回提示语；进度走 `fetchPipelineProgress`。
+  /// 后台任务，进度走 `fetchScrapeProgress('nfo:{libraryId}')`。
   Future<String> regenerateNfo({int? libraryId}) async {
     final json = await _send(
       '/api/v1/video/nfo/regenerate-all',

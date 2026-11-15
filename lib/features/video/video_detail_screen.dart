@@ -221,7 +221,10 @@ class _VideoDetailScreenState extends State<VideoDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('解绑 TMDB'),
-        content: const Text('将清除 TMDB 绑定，保留已抓取的现有信息。'),
+        content: const Text(
+          '将清除本库这部剧的已绑定分集，或这部电影及其同名分片的 TMDB 绑定。'
+          '已保存的元数据和素材会保留。后续扫描仍可能自动匹配。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
